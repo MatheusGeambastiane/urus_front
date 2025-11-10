@@ -25,6 +25,8 @@ export default function DashboardLoginPage() {
       redirect: false,
     });
 
+    console.log("Login response:", result);
+
     setIsSubmitting(false);
 
     if (result?.error) {
