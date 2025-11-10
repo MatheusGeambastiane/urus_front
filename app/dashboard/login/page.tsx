@@ -45,8 +45,8 @@ export default function DashboardLoginPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_60%,rgba(255,255,255,0.05),transparent_50%)] blur-2xl" />
       </div>
 
-      <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6 py-16">
-        <div className="mb-6 flex justify-center">
+      <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6 py-12">
+        <div className="mb-4 flex justify-center">
           <div className="relative h-20 w-52">
             <Image
               src="/urus_logo_nobg_branca.png"
@@ -59,8 +59,8 @@ export default function DashboardLoginPage() {
           </div>
         </div>
 
-        <div className="w-full rounded-[36px] border border-white/10 bg-white/5 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-          <header className="mb-8 text-center">
+        <div className="w-full rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <header className="mb-6 text-center">
             <h1 className="text-3xl font-semibold">Entrar</h1>
             <p className="mt-2 text-sm text-white/60">
               Acesso exclusivo para profissionais Urus.
