@@ -33,6 +33,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  AlertTriangle,
   Eye,
   EyeOff,
   Filter,
@@ -43,6 +44,7 @@ import {
   Package,
   PenSquare,
   Plus,
+  DollarSign,
   Coins,
   CreditCard,
   QrCode,
@@ -53,7 +55,6 @@ import {
   UserRound,
   Users,
   Wallet,
-  Wand2,
   Waves,
   Trash2,
 } from "lucide-react";
@@ -216,6 +217,93 @@ type UsersResponse = {
   results: UserItem[];
 };
 
+type ProductItem = {
+  id: number;
+  name: string;
+  price_paid: string;
+  quantity: number;
+  use_type: string;
+  type: string;
+  price_to_sell: string;
+  commission: number | null;
+  picture_of_product: string | null;
+  alarm_quantity: number;
+  next_to_finish: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type ProductsResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ProductItem[];
+};
+
+type ProductSalePaymentType = "pix" | "creditcard" | "debit" | "money";
+
+type AddedSaleItem = {
+  productId: number;
+  productName: string;
+  price: string;
+  quantity: number;
+  paymentType: PaymentType;
+};
+
+type SummaryPaymentSplit = {
+  payment_type: string;
+  total: number;
+};
+
+type SummarySellPaymentSplit = {
+  transaction_payment: string;
+  total: number;
+};
+
+type SummaryNextAppointment = {
+  id: number;
+  date_time: string;
+  client_id: number;
+  client_name: string;
+  professional_id: number;
+  professional_name: string;
+};
+
+type SummaryProfessionalBreakdown = {
+  professional_id: number;
+  professional_name: string;
+  total: number;
+};
+
+type SummaryServiceHighlight = {
+  service_id: number;
+  service_name: string;
+  total: number;
+};
+
+type DailySummaryResponse = {
+  period: {
+    type: string;
+    start: string;
+    end: string;
+  };
+  filters: {
+    day: string | null;
+    month: string | null;
+  };
+  revenue: string;
+  appointments_value: string;
+  sell_value: string;
+  total_services_performed: number;
+  appointments_by_payment_type: SummaryPaymentSplit[];
+  sell_by_payment_type: SummarySellPaymentSplit[];
+  next_appointment: SummaryNextAppointment | null;
+  appointments_by_professional: SummaryProfessionalBreakdown[];
+  top_services: SummaryServiceHighlight[];
+};
+
+type QuickActionKey = "create-appointment" | "create-product-sale" | "create-product";
+
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
 const createUserDefaultValues = {
@@ -373,6 +461,54 @@ const capitalizeFirstLetter = (value: string) => {
     return "";
   }
   return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const formatMoneyInputValue = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) {
+    return "";
+  }
+  const numeric = Number(digits) / 100;
+  if (Number.isNaN(numeric)) {
+    return "";
+  }
+  return numeric.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const normalizeMoneyValue = (value: string) => {
+  if (!value) {
+    return "0";
+  }
+  return parseCurrencyInput(value).toFixed(2);
+};
+
+const formatMoneyFromDecimalString = (value: string) => {
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return "";
+  }
+  return numeric.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const formatIsoToDisplay = (iso: string) => {
+  if (!iso) {
+    return "";
+  }
+  const [year, month, day] = iso.split("-");
+  if (!year || !month || !day) {
+    return "";
+  }
+  return `${day}/${month}/${year}`;
 };
 
 const buildDateTimeISOString = (date: string, time: string) => {
@@ -539,60 +675,45 @@ const createServiceSchema = z.object({
 
 type CreateServiceFormValues = z.infer<typeof createServiceSchema>;
 
-const statsCards = [
-  {
-    title: "Faturamento",
-    value: "R$ 18.450",
-    sub: "Este mês • +12% vs. mês anterior",
-  },
-  {
-    title: "Serviços Realizados",
-    value: "236",
-    sub: "Este mês • +8% vs. mês anterior",
-  },
-];
+const createProductSchema = z.object({
+  name: z.string().min(1, "Informe o nome do produto."),
+  pricePaid: z.string().min(1, "Informe o preço de custo."),
+  priceToSell: z.string().min(1, "Informe o preço de venda."),
+  quantity: z
+    .string()
+    .min(1, "Informe a quantidade.")
+    .refine((value) => !Number.isNaN(Number(value)), "Informe um número válido."),
+  useType: z.string().min(1, "Selecione o tipo de uso."),
+  type: z.string().min(1, "Selecione o tipo."),
+  alarmQuantity: z
+    .string()
+    .min(1, "Informe o limite de estoque.")
+    .refine((value) => !Number.isNaN(Number(value)), "Informe um número válido."),
+  picture: z
+    .any()
+    .optional()
+    .refine(
+      (value) =>
+        !value ||
+        (typeof FileList !== "undefined" &&
+          value instanceof FileList &&
+          value.length <= 1),
+      "Envie apenas um arquivo.",
+    ),
+});
 
-const nextAppointment = {
-  time: "14:30",
-  service: "Corte Masculino",
-  client: "João Silva",
-  date: "Hoje, 05 Out 2025",
-  professional: "Carlos",
+type CreateProductFormValues = z.infer<typeof createProductSchema>;
+
+const createProductDefaultValues: CreateProductFormValues = {
+  name: "",
+  pricePaid: "",
+  priceToSell: "",
+  quantity: "",
+  useType: "",
+  type: "",
+  alarmQuantity: "",
+  picture: undefined,
 };
-
-const topServices: {
-  name: string;
-  delta: string;
-  total: number;
-  icon: LucideIcon;
-}[] = [
-  {
-    name: "Corte Masculino",
-    delta: "+15% vs. mês anterior",
-    total: 128,
-    icon: Scissors,
-  },
-  {
-    name: "Barba",
-    delta: "+6% vs. mês anterior",
-    total: 74,
-    icon: Wand2,
-  },
-  {
-    name: "Pigmentação",
-    delta: "-3% vs. mês anterior",
-    total: 29,
-    icon: Sparkles,
-  },
-];
-
-const chartData = [
-  { label: "Carlos", value: 86 },
-  { label: "Marcos", value: 48 },
-  { label: "Ana", value: 92 },
-  { label: "Luís", value: 40 },
-  { label: "Paula", value: 70 },
-];
 
 const bottomNavItems: {
   key: NavKey;
@@ -614,7 +735,7 @@ const appointmentStatusOptions: { value: AppointmentStatus; label: string }[] = 
 ];
 
 const paymentTypeOptions: { value: PaymentType; label: string; icon: LucideIcon }[] = [
-  { value: "creditcard", label: "Cartão de crédito", icon: CreditCard },
+  { value: "credit", label: "Cartão de crédito", icon: CreditCard },
   { value: "debit", label: "Cartão de débito", icon: Wallet },
   { value: "pix", label: "Pix", icon: QrCode },
   { value: "dinheiro", label: "Dinheiro", icon: Coins },
@@ -626,6 +747,60 @@ const getPaymentTypeLabel = (value: PaymentType | null | undefined) => {
   }
   return paymentTypeOptions.find((option) => option.value === value)?.label ?? value;
 };
+
+const productUseFilterOptions = [
+  { label: "Todos", value: null },
+  { label: "Interno", value: "interno" },
+  { label: "Venda", value: "venda" },
+];
+
+const productTypeFilterOptions = [
+  { label: "Todos", value: null },
+  { label: "Insumo", value: "insumo" },
+  { label: "Produto capilar", value: "produto_capilar" },
+  { label: "Bens", value: "bens" },
+  { label: "Alimento", value: "alimento" },
+  { label: "Bebida", value: "bebida" },
+];
+
+const productSalePaymentOptions: {
+  value: ProductSalePaymentType;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  { value: "pix", label: "Pix", icon: QrCode },
+  { value: "creditcard", label: "Cartão de crédito", icon: CreditCard },
+  { value: "debit", label: "Cartão de débito", icon: Wallet },
+  { value: "money", label: "Dinheiro", icon: Coins },
+];
+
+const productUseOptions = [
+  { value: "interno", label: "Interno" },
+  { value: "venda", label: "Venda" },
+];
+
+const productTypeOptionsForm = [
+  { value: "insumo", label: "Insumo" },
+  { value: "produto_capilar", label: "Produto capilar" },
+  { value: "bens", label: "Bens" },
+  { value: "alimento", label: "Alimento" },
+  { value: "bebida", label: "Bebida" },
+];
+
+const summaryFilterMonthOptions = [
+  { value: "01", label: "Janeiro" },
+  { value: "02", label: "Fevereiro" },
+  { value: "03", label: "Março" },
+  { value: "04", label: "Abril" },
+  { value: "05", label: "Maio" },
+  { value: "06", label: "Junho" },
+  { value: "07", label: "Julho" },
+  { value: "08", label: "Agosto" },
+  { value: "09", label: "Setembro" },
+  { value: "10", label: "Outubro" },
+  { value: "11", label: "Novembro" },
+  { value: "12", label: "Dezembro" },
+];
 
 export function DashboardHome({ firstName }: DashboardHomeProps) {
   const router = useRouter();
@@ -657,8 +832,8 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSavingUser, setIsSavingUser] = useState(false);
-  const datePickerRef = useRef<HTMLInputElement>(null);
-  const editDatePickerRef = useRef<HTMLInputElement>(null);
+  const datePickerRef = useRef<HTMLInputElement & { showPicker?: () => void }>(null);
+  const editDatePickerRef = useRef<HTMLInputElement & { showPicker?: () => void }>(null);
   const servicesDropdownRef = useRef<HTMLDivElement>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -770,7 +945,7 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const [appointmentDateInput, setAppointmentDateInput] = useState(formatDateParam(new Date()));
   const [appointmentTimeInput, setAppointmentTimeInput] = useState("09:00");
   const [saleModalOpen, setSaleModalOpen] = useState(false);
-  const [saleProductsList, setSaleProductsList] = useState<ProductListItem[]>([]);
+  const [saleProductsList, setSaleProductsList] = useState<ProductItem[]>([]);
   const [saleProductsLoading, setSaleProductsLoading] = useState(false);
   const [saleProductsError, setSaleProductsError] = useState<string | null>(null);
   const [selectedSaleProductId, setSelectedSaleProductId] = useState<number | null>(null);
@@ -779,6 +954,46 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const [salePaymentSelect, setSalePaymentSelect] = useState<PaymentType | "">("");
   const [isAddingSaleProduct, setIsAddingSaleProduct] = useState(false);
   const [addedSales, setAddedSales] = useState<AddedSaleItem[]>([]);
+  const [productsInventory, setProductsInventory] = useState<ProductItem[]>([]);
+  const [productsInventoryCount, setProductsInventoryCount] = useState(0);
+  const [productsInventoryLoading, setProductsInventoryLoading] = useState(false);
+  const [productsInventoryError, setProductsInventoryError] = useState<string | null>(null);
+  const [productsSearchInput, setProductsSearchInput] = useState("");
+  const [productsSearchTerm, setProductsSearchTerm] = useState("");
+  const [productUseFilter, setProductUseFilter] = useState<string | null>(null);
+  const [productTypeFilter, setProductTypeFilter] = useState<string | null>(null);
+  const [productsRefreshToken, setProductsRefreshToken] = useState(0);
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [isCreatingProductSale, setIsCreatingProductSale] = useState(false);
+  const [productFormError, setProductFormError] = useState<string | null>(null);
+  const [productSaleError, setProductSaleError] = useState<string | null>(null);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  const [productSaleSubmitting, setProductSaleSubmitting] = useState(false);
+  const [productSaleSelectedProduct, setProductSaleSelectedProduct] = useState<ProductItem | null>(null);
+  const [productSalePriceInput, setProductSalePriceInput] = useState("");
+  const [productSaleQuantityInput, setProductSaleQuantityInput] = useState("1");
+  const [productSalePayment, setProductSalePayment] = useState<ProductSalePaymentType | null>(null);
+  const [productSaleDateIso, setProductSaleDateIso] = useState(() => formatDateParam(new Date()));
+  const [productSaleDateDisplay, setProductSaleDateDisplay] = useState(() =>
+    formatIsoToDisplay(formatDateParam(new Date())),
+  );
+  const [productSaleUserIdInput, setProductSaleUserIdInput] = useState("");
+  const [productSaleProductModalOpen, setProductSaleProductModalOpen] = useState(false);
+  const [productSaleProducts, setProductSaleProducts] = useState<ProductItem[]>([]);
+  const [productSaleProductsLoading, setProductSaleProductsLoading] = useState(false);
+  const [productSaleProductsError, setProductSaleProductsError] = useState<string | null>(null);
+  const [dailySummary, setDailySummary] = useState<DailySummaryResponse | null>(null);
+  const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
+  const [dailySummaryError, setDailySummaryError] = useState<string | null>(null);
+  const [pendingQuickAction, setPendingQuickAction] = useState<QuickActionKey | null>(null);
+  const [showSummaryFilters, setShowSummaryFilters] = useState(false);
+  const [summaryFilterMode, setSummaryFilterMode] = useState<"day" | "month">("day");
+  const [summaryDayInput, setSummaryDayInput] = useState("");
+  const [summaryMonthYear, setSummaryMonthYear] = useState("");
+  const [summaryMonthValue, setSummaryMonthValue] = useState("");
+  const [activeSummaryDay, setActiveSummaryDay] = useState<string | null>(null);
+  const [activeSummaryMonth, setActiveSummaryMonth] = useState<string | null>(null);
+  const [summaryFilterError, setSummaryFilterError] = useState<string | null>(null);
 
   const {
     register: registerCreateUser,
@@ -859,6 +1074,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     defaultValues: createServiceDefaultValues,
   });
 
+  const {
+    register: registerCreateProduct,
+    handleSubmit: handleSubmitCreateProduct,
+    reset: resetCreateProductForm,
+    setValue: setCreateProductValue,
+    watch: watchCreateProduct,
+    formState: { errors: createProductErrors },
+  } = useForm<CreateProductFormValues>({
+    resolver: zodResolver(createProductSchema),
+    defaultValues: createProductDefaultValues,
+  });
+
   const passwordValue = watchCreateUser("password") ?? "";
   const confirmPasswordValue = watchCreateUser("confirmPassword") ?? "";
   const dateOfBirthValue = watchCreateUser("dateOfBirth") ?? "";
@@ -882,6 +1109,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const selectedServiceNames = servicesOptions
     .filter((service) => selectedProfessionalServices.includes(service.id))
     .map((service) => service.name);
+  const createProductPricePaidValue = watchCreateProduct("pricePaid") ?? "";
+  const createProductPriceToSellValue = watchCreateProduct("priceToSell") ?? "";
 
   const handleLogout = async () => {
     setMenuOpen(false);
@@ -1168,6 +1397,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   }, [activeTab]);
 
   useEffect(() => {
+    if (activeTab !== "products") {
+      setIsCreatingProduct(false);
+      setIsCreatingProductSale(false);
+      setProductFormError(null);
+      setProductSaleError(null);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     if (activeTab !== "agenda") {
       setIsCreatingAppointment(false);
       resetAppointmentForm();
@@ -1421,6 +1659,157 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   }, [saleModalOpen, accessToken]);
 
   useEffect(() => {
+    if (!productSaleProductModalOpen || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchSalePickerProducts = async () => {
+      setProductSaleProductsLoading(true);
+      setProductSaleProductsError(null);
+      try {
+        const url = new URL(productsEndpointBase);
+        url.searchParams.set("use_type", "venda");
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os produtos de venda.");
+        }
+        const data: ProductsResponse = await response.json();
+        setProductSaleProducts(Array.isArray(data.results) ? data.results : []);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setProductSaleProductsError(
+            err instanceof Error
+              ? err.message
+              : "Erro inesperado ao carregar os produtos de venda.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setProductSaleProductsLoading(false);
+        }
+      }
+    };
+
+    fetchSalePickerProducts();
+    return () => controller.abort();
+  }, [productSaleProductModalOpen, accessToken]);
+
+  useEffect(() => {
+    if (activeTab !== "home" || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchDailySummary = async () => {
+      setDailySummaryLoading(true);
+      setDailySummaryError(null);
+      try {
+        const url = new URL(`${env.apiBaseUrl}/dashboard/summary/daily/`);
+        if (activeSummaryDay) {
+          url.searchParams.set("day", activeSummaryDay);
+        }
+        if (activeSummaryMonth) {
+          url.searchParams.set("month", activeSummaryMonth);
+        }
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar o resumo diário.");
+        }
+        const data: DailySummaryResponse = await response.json();
+        setDailySummary(data);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setDailySummaryError(
+            err instanceof Error ? err.message : "Erro inesperado ao carregar o resumo.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setDailySummaryLoading(false);
+        }
+      }
+    };
+
+    fetchDailySummary();
+    return () => controller.abort();
+  }, [activeTab, accessToken, activeSummaryDay, activeSummaryMonth]);
+
+  useEffect(() => {
+    if (activeTab !== "products" || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchProductsInventory = async () => {
+      setProductsInventoryLoading(true);
+      setProductsInventoryError(null);
+      try {
+        const url = new URL(productsEndpointBase);
+        if (productsSearchTerm) {
+          url.searchParams.set("search", productsSearchTerm);
+        }
+        if (productUseFilter) {
+          url.searchParams.set("use_type", productUseFilter);
+        }
+        if (productTypeFilter) {
+          url.searchParams.set("type", productTypeFilter);
+        }
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os produtos.");
+        }
+        const data: ProductsResponse = await response.json();
+        const list = Array.isArray(data.results) ? data.results : [];
+        setProductsInventoryCount(
+          typeof data.count === "number" ? data.count : list.length,
+        );
+        setProductsInventory(list);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setProductsInventoryError(
+            err instanceof Error
+              ? err.message
+              : "Erro inesperado ao carregar os produtos.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setProductsInventoryLoading(false);
+        }
+      }
+    };
+
+    fetchProductsInventory();
+    return () => controller.abort();
+  }, [
+    activeTab,
+    accessToken,
+    productsSearchTerm,
+    productUseFilter,
+    productTypeFilter,
+    productsRefreshToken,
+  ]);
+
+  useEffect(() => {
     if (!showClientPickerModal) {
       setClientSearchInput("");
       setClientSearchTerm("");
@@ -1502,7 +1891,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             )
               ? data.professional_profile.services
                   .map((service) =>
-                    typeof service === "number" ? service : service?.id ?? 0,
+                    typeof service === "number" ? service : (service as { id: number })?.id ?? 0,
                   )
                   .filter((id) => id > 0)
               : [];
@@ -1870,6 +2259,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     return Math.max(appointmentPriceValue - appointmentDiscountAmount, 0);
   }, [appointmentPriceValue, appointmentDiscountAmount]);
 
+  const summaryFilterYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 6 }, (_, index) => String(currentYear + 1 - index));
+  }, []);
+
   const totalUsers = usersData?.count ?? 0;
   const usersList = usersData?.results ?? [];
   const selectedRoleLabel = roleFilter
@@ -1977,11 +2371,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const handleOpenDatePicker = () => {
-    if (datePickerRef.current && "showPicker" in datePickerRef.current) {
-      datePickerRef.current.showPicker();
-    } else {
-      datePickerRef.current?.click();
+    const input = datePickerRef.current;
+    if (!input) {
+      return;
     }
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
   };
 
   const handleEditDateInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -1990,11 +2388,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const handleOpenEditDatePicker = () => {
-    if (editDatePickerRef.current && "showPicker" in editDatePickerRef.current) {
-      editDatePickerRef.current.showPicker();
-    } else {
-      editDatePickerRef.current?.click();
+    const input = editDatePickerRef.current;
+    if (!input) {
+      return;
     }
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+    input.click();
   };
 
   const handleEditDatePickerChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -2480,10 +2882,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setFilterCategoryId(null);
   };
 
-  const handleStartCreateAppointment = () => {
+  const handleStartCreateAppointment = useCallback(() => {
     resetAppointmentForm();
     setIsCreatingAppointment(true);
-  };
+  }, [resetAppointmentForm]);
 
   const handleCancelCreateAppointment = () => {
     setIsCreatingAppointment(false);
@@ -2679,6 +3081,346 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       );
     } finally {
       setIsAddingSaleProduct(false);
+    }
+  };
+
+  const handleProductsSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setProductsSearchTerm(productsSearchInput.trim());
+  };
+
+  const handleClearProductsSearch = () => {
+    setProductsSearchInput("");
+    setProductsSearchTerm("");
+  };
+
+  const handleProductUseFilterSelect = (value: string | null) => {
+    setProductUseFilter(value);
+  };
+
+  const handleProductTypeFilterSelect = (value: string | null) => {
+    setProductTypeFilter(value);
+  };
+
+  const refreshProductsInventory = () => {
+    setProductsRefreshToken((prev) => prev + 1);
+  };
+
+  const handleProductMoneyInputChange =
+    (field: "pricePaid" | "priceToSell") =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const maskedValue = formatMoneyInputValue(event.target.value);
+      setCreateProductValue(field, maskedValue, { shouldDirty: true, shouldValidate: true });
+    };
+
+  const handleStartCreateProduct = useCallback(() => {
+    resetCreateProductForm(createProductDefaultValues);
+    setProductFormError(null);
+    setIsCreatingProduct(true);
+  }, [resetCreateProductForm]);
+
+  const handleCancelCreateProduct = () => {
+    setIsCreatingProduct(false);
+    setProductFormError(null);
+    resetCreateProductForm(createProductDefaultValues);
+  };
+
+  const handleStartCreateProductSale = useCallback(() => {
+    setIsCreatingProductSale(true);
+    setProductSaleError(null);
+    setProductSaleSelectedProduct(null);
+    setProductSalePriceInput("");
+    setProductSaleQuantityInput("1");
+    setProductSalePayment(null);
+    setProductSaleUserIdInput("");
+    setProductSaleProductModalOpen(false);
+    const todayIso = formatDateParam(new Date());
+    setProductSaleDateIso(todayIso);
+    setProductSaleDateDisplay(formatIsoToDisplay(todayIso));
+  }, []);
+
+  const handleCancelCreateProductSale = () => {
+    setIsCreatingProductSale(false);
+    setProductSaleError(null);
+    setProductSaleProductModalOpen(false);
+    setProductSaleSelectedProduct(null);
+  };
+
+  const handleProductSalePriceChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const maskedValue = formatMoneyInputValue(event.target.value);
+    setProductSalePriceInput(maskedValue);
+  };
+
+  const handleProductSaleDateChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatDisplayDate(event.target.value);
+    setProductSaleDateDisplay(formatted);
+    const iso = convertDisplayDateToIso(formatted);
+    if (iso) {
+      setProductSaleDateIso(iso);
+    } else if (!formatted) {
+      setProductSaleDateIso("");
+    }
+  };
+
+  const handleOpenProductSaleModal = () => {
+    setProductSaleProductModalOpen(true);
+  };
+
+  const handleCloseProductSaleModal = () => {
+    setProductSaleProductModalOpen(false);
+  };
+
+  const handleSelectProductForSale = (product: ProductItem) => {
+    setProductSaleSelectedProduct(product);
+    setProductSaleProductModalOpen(false);
+    const maskedPrice = formatMoneyFromDecimalString(product.price_to_sell ?? "0");
+    setProductSalePriceInput(maskedPrice);
+  };
+
+  const triggerQuickAction = (action: QuickActionKey) => {
+    if (action === "create-appointment") {
+      setActiveTab("agenda");
+    } else {
+      setActiveTab("products");
+    }
+    setPendingQuickAction(action);
+  };
+
+  const handleOpenSummaryFilters = () => {
+    setSummaryFilterError(null);
+    if (activeSummaryDay) {
+      setSummaryFilterMode("day");
+      setSummaryDayInput(formatIsoToDisplay(activeSummaryDay));
+    } else {
+      setSummaryDayInput("");
+    }
+    if (activeSummaryMonth) {
+      setSummaryFilterMode("month");
+      const [yearValue = "", monthValue = ""] = activeSummaryMonth.split("-");
+      setSummaryMonthYear(yearValue);
+      setSummaryMonthValue(monthValue);
+    } else {
+      setSummaryMonthYear("");
+      setSummaryMonthValue("");
+    }
+    setShowSummaryFilters(true);
+  };
+
+  const handleCloseSummaryFilters = () => {
+    setShowSummaryFilters(false);
+  };
+
+  const handleApplySummaryFilters = () => {
+    setSummaryFilterError(null);
+    if (summaryFilterMode === "day") {
+      const isoValue = convertDisplayDateToIso(summaryDayInput);
+      if (!isoValue) {
+        setSummaryFilterError("Informe uma data válida no formato dd/mm/aaaa.");
+        return;
+      }
+      setActiveSummaryDay(isoValue);
+      setActiveSummaryMonth(null);
+      setShowSummaryFilters(false);
+      return;
+    }
+    if (!summaryMonthYear || !summaryMonthValue) {
+      setSummaryFilterError("Selecione o ano e o mês.");
+      return;
+    }
+    setActiveSummaryMonth(`${summaryMonthYear}-${summaryMonthValue}`);
+    setActiveSummaryDay(null);
+    setShowSummaryFilters(false);
+  };
+
+  const handleClearSummaryFilters = () => {
+    setActiveSummaryDay(null);
+    setActiveSummaryMonth(null);
+    setSummaryDayInput("");
+    setSummaryMonthYear("");
+    setSummaryMonthValue("");
+    setSummaryFilterError(null);
+  };
+
+  useEffect(() => {
+    if (!pendingQuickAction) {
+      return;
+    }
+
+    if (pendingQuickAction === "create-appointment" && activeTab === "agenda") {
+      handleStartCreateAppointment();
+      setPendingQuickAction(null);
+      return;
+    }
+
+    if (pendingQuickAction === "create-product-sale" && activeTab === "products") {
+      handleStartCreateProductSale();
+      setPendingQuickAction(null);
+      return;
+    }
+
+    if (pendingQuickAction === "create-product" && activeTab === "products") {
+      handleStartCreateProduct();
+      setPendingQuickAction(null);
+    }
+  }, [
+    pendingQuickAction,
+    activeTab,
+    handleStartCreateAppointment,
+    handleStartCreateProductSale,
+    handleStartCreateProduct,
+  ]);
+
+  const handleCreateProduct = handleSubmitCreateProduct(async (values) => {
+    setProductFormError(null);
+    if (!accessToken) {
+      setProductFormError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+
+    const quantityValue = Number(values.quantity);
+    const alarmValue = Number(values.alarmQuantity);
+    if (Number.isNaN(quantityValue) || Number.isNaN(alarmValue)) {
+      setProductFormError("Verifique os campos numéricos.");
+      return;
+    }
+
+    const pricePaid = normalizeMoneyValue(values.pricePaid);
+    const priceToSell = normalizeMoneyValue(values.priceToSell);
+    const formData = new FormData();
+    formData.append("name", values.name.trim());
+    formData.append("price_paid", pricePaid);
+    formData.append("price_to_sell", priceToSell);
+    formData.append("quantity", quantityValue.toString());
+    formData.append("use_type", values.useType);
+    formData.append("type", values.type);
+    formData.append("alarm_quantity", alarmValue.toString());
+    const pictureFile =
+      values.picture &&
+      typeof FileList !== "undefined" &&
+      values.picture instanceof FileList &&
+      values.picture.length > 0
+        ? values.picture[0]
+        : null;
+    if (pictureFile) {
+      formData.append("picture_of_product", pictureFile);
+    }
+
+    setIsSavingProduct(true);
+    try {
+      const response = await fetch(productsEndpointBase, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível criar o produto.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Produto criado com sucesso.",
+      });
+      handleCancelCreateProduct();
+      refreshProductsInventory();
+    } catch (err) {
+      setProductFormError(
+        err instanceof Error ? err.message : "Erro inesperado ao criar o produto.",
+      );
+    } finally {
+      setIsSavingProduct(false);
+    }
+  });
+
+  const handleSubmitProductSale = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setProductSaleError(null);
+    if (!accessToken) {
+      setProductSaleError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    if (!productSaleSelectedProduct) {
+      setProductSaleError("Selecione um produto.");
+      return;
+    }
+    if (!productSalePayment) {
+      setProductSaleError("Escolha a forma de pagamento.");
+      return;
+    }
+    if (!productSaleUserIdInput.trim()) {
+      setProductSaleError("Informe o identificador do cliente.");
+      return;
+    }
+    const priceValue = parseCurrencyInput(productSalePriceInput);
+    if (priceValue <= 0) {
+      setProductSaleError("Informe um preço válido.");
+      return;
+    }
+    const quantityValue = Number(productSaleQuantityInput);
+    if (Number.isNaN(quantityValue) || quantityValue <= 0) {
+      setProductSaleError("Informe uma quantidade válida.");
+      return;
+    }
+    const saleDateIso =
+      productSaleDateIso || convertDisplayDateToIso(productSaleDateDisplay) || formatDateParam(new Date());
+
+    const formData = new FormData();
+    formData.append("type", "sell");
+    formData.append("price", priceValue.toFixed(2));
+    formData.append("date_of_transaction", saleDateIso);
+    formData.append("transaction_payment", productSalePayment);
+    formData.append("quantity", quantityValue.toString());
+    formData.append("user", productSaleUserIdInput.trim());
+    formData.append("product", productSaleSelectedProduct.id.toString());
+
+    setProductSaleSubmitting(true);
+    try {
+      const response = await fetch(transactionsEndpointBase, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível registrar a venda.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Venda registrada com sucesso.",
+      });
+      handleCancelCreateProductSale();
+      refreshProductsInventory();
+    } catch (err) {
+      setProductSaleError(
+        err instanceof Error ? err.message : "Erro inesperado ao registrar a venda.",
+      );
+    } finally {
+      setProductSaleSubmitting(false);
     }
   };
 
@@ -2930,13 +3672,20 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         }
 
         const rawProfile = (await response.json()) as ProfessionalProfileDetail & {
-          services?: Array<number | { id: number }>;
-        };
+                  services?: Array<number | { id: number }>;
+                };
         const normalizedServices = Array.isArray(rawProfile.services)
           ? rawProfile.services
-              .map((service) =>
-                typeof service === "number" ? service : service?.id ?? 0,
-              )
+              .map((service) => {
+                if (typeof service === "number") {
+                  return service;
+                }
+                if (service && typeof service === "object" && "id" in service) {
+                  const maybeId = (service as { id?: number }).id;
+                  return typeof maybeId === "number" ? maybeId : 0;
+                }
+                return 0;
+              })
               .filter((id) => id > 0)
           : [];
         const updatedProfile: ProfessionalProfileDetail = {
@@ -3005,101 +3754,239 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     </div>
   );
 
-  const renderHomeContent = () => (
-    <>
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-white/60">Home</p>
-          <p className="text-2xl font-semibold">Bem-vindo, {firstName}</p>
-        </div>
-        {renderProfileMenu()}
-      </header>
+  const renderHomeContent = () => {
+    const revenueValue = formatCurrency(dailySummary?.revenue ?? "0");
+    const appointmentsValue = formatCurrency(dailySummary?.appointments_value ?? "0");
+    const sellValue = formatCurrency(dailySummary?.sell_value ?? "0");
+    const nextAppointmentInfo = dailySummary?.next_appointment ?? null;
+    const nextAppointmentDate = nextAppointmentInfo
+      ? new Date(nextAppointmentInfo.date_time)
+      : null;
+    const nextAppointmentLabel = nextAppointmentDate
+      ? nextAppointmentDate.toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+        })
+      : "--";
+    const nextAppointmentTime = nextAppointmentDate
+      ? nextAppointmentDate.toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "--:--";
+    const professionalBreakdown = dailySummary?.appointments_by_professional ?? [];
+    const maxProfessionalTotal = professionalBreakdown.reduce(
+      (acc, item) => Math.max(acc, item.total),
+      1,
+    );
+    const topServicesData = dailySummary?.top_services ?? [];
+    const quickActions = [
+      {
+        key: "create-appointment" as QuickActionKey,
+        title: "Abra um atendimento",
+        subtitle: "Crie um novo agendamento",
+        bg: "bg-white text-black",
+        image: "/relogio_urus.png",
+      },
+      {
+        key: "create-product-sale" as QuickActionKey,
+        title: "Venda um produto",
+        subtitle: "Registre uma venda",
+        bg: "bg-[#3F8A60] text-white",
+        image: "/lata_urus.png",
+      },
+      {
+        key: "create-product" as QuickActionKey,
+        title: "Adicionar produto",
+        subtitle: "Organize seu estoque",
+        bg: "bg-[#3268D8] text-white",
+        image: "/caixa_urus.png",
+      },
+    ];
 
-      <section className="mb-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
-        <p className="text-lg font-semibold">Bem-vindo, {firstName}</p>
-        <p className="text-sm text-white/60">
-          Aqui está um resumo do desempenho da barbearia.
-        </p>
-      </section>
+    return (
+      <>
+        <header className="mb-6 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-white/60">Home</p>
+            <p className="text-2xl font-semibold">Bem-vindo, {firstName}</p>
+          </div>
+          {renderProfileMenu()}
+        </header>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {statsCards.map((item) => (
-          <article
-            key={item.title}
-            className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card"
-          >
-            <p className="text-sm text-white/60">{item.title}</p>
-            <p className="mt-3 text-3xl font-semibold">{item.value}</p>
-            <p className="mt-2 text-xs text-white/50">{item.sub}</p>
-          </article>
-        ))}
-      </section>
+        {dailySummaryError ? (
+          <div className="mb-4 rounded-3xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {dailySummaryError}
+          </div>
+        ) : null}
 
-      <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
-        <p className="text-sm text-white/60">Próximo Agendamento</p>
-        <p className="mt-3 text-xl font-semibold">
-          {nextAppointment.time} • {nextAppointment.service} • {nextAppointment.client}
-        </p>
-        <p className="mt-1 text-sm text-white/60">
-          {nextAppointment.date} • com {nextAppointment.professional}
-        </p>
-      </section>
-
-      <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
-        <p className="text-lg font-semibold">Principais Serviços</p>
-        <div className="mt-4 space-y-3">
-          {topServices.map((service) => {
-            const ServiceIcon = service.icon;
-            return (
-              <article
-                key={service.name}
-                className="flex items-center justify-between rounded-2xl bg-white/[0.05] px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04]">
-                    <ServiceIcon className="h-5 w-5 text-white" strokeWidth={1.8} />
-                  </span>
-                  <div>
-                    <p className="text-base font-semibold">{service.name}</p>
-                    <p className="text-xs text-white/60">{service.delta}</p>
-                  </div>
-                </div>
-                <span className="rounded-full bg-black px-3 py-1 text-sm">
-                  {service.total}
-                </span>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
-        <div className="flex items-center justify-between">
-          <p className="text-lg font-semibold">
-            Gráfico de Atendimento por Funcionário
-          </p>
-          <span className="text-xs text-white/60">Últimos 30 dias</span>
-        </div>
-        <div className="mt-6 flex items-end justify-between gap-3">
-          {chartData.map((item) => (
-            <div key={item.label} className="flex flex-1 flex-col items-center">
-              <div className="relative mb-3 flex h-32 w-full items-end rounded-2xl bg-white/[0.04] p-1">
-                <span
-                  className="w-full rounded-2xl bg-gradient-to-t from-white to-white/60"
-                  style={{ height: `${item.value}%` }}
-                />
-              </div>
-              <p className="text-xs text-white/70">{item.label}</p>
+        <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-white/60">Faturamento diário</p>
+              <p className="mt-2 text-3xl font-semibold">
+                {dailySummaryLoading ? "..." : revenueValue}
+              </p>
             </div>
-          ))}
-        </div>
-        <div className="mt-4 flex items-center gap-2 text-sm text-white/70">
-          <span className="h-3 w-3 rounded-full bg-white" />
-          Serviços
-        </div>
-      </section>
-    </>
-  );
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/70">
+              {dailySummary?.total_services_performed ?? 0} serviços
+            </span>
+            <button
+              type="button"
+              onClick={handleOpenSummaryFilters}
+              className="rounded-2xl border border-white/15 px-3 py-1 text-xs font-semibold text-white/80 transition hover:border-white/40"
+            >
+              Filtros
+            </button>
+          </div>
+          {activeSummaryDay || activeSummaryMonth ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/60">
+              <span>
+                {activeSummaryDay
+                  ? `Filtrando por dia: ${formatIsoToDisplay(activeSummaryDay)}`
+                  : `Filtrando por mês: ${activeSummaryMonth}`}
+              </span>
+              <button
+                type="button"
+                onClick={handleClearSummaryFilters}
+                className="text-white/80 underline-offset-2 hover:text-white hover:underline"
+              >
+                Limpar filtro
+              </button>
+            </div>
+          ) : null}
+          <div className="mt-4 flex flex-col gap-2 text-sm text-white/70 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Serviços:{" "}
+              <span className="font-semibold text-white">
+                {dailySummaryLoading ? "..." : appointmentsValue}
+              </span>
+            </p>
+            <p>
+              Produtos:{" "}
+              <span className="font-semibold text-white">
+                {dailySummaryLoading ? "..." : sellValue}
+              </span>
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-lg font-semibold">Ações rápidas</p>
+            <span className="text-xs text-white/50">Otimize seu fluxo</span>
+          </div>
+          <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1">
+            {quickActions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                onClick={() => triggerQuickAction(action.key)}
+                className={`flex min-w-[286px] min-h-[120px] flex-1 items-center justify-between gap-3 rounded-3xl p-5 text-left shadow-card ${action.bg}`}
+              >
+                <div>
+                  <p className="text-base font-semibold">{action.title}</p>
+                  <p className="text-xs opacity-80">{action.subtitle}</p>
+                </div>
+                <div className="relative h-[106px] w-[106px] flex-shrink-0">
+                  <Image
+                    src={action.image}
+                    alt={action.title}
+                    fill
+                    sizes="106px"
+                    className="object-contain"
+                  />
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <p className="text-sm text-white/60">Próximo agendamento</p>
+          {dailySummaryLoading ? (
+            <p className="mt-4 text-sm text-white/60">Carregando...</p>
+          ) : nextAppointmentInfo ? (
+            <>
+              <p className="mt-3 text-xl font-semibold">
+                {nextAppointmentTime} • {nextAppointmentInfo.client_name}
+              </p>
+              <p className="mt-1 text-sm text-white/60">
+                {nextAppointmentLabel} • com {nextAppointmentInfo.professional_name}
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-white/60">Nenhum agendamento encontrado.</p>
+          )}
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-semibold">Atendimentos por profissional</p>
+            <span className="text-xs text-white/60">Hoje</span>
+          </div>
+          {dailySummaryLoading ? (
+            <div className="flex items-center justify-center py-10 text-white/70">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : professionalBreakdown.length === 0 ? (
+            <p className="mt-4 text-sm text-white/60">Nenhum atendimento registrado.</p>
+          ) : (
+            <div className="mt-6 flex items-end justify-between gap-3">
+              {professionalBreakdown.map((item) => {
+                const total = Math.max(item.total, 0);
+                const heightPercent = Math.min((total / maxProfessionalTotal) * 100, 100);
+                return (
+                  <div key={item.professional_id} className="flex flex-1 flex-col items-center">
+                    <div className="relative mb-3 flex h-32 w-full items-end rounded-2xl bg-white/[0.04] p-1">
+                      <span
+                        className="w-full rounded-2xl bg-gradient-to-t from-white to-white/60"
+                        style={{ height: `${heightPercent}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-white/70 text-center">
+                      {item.professional_name}
+                    </p>
+                    <p className="text-sm font-semibold text-white">{item.total}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-4 flex items-center gap-2 text-sm text-white/70">
+            <span className="h-3 w-3 rounded-full bg-white" />
+            Serviços executados
+          </div>
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <p className="text-lg font-semibold">Top serviços</p>
+          {dailySummaryLoading ? (
+            <p className="mt-4 text-sm text-white/60">Carregando...</p>
+          ) : topServicesData.length === 0 ? (
+            <p className="mt-4 text-sm text-white/60">Nenhum serviço destacado hoje.</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {topServicesData.map((service) => (
+                <article
+                  key={service.service_id}
+                  className="flex items-center justify-between rounded-2xl bg-white/[0.05] px-4 py-3"
+                >
+                  <div>
+                    <p className="text-base font-semibold">{service.service_name}</p>
+                    <p className="text-xs text-white/60">Serviços executados</p>
+                  </div>
+                  <span className="rounded-full bg-black px-3 py-1 text-sm">
+                    {service.total}
+                  </span>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </>
+    );
+  };
 
   const renderCreateUserScreen = () => (
     <div className="flex flex-col gap-5">
@@ -3520,6 +4407,564 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </section>
           </>
         ) : null}
+      </div>
+    );
+  };
+
+  const renderCreateProductScreen = () => {
+    return (
+      <div className="flex flex-col gap-5">
+        <header className="flex items-center justify-between">
+          <button
+            type="button"
+            className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+            onClick={handleCancelCreateProduct}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 text-center">
+            <p className="text-sm text-white/60">Produtos</p>
+            <p className="text-2xl font-semibold">Adicionar produto</p>
+          </div>
+        </header>
+
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <form onSubmit={handleCreateProduct} className="space-y-4">
+            <label className="text-sm text-white/70">
+              Nome
+              <input
+                type="text"
+                placeholder="Nome do produto"
+                {...registerCreateProduct("name")}
+                className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${createProductErrors.name ? "border-red-500/60" : "border-white/10"}`}
+              />
+              {createProductErrors.name ? (
+                <span className="mt-1 block text-xs text-red-400">
+                  {createProductErrors.name.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="text-sm text-white/70">
+              Preço de custo
+              <input
+                type="text"
+                placeholder="R$ 0,00"
+                {...registerCreateProduct("pricePaid")}
+                value={createProductPricePaidValue}
+                onChange={handleProductMoneyInputChange("pricePaid")}
+                className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${createProductErrors.pricePaid ? "border-red-500/60" : "border-white/10"}`}
+              />
+              {createProductErrors.pricePaid ? (
+                <span className="mt-1 block text-xs text-red-400">
+                  {createProductErrors.pricePaid.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="text-sm text-white/70">
+              Preço de venda
+              <input
+                type="text"
+                placeholder="R$ 0,00"
+                {...registerCreateProduct("priceToSell")}
+                value={createProductPriceToSellValue}
+                onChange={handleProductMoneyInputChange("priceToSell")}
+                className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${createProductErrors.priceToSell ? "border-red-500/60" : "border-white/10"}`}
+              />
+              {createProductErrors.priceToSell ? (
+                <span className="mt-1 block text-xs text-red-400">
+                  {createProductErrors.priceToSell.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="text-sm text-white/70">
+              Quantidade em estoque
+              <input
+                type="number"
+                min={0}
+                {...registerCreateProduct("quantity")}
+                className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${createProductErrors.quantity ? "border-red-500/60" : "border-white/10"}`}
+              />
+              {createProductErrors.quantity ? (
+                <span className="mt-1 block text-xs text-red-400">
+                  {createProductErrors.quantity.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="text-sm text-white/70">
+              Tipo de uso
+              <select
+                {...registerCreateProduct("useType")}
+                className={`mt-1 w-full rounded-2xl border bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40 ${createProductErrors.useType ? "border-red-500/60" : "border-white/10"}`}
+              >
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {productUseOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {createProductErrors.useType ? (
+                <span className="mt-1 block text-xs text-red-400">
+                  {createProductErrors.useType.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="text-sm text-white/70">
+              Tipo
+              <select
+                {...registerCreateProduct("type")}
+                className={`mt-1 w-full rounded-2xl border bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40 ${createProductErrors.type ? "border-red-500/60" : "border-white/10"}`}
+              >
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {productTypeOptionsForm.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {createProductErrors.type ? (
+                <span className="mt-1 block text-xs text-red-400">
+                  {createProductErrors.type.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="text-sm text-white/70">
+              Estoque mínimo (alerta)
+              <input
+                type="number"
+                min={0}
+                {...registerCreateProduct("alarmQuantity")}
+                className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${createProductErrors.alarmQuantity ? "border-red-500/60" : "border-white/10"}`}
+              />
+              {createProductErrors.alarmQuantity ? (
+                <span className="mt-1 block text-xs text-red-400">
+                  {createProductErrors.alarmQuantity.message}
+                </span>
+              ) : null}
+            </label>
+
+            <label className="text-sm text-white/70">
+              Foto do produto
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                {...registerCreateProduct("picture")}
+                className="mt-1 w-full rounded-2xl border border-dashed border-white/20 bg-transparent px-4 py-3 text-sm outline-none file:mr-3 file:rounded-xl file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-semibold file:text-black"
+              />
+              <span className="mt-1 block text-xs text-white/50">
+                Escolha uma foto da galeria ou utilize a câmera do celular para registrar o produto.
+              </span>
+              {createProductErrors.picture ? (
+                <span className="mt-1 block text-xs text-red-400">
+                  {createProductErrors.picture.message as string}
+                </span>
+              ) : null}
+            </label>
+
+            {productFormError ? (
+              <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {productFormError}
+              </p>
+            ) : null}
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleCancelCreateProduct}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSavingProduct}
+                className="flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSavingProduct ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Salvando...
+                  </span>
+                ) : (
+                  "Adicionar produto"
+                )}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    );
+  };
+
+  const renderCreateProductSaleScreen = () => {
+    return (
+      <div className="flex flex-col gap-5">
+        <header className="flex items-center justify-between">
+          <button
+            type="button"
+            className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+            onClick={handleCancelCreateProductSale}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 text-center">
+            <p className="text-sm text-white/60">Produtos</p>
+            <p className="text-2xl font-semibold">Adicionar venda</p>
+          </div>
+        </header>
+
+        <form onSubmit={handleSubmitProductSale} className="space-y-4">
+          <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Produto</p>
+                <p className="text-lg font-semibold">Selecione o item</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenProductSaleModal}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+              >
+                <Search className="h-4 w-4" />
+                Buscar produto
+              </button>
+            </div>
+            {productSaleSelectedProduct ? (
+              <div className="flex items-center gap-3 rounded-2xl border border-white/10 p-3">
+                <div className="relative h-16 w-16 overflow-hidden rounded-2xl bg-white/5">
+                  {productSaleSelectedProduct.picture_of_product ? (
+                    <Image
+                      src={productSaleSelectedProduct.picture_of_product}
+                      alt={productSaleSelectedProduct.name}
+                      fill
+                      sizes="64px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-xs text-white/60">
+                      Sem foto
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold">{productSaleSelectedProduct.name}</p>
+                  <p className="text-xs text-white/60">
+                    Disponível: {productSaleSelectedProduct.quantity} un
+                  </p>
+                  <p className="text-xs text-white/60">
+                    Preço sugerido: {formatCurrency(productSaleSelectedProduct.price_to_sell ?? "0")}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-white/60">
+                Nenhum produto selecionado.
+              </p>
+            )}
+          </section>
+
+          <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+            <label className="text-sm text-white/70">
+              Preço da venda
+              <input
+                type="text"
+                placeholder="R$ 0,00"
+                value={productSalePriceInput}
+                onChange={handleProductSalePriceChange}
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+
+            <label className="text-sm text-white/70">
+              Quantidade
+              <input
+                type="number"
+                min={1}
+                value={productSaleQuantityInput}
+                onChange={(event) => setProductSaleQuantityInput(event.target.value)}
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+
+            <div>
+              <p className="text-sm text-white/70">Forma de pagamento</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {productSalePaymentOptions.map((option) => {
+                  const isActive = productSalePayment === option.value;
+                  const Icon = option.icon;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setProductSalePayment(option.value)}
+                      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                        isActive ? "bg-white text-black" : "bg-white/10 text-white/70"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <label className="text-sm text-white/70">
+              Data da venda
+              <input
+                type="text"
+                value={productSaleDateDisplay}
+                onChange={handleProductSaleDateChange}
+                placeholder="dd/mm/aaaa"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+
+            <label className="text-sm text-white/70">
+              Cliente (ID)
+              <input
+                type="text"
+                value={productSaleUserIdInput}
+                onChange={(event) => setProductSaleUserIdInput(event.target.value)}
+                placeholder="Informe o identificador do cliente"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+          </section>
+
+          {productSaleError ? (
+            <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {productSaleError}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleCancelCreateProductSale}
+              className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={productSaleSubmitting}
+              className="flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {productSaleSubmitting ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Registrando...
+                </span>
+              ) : (
+                "Adicionar venda"
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  };
+
+  const renderProductsContent = () => {
+    if (isCreatingProduct) {
+      return renderCreateProductScreen();
+    }
+    if (isCreatingProductSale) {
+      return renderCreateProductSaleScreen();
+    }
+    return (
+      <div className="flex flex-col gap-5">
+        <header className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-white/60">Produtos</p>
+              <p className="text-2xl font-semibold">Controle de estoque</p>
+              <p className="text-xs text-white/60">{productsInventoryCount} item(ns)</p>
+            </div>
+            <div className="flex flex-col gap-2 text-sm sm:flex-row">
+              <button
+                type="button"
+                onClick={handleStartCreateProductSale}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/40"
+              >
+                <DollarSign className="h-4 w-4" />
+                Adicionar venda
+              </button>
+              <button
+                type="button"
+                onClick={handleStartCreateProduct}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
+              >
+                <Plus className="h-4 w-4" />
+                Novo produto
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <form onSubmit={handleProductsSearchSubmit} className="relative" role="search">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+          <input
+            type="search"
+            value={productsSearchInput}
+            onChange={(event) => setProductsSearchInput(event.target.value)}
+            placeholder="Buscar por nome ou categoria"
+            className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-28 text-sm outline-none transition focus:border-white/40"
+          />
+          {productsSearchTerm ? (
+            <button
+              type="button"
+              onClick={handleClearProductsSearch}
+              className="absolute right-24 top-1/2 -translate-y-1/2 text-xs text-white/60"
+            >
+              Limpar
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black transition hover:bg-white/90"
+          >
+            Buscar
+          </button>
+        </form>
+
+        <div className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+          <div>
+            <p className="text-sm text-white/60">Uso</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {productUseFilterOptions.map((option) => {
+                const isActive = productUseFilter === option.value;
+                return (
+                  <button
+                    type="button"
+                    key={option.label}
+                    onClick={() => handleProductUseFilterSelect(option.value)}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold ${
+                      isActive ? "bg-white text-black" : "bg-white/10 text-white/70"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm text-white/60">Tipo</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {productTypeFilterOptions.map((option) => {
+                const isActive = productTypeFilter === option.value;
+                return (
+                  <button
+                    type="button"
+                    key={option.label}
+                    onClick={() => handleProductTypeFilterSelect(option.value)}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold ${
+                      isActive ? "bg-white text-black" : "bg-white/10 text-white/70"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Estoque atualizado</h3>
+            <button
+              type="button"
+              onClick={refreshProductsInventory}
+              className="text-xs text-white/60 underline-offset-2 hover:text-white hover:underline"
+            >
+              Atualizar
+            </button>
+          </div>
+
+          {productsInventoryLoading ? (
+            <div className="flex items-center justify-center py-10 text-white/70">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : productsInventoryError ? (
+            <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {productsInventoryError}
+            </p>
+          ) : productsInventory.length === 0 ? (
+            <p className="rounded-2xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">
+              Nenhum produto cadastrado no momento.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {productsInventory.map((product) => {
+                const showAlarm = product.quantity === product.alarm_quantity;
+                const readableType = capitalizeFirstLetter(
+                  (product.type ?? "").replace(/_/g, " "),
+                );
+                return (
+                  <li
+                    key={product.id}
+                    className="flex items-center gap-4 rounded-3xl border border-white/10 bg-black/30 p-4"
+                  >
+                    <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-white/5">
+                      {product.picture_of_product ? (
+                        <Image
+                          src={product.picture_of_product}
+                          alt={product.name}
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[11px] text-white/60">
+                          Sem foto
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-base font-semibold">{product.name}</p>
+                        <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] uppercase tracking-wide text-white/70">
+                          {capitalizeFirstLetter(product.use_type ?? "")}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white/60">Tipo: {readableType}</p>
+                      <p className="text-xs text-white/60">
+                        Preço de venda: {formatCurrency(product.price_to_sell ?? "0")}
+                      </p>
+                      <p className="flex items-center gap-2 text-xs text-white/60">
+                        Quantidade:{" "}
+                        <span className="text-sm font-semibold text-white">
+                          {product.quantity}
+                        </span>
+                        {showAlarm ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                            <AlertTriangle className="h-3 w-3" />
+                            Atenção
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       </div>
     );
   };
@@ -5331,7 +6776,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       case "services":
         return renderServicesContent();
       case "products":
-        return renderComingSoon("Produtos");
+        return renderProductsContent();
       case "finances":
         return renderComingSoon("Financeiro");
       default:
@@ -5844,6 +7289,178 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         </div>
       ) : null}
 
+      {productSaleProductModalOpen ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Produtos</p>
+                <h2 className="text-xl font-semibold">Selecionar para venda</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseProductSaleModal}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {productSaleProductsLoading ? (
+              <div className="flex items-center justify-center py-6 text-white/70">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : productSaleProductsError ? (
+              <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {productSaleProductsError}
+              </p>
+            ) : productSaleProducts.length === 0 ? (
+              <p className="text-sm text-white/60">Nenhum produto disponível para venda.</p>
+            ) : (
+              <ul className="max-h-72 overflow-y-auto rounded-2xl border border-white/10 text-sm text-white/80">
+                {productSaleProducts.map((product) => (
+                  <li key={product.id} className="divide-y divide-white/5">
+                    <button
+                      type="button"
+                      onClick={() => handleSelectProductForSale(product)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/5"
+                    >
+                      <div>
+                        <p className="font-semibold">{product.name}</p>
+                        <p className="text-xs text-white/60">
+                          {formatCurrency(product.price_to_sell ?? "0")} • {product.quantity} un
+                        </p>
+                      </div>
+                      <Check
+                        className={`h-4 w-4 ${productSaleSelectedProduct?.id === product.id ? "text-emerald-300" : "text-white/30"}`}
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {showSummaryFilters ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Resumo</p>
+                <h2 className="text-xl font-semibold">Filtrar período</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseSummaryFilters}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mb-4 flex gap-2 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setSummaryFilterMode("day")}
+                className={`flex-1 rounded-2xl px-3 py-2 ${
+                  summaryFilterMode === "day" ? "bg-white text-black" : "bg-white/10 text-white/70"
+                }`}
+              >
+                Por dia
+              </button>
+              <button
+                type="button"
+                onClick={() => setSummaryFilterMode("month")}
+                className={`flex-1 rounded-2xl px-3 py-2 ${
+                  summaryFilterMode === "month" ? "bg-white text-black" : "bg-white/10 text-white/70"
+                }`}
+              >
+                Por mês
+              </button>
+            </div>
+
+            {summaryFilterMode === "day" ? (
+              <label className="block text-sm text-white/70">
+                Data (dd/mm/aaaa)
+                <input
+                  type="text"
+                  value={summaryDayInput}
+                  onChange={(event) => setSummaryDayInput(formatDisplayDate(event.target.value))}
+                  placeholder="dd/mm/aaaa"
+                  className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base outline-none focus:border-white/40"
+                />
+              </label>
+            ) : (
+              <div className="flex gap-3">
+                <label className="flex-1 text-sm text-white/70">
+                  Ano
+                  <select
+                    value={summaryMonthYear}
+                    onChange={(event) => setSummaryMonthYear(event.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-white/15 bg-[#050505] px-4 py-3 text-base outline-none focus:border-white/40"
+                  >
+                    <option value="">Selecione</option>
+                    {summaryFilterYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex-1 text-sm text-white/70">
+                  Mês
+                  <select
+                    value={summaryMonthValue}
+                    onChange={(event) => setSummaryMonthValue(event.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-white/15 bg-[#050505] px-4 py-3 text-base outline-none focus:border-white/40"
+                  >
+                    <option value="">Selecione</option>
+                    {summaryFilterMonthOptions.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {summaryFilterError ? (
+              <p className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {summaryFilterError}
+              </p>
+            ) : null}
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
+              <button
+                type="button"
+                onClick={handleClearSummaryFilters}
+                className="rounded-2xl border border-white/15 px-4 py-2 text-white/80"
+              >
+                Limpar filtros
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleCloseSummaryFilters}
+                  className="rounded-2xl border border-white/15 px-4 py-2 text-white/80"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplySummaryFilters}
+                  className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black"
+                >
+                  Aplicar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showAppointmentsFilterModal ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
@@ -5955,23 +7572,3 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     </div>
   );
 }
-type ProductListItem = {
-  id: number;
-  name: string;
-  price_to_sell: string;
-};
-
-type ProductsResponse = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: ProductListItem[];
-};
-
-type AddedSaleItem = {
-  productId: number;
-  productName: string;
-  price: string;
-  quantity: number;
-  paymentType: PaymentType;
-};
