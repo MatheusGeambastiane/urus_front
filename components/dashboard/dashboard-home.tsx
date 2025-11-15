@@ -52,6 +52,7 @@ import {
   Search,
   Sparkles,
   X,
+  FileText,
   UserRound,
   Users,
   Wallet,
@@ -89,6 +90,16 @@ type ServiceOption = {
 type ServiceSimpleOption = {
   id: number;
   name: string;
+  price: string;
+};
+
+type AppointmentProfessionalSlot = {
+  id: string;
+  professional: ServiceOption | null;
+};
+
+type ServiceAssignment = {
+  professionalSlotId: string | null;
   price: string;
 };
 
@@ -160,6 +171,14 @@ type AppointmentService = {
   category_name: string;
 };
 
+type AppointmentProfessionalService = {
+  professional: number;
+  professional_name?: string;
+  service: number;
+  service_name?: string;
+  price_paid: string;
+};
+
 type AppointmentItem = {
   id: number;
   date_time: string;
@@ -173,6 +192,54 @@ type AppointmentItem = {
   observations: string | null;
   professional_name: string | null;
   client_name: string | null;
+  professional_services?: AppointmentProfessionalService[];
+  created_at?: string;
+  updated_at?: string;
+};
+
+type PaymentBreakdown = {
+  payment_type: string;
+  total: number;
+};
+
+type SellBreakdown = {
+  transaction_payment: string;
+  total: number;
+};
+
+type FinanceSummary = {
+  month: string;
+  revenue: string;
+  expenses: string;
+  appointments_count: number;
+  sell_transactions_count: number;
+  appointments_by_payment_type: PaymentBreakdown[];
+  sell_by_payment_type: SellBreakdown[];
+};
+
+type RepasseItem = {
+  id: number;
+  professional: {
+    id: number;
+    name: string;
+    user_id: number;
+  };
+  value_service: string;
+  value_product: string;
+  is_paid: boolean;
+  invoice: string | null;
+  month: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type BillItem = {
+  id: number;
+  name: string;
+  bill_type: string;
+  value: string;
+  is_paid: boolean;
+  date_of_payment: string;
 };
 
 type AppointmentsResponse = {
@@ -363,6 +430,10 @@ const appointmentsEndpointBase = `${env.apiBaseUrl}/dashboard/appointments/`;
 const professionalProfilesSimpleListEndpoint = `${env.apiBaseUrl}/dashboard/professional-profiles/simple-list/`;
 const productsEndpointBase = `${env.apiBaseUrl}/dashboard/products/`;
 const transactionsEndpointBase = `${env.apiBaseUrl}/dashboard/transactions/`;
+const clientsEndpointBase = `${env.apiBaseUrl}/dashboard/users/clients/`;
+const financeSummaryEndpoint = `${env.apiBaseUrl}/dashboard/summary/`;
+const repassesEndpoint = `${env.apiBaseUrl}/dashboard/repasses/`;
+const billsEndpointBase = `${env.apiBaseUrl}/dashboard/bills/`;
 
 const formatDisplayDate = (value: string) => {
   const digitsOnly = value.replace(/\D/g, "").slice(0, 8);
@@ -498,6 +569,64 @@ const formatMoneyFromDecimalString = (value: string) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+};
+
+const generateUniqueId = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).slice(2, 11);
+};
+
+const createProfessionalSlot = (): AppointmentProfessionalSlot => ({
+  id: generateUniqueId(),
+  professional: null,
+});
+
+const getDefaultServicePrice = (price: string | number | null | undefined) => {
+  const parsed = parseCurrencyInput(String(price ?? 0));
+  return Number.isNaN(parsed) ? "0.00" : parsed.toFixed(2);
+};
+
+const formatTimeInputValue = (dateValue: Date) => {
+  const hours = dateValue.getHours().toString().padStart(2, "0");
+  const minutes = dateValue.getMinutes().toString().padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
+const formatMonthParam = (date: Date) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  return `${year}-${month}`;
+};
+
+const getMonthLabel = (monthValue: string) => {
+  const [year, month] = monthValue.split("-");
+  if (!year || !month) {
+    return "Mês atual";
+  }
+  const parsedDate = new Date(Number(year), Number(month) - 1, 1);
+  return parsedDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+};
+
+const getSellPaymentLabel = (value: string | null | undefined) => {
+  if (!value) {
+    return "Desconhecido";
+  }
+  switch (value) {
+    case "creditcard":
+    case "credit":
+      return "Cartão de crédito";
+    case "debit":
+      return "Cartão de débito";
+    case "pix":
+      return "Pix";
+    case "dinheiro":
+    case "money":
+      return "Dinheiro";
+    default:
+      return value;
+  }
 };
 
 const formatIsoToDisplay = (iso: string) => {
@@ -734,6 +863,8 @@ const appointmentStatusOptions: { value: AppointmentStatus; label: string }[] = 
   { value: "realizado", label: "Realizado" },
 ];
 
+const pieChartColors = ["#F97066", "#7F56D9", "#12B76A", "#FDB022", "#2E90FA"];
+
 const paymentTypeOptions: { value: PaymentType; label: string; icon: LucideIcon }[] = [
   { value: "credit", label: "Cartão de crédito", icon: CreditCard },
   { value: "debit", label: "Cartão de débito", icon: Wallet },
@@ -892,6 +1023,12 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   });
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
+  const [appointmentDetail, setAppointmentDetail] = useState<AppointmentItem | null>(null);
+  const [appointmentDetailLoading, setAppointmentDetailLoading] = useState(false);
+  const [appointmentDetailError, setAppointmentDetailError] = useState<string | null>(null);
+  const [appointmentDetailRefreshToken, setAppointmentDetailRefreshToken] = useState(0);
+  const [appointmentStatusUpdating, setAppointmentStatusUpdating] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [startDateFilter, setStartDateFilter] = useState<string | null>(null);
   const [endDateFilter, setEndDateFilter] = useState<string | null>(null);
@@ -912,8 +1049,12 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const [selectedAppointmentStatus, setSelectedAppointmentStatus] =
     useState<AppointmentStatus>("agendado");
   const [selectedClient, setSelectedClient] = useState<UserItem | null>(null);
-  const [selectedAppointmentProfessional, setSelectedAppointmentProfessional] =
-    useState<ServiceOption | null>(null);
+  const [appointmentProfessionals, setAppointmentProfessionals] = useState<
+    AppointmentProfessionalSlot[]
+  >([createProfessionalSlot()]);
+  const [serviceAssignments, setServiceAssignments] = useState<
+    Record<number, ServiceAssignment>
+  >({});
   const [selectedAppointmentServices, setSelectedAppointmentServices] = useState<
     ServiceSimpleOption[]
   >([]);
@@ -929,13 +1070,30 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const [clientPickerResults, setClientPickerResults] = useState<UserItem[]>([]);
   const [clientPickerLoading, setClientPickerLoading] = useState(false);
   const [clientPickerError, setClientPickerError] = useState<string | null>(null);
+  const [showClientRegistrationModal, setShowClientRegistrationModal] = useState(false);
+  const [clientRegistrationForm, setClientRegistrationForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    cpf: "",
+    phone: "",
+    dateOfBirth: "",
+  });
+  const [clientRegistrationSubmitting, setClientRegistrationSubmitting] = useState(false);
+  const [clientRegistrationError, setClientRegistrationError] = useState<string | null>(null);
   const [showServicesPickerModal, setShowServicesPickerModal] = useState(false);
   const [servicesPickerSearchInput, setServicesPickerSearchInput] = useState("");
   const [servicesPickerSearchTerm, setServicesPickerSearchTerm] = useState("");
   const [servicesPickerResults, setServicesPickerResults] = useState<ServiceSimpleOption[]>([]);
   const [servicesPickerLoading, setServicesPickerLoading] = useState(false);
   const [servicesPickerError, setServicesPickerError] = useState<string | null>(null);
+  const [servicesPickerTempSelection, setServicesPickerTempSelection] = useState<
+    ServiceSimpleOption[]
+  >([]);
   const [showProfessionalPickerModal, setShowProfessionalPickerModal] = useState(false);
+  const [professionalPickerContext, setProfessionalPickerContext] = useState<{
+    slotId: string;
+  } | null>(null);
   const [professionalSearchInput, setProfessionalSearchInput] = useState("");
   const [professionalSearchTerm, setProfessionalSearchTerm] = useState("");
   const [professionalPickerResults, setProfessionalPickerResults] = useState<ServiceOption[]>([]);
@@ -954,6 +1112,7 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const [salePaymentSelect, setSalePaymentSelect] = useState<PaymentType | "">("");
   const [isAddingSaleProduct, setIsAddingSaleProduct] = useState(false);
   const [addedSales, setAddedSales] = useState<AddedSaleItem[]>([]);
+  const [editingAppointmentId, setEditingAppointmentId] = useState<number | null>(null);
   const [productsInventory, setProductsInventory] = useState<ProductItem[]>([]);
   const [productsInventoryCount, setProductsInventoryCount] = useState(0);
   const [productsInventoryLoading, setProductsInventoryLoading] = useState(false);
@@ -994,6 +1153,23 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const [activeSummaryDay, setActiveSummaryDay] = useState<string | null>(null);
   const [activeSummaryMonth, setActiveSummaryMonth] = useState<string | null>(null);
   const [summaryFilterError, setSummaryFilterError] = useState<string | null>(null);
+  const [financeMonth, setFinanceMonth] = useState(formatMonthParam(new Date()));
+  const [showFinanceMonthModal, setShowFinanceMonthModal] = useState(false);
+  const [financeMonthYearInput, setFinanceMonthYearInput] = useState(new Date().getFullYear().toString());
+  const [financeMonthValueInput, setFinanceMonthValueInput] = useState(
+    (new Date().getMonth() + 1).toString().padStart(2, "0"),
+  );
+  const [financeSummary, setFinanceSummary] = useState<FinanceSummary | null>(null);
+  const [financeSummaryLoading, setFinanceSummaryLoading] = useState(false);
+  const [financeSummaryError, setFinanceSummaryError] = useState<string | null>(null);
+  const [repassesList, setRepassesList] = useState<RepasseItem[]>([]);
+  const [repassesLoading, setRepassesLoading] = useState(false);
+  const [repassesError, setRepassesError] = useState<string | null>(null);
+  const [billsList, setBillsList] = useState<BillItem[]>([]);
+  const [billsLoading, setBillsLoading] = useState(false);
+  const [billsError, setBillsError] = useState<string | null>(null);
+  const [showAllBills, setShowAllBills] = useState(false);
+  const [financeMonthError, setFinanceMonthError] = useState<string | null>(null);
 
   const {
     register: registerCreateUser,
@@ -1024,7 +1200,8 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
     setAppointmentTimeInput("09:00");
     setSelectedAppointmentStatus("agendado");
     setSelectedClient(null);
-    setSelectedAppointmentProfessional(null);
+    setAppointmentProfessionals([createProfessionalSlot()]);
+    setServiceAssignments({});
     setSelectedAppointmentServices([]);
     setSelectedPaymentType(null);
     setPriceInput("");
@@ -1038,6 +1215,10 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
     setSaleQuantityInput("1");
     setSalePriceInput("");
     setSalePaymentSelect("");
+    setProfessionalPickerContext(null);
+    setShowProfessionalPickerModal(false);
+    setServicesPickerTempSelection([]);
+    setEditingAppointmentId(null);
   }, [selectedDate]);
 
   const {
@@ -2219,6 +2400,47 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     appointmentsRefreshToken,
   ]);
 
+  useEffect(() => {
+    if (!selectedAppointmentId || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchAppointmentDetail = async () => {
+      setAppointmentDetailLoading(true);
+      setAppointmentDetailError(null);
+      try {
+        const response = await fetch(`${appointmentsEndpointBase}${selectedAppointmentId}/`, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar o agendamento.");
+        }
+
+        const data: AppointmentItem = await response.json();
+        setAppointmentDetail(data);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setAppointmentDetailError(
+            err instanceof Error ? err.message : "Erro inesperado ao carregar o agendamento.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setAppointmentDetailLoading(false);
+        }
+      }
+    };
+
+    fetchAppointmentDetail();
+    return () => controller.abort();
+  }, [selectedAppointmentId, appointmentDetailRefreshToken, accessToken]);
+
   const roleLabelMap = useMemo(() => {
     return roleOptions.reduce<Record<string, string>>((acc, option) => {
       acc[option.value] = option.label;
@@ -2232,6 +2454,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       return sum + (Number.isNaN(value) ? 0 : value);
     }, 0);
   }, [selectedAppointmentServices]);
+
+  const filledAppointmentProfessionals = useMemo(() => {
+    return appointmentProfessionals.filter((slot) => slot.professional !== null);
+  }, [appointmentProfessionals]);
+
+  const hasMultipleProfessionals = filledAppointmentProfessionals.length > 1;
 
   const normalizedDiscount = useMemo(() => {
     const parsed = Number(discountInput);
@@ -2251,13 +2479,54 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     return parseCurrencyInput(priceInput);
   }, [priceInput]);
 
-  const appointmentDiscountAmount = useMemo(() => {
-    return (appointmentPriceValue * normalizedDiscount) / 100;
-  }, [appointmentPriceValue, normalizedDiscount]);
+  const servicesGrossTotal = useMemo(() => {
+    if (selectedAppointmentServices.length === 0) {
+      return 0;
+    }
+    if (hasMultipleProfessionals) {
+      return selectedAppointmentServices.reduce((sum, service) => {
+        const assignment = serviceAssignments[service.id];
+        const rawPrice = assignment?.price ?? service.price ?? "0";
+        const value = parseCurrencyInput(rawPrice);
+        return sum + (Number.isNaN(value) ? 0 : value);
+      }, 0);
+    }
+    return appointmentPriceValue;
+  }, [
+    selectedAppointmentServices,
+    serviceAssignments,
+    hasMultipleProfessionals,
+    appointmentPriceValue,
+  ]);
 
-  const appointmentTotalAfterDiscount = useMemo(() => {
-    return Math.max(appointmentPriceValue - appointmentDiscountAmount, 0);
-  }, [appointmentPriceValue, appointmentDiscountAmount]);
+  const servicesDiscountAmount = useMemo(() => {
+    return (servicesGrossTotal * normalizedDiscount) / 100;
+  }, [servicesGrossTotal, normalizedDiscount]);
+
+  const servicesTotalAfterDiscount = useMemo(() => {
+    return Math.max(servicesGrossTotal - servicesDiscountAmount, 0);
+  }, [servicesGrossTotal, servicesDiscountAmount]);
+
+  const addedSalesTotal = useMemo(() => {
+    return addedSales.reduce((sum, sale) => {
+      const value = parseCurrencyInput(sale.price);
+      return sum + (Number.isNaN(value) ? 0 : value);
+    }, 0);
+  }, [addedSales]);
+
+  const appointmentGrandTotal = useMemo(() => {
+    return servicesTotalAfterDiscount + addedSalesTotal;
+  }, [servicesTotalAfterDiscount, addedSalesTotal]);
+
+  const currentProfessionalPickerSlot = useMemo(() => {
+    if (!professionalPickerContext) {
+      return null;
+    }
+    return (
+      appointmentProfessionals.find((slot) => slot.id === professionalPickerContext.slotId) ??
+      null
+    );
+  }, [professionalPickerContext, appointmentProfessionals]);
 
   const summaryFilterYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -2913,8 +3182,347 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setCreateAppointmentError(null);
   };
 
-  const handleToggleAppointmentService = (service: ServiceSimpleOption) => {
-    setSelectedAppointmentServices((previous) => {
+  const handleOpenClientRegistrationModal = () => {
+    setClientRegistrationForm({
+      firstName: "",
+      lastName: "",
+      email: "",
+      cpf: "",
+      phone: "",
+      dateOfBirth: "",
+    });
+    setClientRegistrationError(null);
+    setShowClientRegistrationModal(true);
+  };
+
+  const handleClientRegistrationInputChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const { name, value } = event.target;
+    setClientRegistrationForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmitClientRegistration = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!accessToken) {
+      setClientRegistrationError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    setClientRegistrationError(null);
+    const trimmedFirstName = clientRegistrationForm.firstName.trim();
+    const trimmedLastName = clientRegistrationForm.lastName.trim();
+    const trimmedEmail = clientRegistrationForm.email.trim();
+    const trimmedCpf = clientRegistrationForm.cpf.trim();
+    const trimmedPhone = clientRegistrationForm.phone.trim();
+    const birthDate = clientRegistrationForm.dateOfBirth;
+
+    if (
+      !trimmedFirstName ||
+      !trimmedLastName ||
+      !trimmedEmail ||
+      !trimmedCpf ||
+      !trimmedPhone ||
+      !birthDate
+    ) {
+      setClientRegistrationError("Preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const payload = {
+      first_name: trimmedFirstName,
+      last_name: trimmedLastName,
+      email: trimmedEmail,
+      cpf: trimmedCpf,
+      phone: trimmedPhone,
+      date_of_birth: birthDate,
+    };
+
+    setClientRegistrationSubmitting(true);
+    try {
+      const response = await fetch(clientsEndpointBase, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível registrar o cliente.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      const createdClient: UserItem = await response.json();
+      setFeedbackMessage({
+        type: "success",
+        message: "Cliente registrado com sucesso.",
+      });
+      setSelectedClient(createdClient);
+      setShowClientRegistrationModal(false);
+      setClientRegistrationForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        cpf: "",
+        phone: "",
+        dateOfBirth: "",
+      });
+    } catch (err) {
+      setClientRegistrationError(
+        err instanceof Error ? err.message : "Erro inesperado ao registrar o cliente.",
+      );
+    } finally {
+      setClientRegistrationSubmitting(false);
+    }
+  };
+
+  const handleOpenFinanceMonthModal = () => {
+    const [year, month] = financeMonth.split("-");
+    setFinanceMonthYearInput(year || new Date().getFullYear().toString());
+    setFinanceMonthValueInput(month || (new Date().getMonth() + 1).toString().padStart(2, "0"));
+    setFinanceMonthError(null);
+    setShowFinanceMonthModal(true);
+  };
+
+  const handleCloseFinanceMonthModal = () => {
+    setShowFinanceMonthModal(false);
+    setFinanceMonthError(null);
+  };
+
+  const handleApplyFinanceMonth = () => {
+    if (!financeMonthYearInput || financeMonthYearInput.length !== 4) {
+      setFinanceMonthError("Informe o ano no formato YYYY.");
+      return;
+    }
+    if (!financeMonthValueInput) {
+      setFinanceMonthError("Selecione o mês.");
+      return;
+    }
+    const numericMonth = Number(financeMonthValueInput);
+    if (Number.isNaN(numericMonth) || numericMonth < 1 || numericMonth > 12) {
+      setFinanceMonthError("Selecione um mês válido.");
+      return;
+    }
+    const formattedMonth = financeMonthValueInput.padStart(2, "0");
+    setFinanceMonth(`${financeMonthYearInput}-${formattedMonth}`);
+    setShowFinanceMonthModal(false);
+    setFinanceMonthError(null);
+    setShowAllBills(false);
+  };
+
+  const handleOpenAppointmentDetail = (appointmentId: number) => {
+    setSelectedAppointmentId(appointmentId);
+    setAppointmentDetail(null);
+    setAppointmentDetailError(null);
+  };
+
+  const handleCloseAppointmentDetail = () => {
+    setSelectedAppointmentId(null);
+    setAppointmentDetail(null);
+    setAppointmentDetailError(null);
+  };
+
+  const refreshAppointmentDetail = () => {
+    setAppointmentDetailRefreshToken((previous) => previous + 1);
+  };
+
+  const handleUpdateAppointmentStatus = async (status: AppointmentStatus) => {
+    if (!selectedAppointmentId || !accessToken) {
+      return;
+    }
+    if (appointmentDetail?.status === status) {
+      return;
+    }
+    setAppointmentDetailError(null);
+    setAppointmentStatusUpdating(true);
+    try {
+      const response = await fetch(`${appointmentsEndpointBase}${selectedAppointmentId}/`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível atualizar o status.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Status do agendamento atualizado.",
+      });
+      refreshAppointmentDetail();
+      setAppointmentsRefreshToken((previous) => previous + 1);
+    } catch (err) {
+      setAppointmentDetailError(
+        err instanceof Error ? err.message : "Erro inesperado ao atualizar o status.",
+      );
+    } finally {
+      setAppointmentStatusUpdating(false);
+    }
+  };
+
+  const buildSlotsFromDetail = (detail: AppointmentItem) => {
+    const slots: AppointmentProfessionalSlot[] = [];
+    if (detail.professional_services && detail.professional_services.length > 0) {
+      const added = new Set<number>();
+      detail.professional_services.forEach((entry) => {
+        if (added.has(entry.professional)) {
+          return;
+        }
+        const slot = createProfessionalSlot();
+        slot.professional = {
+          id: entry.professional,
+          name: entry.professional_name ?? `Profissional #${entry.professional}`,
+        };
+        slots.push(slot);
+        added.add(entry.professional);
+      });
+      if (slots.length === 0) {
+        slots.push(createProfessionalSlot());
+      }
+      return slots;
+    }
+    const slot = createProfessionalSlot();
+    if (detail.professional) {
+      slot.professional = {
+        id: detail.professional,
+        name: detail.professional_name ?? `Profissional #${detail.professional}`,
+      };
+    }
+    slots.push(slot);
+    return slots;
+  };
+
+  const prefillAppointmentFormFromDetail = (detail: AppointmentItem) => {
+    const detailDate = new Date(detail.date_time);
+    setAppointmentDateInput(formatDateParam(detailDate));
+    setAppointmentTimeInput(formatTimeInputValue(detailDate));
+    if (detail.status) {
+      setSelectedAppointmentStatus(detail.status as AppointmentStatus);
+    }
+    const paymentType = detail.payment_type;
+    if (paymentType === "credit" || paymentType === "debit" || paymentType === "pix" || paymentType === "dinheiro") {
+      setSelectedPaymentType(paymentType);
+    } else {
+      setSelectedPaymentType(null);
+    }
+    setPriceInput(detail.price_paid ?? "");
+    setPriceManuallyEdited(true);
+    setDiscountInput(detail.discount !== null && detail.discount !== undefined ? String(detail.discount) : "0");
+    setAppointmentObservations(detail.observations ?? "");
+    setCreateAppointmentError(null);
+
+    if (detail.client) {
+      const clientName = detail.client_name ?? "";
+      const [firstName, ...rest] = clientName.split(" ");
+      setSelectedClient({
+        id: detail.client,
+        first_name: firstName || clientName || "Cliente",
+        last_name: rest.join(" "),
+        email: detail.client_name ?? "",
+        phone: "",
+        role: "",
+        professional_profile: null,
+        profile_pic: null,
+      });
+    } else {
+      setSelectedClient(null);
+    }
+
+    const slots = buildSlotsFromDetail(detail);
+    setAppointmentProfessionals(slots);
+
+    const priceMap = new Map<number, string>();
+    detail.professional_services?.forEach((entry) => {
+      priceMap.set(entry.service, entry.price_paid ?? "0");
+    });
+
+    const servicesForForm: ServiceSimpleOption[] = detail.services.map((service) => ({
+      id: service.id,
+      name: service.name,
+      price: priceMap.get(service.id) ?? "0",
+    }));
+
+    setSelectedAppointmentServices(servicesForForm);
+    setServicesPickerTempSelection(servicesForForm);
+
+    const assignments: Record<number, ServiceAssignment> = {};
+    if (detail.professional_services && detail.professional_services.length > 0) {
+      const slotMap = new Map<number, string>();
+      slots.forEach((slot) => {
+        if (slot.professional) {
+          slotMap.set(slot.professional.id, slot.id);
+        }
+      });
+      detail.professional_services.forEach((entry) => {
+        const slotId = slotMap.get(entry.professional) ?? slots[0]?.id ?? null;
+        assignments[entry.service] = {
+          professionalSlotId: slotId,
+          price: entry.price_paid ?? priceMap.get(entry.service) ?? "0",
+        };
+      });
+    } else {
+      const defaultSlotId =
+        slots.find((slot) => slot.professional)?.id ?? slots[0]?.id ?? null;
+      detail.services.forEach((service) => {
+        assignments[service.id] = {
+          professionalSlotId: defaultSlotId,
+          price: priceMap.get(service.id) ?? "0",
+        };
+      });
+    }
+    setServiceAssignments(assignments);
+  };
+
+  const handleStartAppointmentEdit = () => {
+    if (!appointmentDetail) {
+      return;
+    }
+    prefillAppointmentFormFromDetail(appointmentDetail);
+    setEditingAppointmentId(appointmentDetail.id);
+    setIsCreatingAppointment(true);
+  };
+
+  const handleOpenServicesPickerModal = () => {
+    setServicesPickerTempSelection(selectedAppointmentServices);
+    setShowServicesPickerModal(true);
+  };
+
+  const handleCancelServicesPicker = () => {
+    setServicesPickerTempSelection(selectedAppointmentServices);
+    setShowServicesPickerModal(false);
+  };
+
+  const handleToggleServiceInModal = (service: ServiceSimpleOption) => {
+    setServicesPickerTempSelection((previous) => {
       const exists = previous.some((item) => item.id === service.id);
       if (exists) {
         return previous.filter((item) => item.id !== service.id);
@@ -2923,15 +3531,120 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     });
   };
 
+  const handleConfirmServicesPicker = () => {
+    setSelectedAppointmentServices(servicesPickerTempSelection);
+    setServiceAssignments((prev) => {
+      const next: Record<number, ServiceAssignment> = {};
+      servicesPickerTempSelection.forEach((service) => {
+        next[service.id] =
+          prev[service.id] ??
+          {
+            professionalSlotId: appointmentProfessionals[0]?.id ?? null,
+            price: getDefaultServicePrice(service.price),
+          };
+      });
+      return next;
+    });
+    setShowServicesPickerModal(false);
+  };
+
   const handleRemoveAppointmentService = (serviceId: number) => {
     setSelectedAppointmentServices((previous) =>
       previous.filter((service) => service.id !== serviceId),
     );
+    setServicesPickerTempSelection((previous) =>
+      previous.filter((service) => service.id !== serviceId),
+    );
+    setServiceAssignments((prev) => {
+      const updated = { ...prev };
+      delete updated[serviceId];
+      return updated;
+    });
+  };
+
+  const handleAddProfessionalSlot = () => {
+    setAppointmentProfessionals((previous) => [...previous, createProfessionalSlot()]);
+  };
+
+  const handleRemoveProfessionalSlot = (slotId: string) => {
+    setAppointmentProfessionals((previous) => {
+      if (previous.length === 1) {
+        return previous;
+      }
+      const filtered = previous.filter((slot) => slot.id !== slotId);
+      if (filtered.length === previous.length) {
+        return previous;
+      }
+      setServiceAssignments((prevAssignments) => {
+        const fallbackSlotId = filtered[0]?.id ?? null;
+        const updatedEntries: Record<number, ServiceAssignment> = {};
+        Object.entries(prevAssignments).forEach(([key, assignment]) => {
+          updatedEntries[Number(key)] = {
+            ...assignment,
+            professionalSlotId:
+              assignment.professionalSlotId === slotId ? fallbackSlotId : assignment.professionalSlotId,
+          };
+        });
+        return updatedEntries;
+      });
+      if (professionalPickerContext?.slotId === slotId) {
+        handleCloseProfessionalPicker();
+      }
+      return filtered;
+    });
+  };
+
+  const handleOpenProfessionalPicker = (slotId: string) => {
+    setProfessionalPickerContext({ slotId });
+    setProfessionalSearchInput("");
+    setProfessionalSearchTerm("");
+    setShowProfessionalPickerModal(true);
+  };
+
+  const handleCloseProfessionalPicker = () => {
+    setProfessionalPickerContext(null);
+    setShowProfessionalPickerModal(false);
+  };
+
+  const handleServiceAssignmentProfessionalChange = (
+    serviceId: number,
+    slotId: string | null,
+  ) => {
+    setServiceAssignments((prev) => ({
+      ...prev,
+      [serviceId]: {
+        professionalSlotId: slotId,
+        price: prev[serviceId]?.price ?? "0.00",
+      },
+    }));
+  };
+
+  const handleServiceAssignmentPriceChange = (
+    serviceId: number,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value;
+    setServiceAssignments((prev) => ({
+      ...prev,
+      [serviceId]: {
+        professionalSlotId: prev[serviceId]?.professionalSlotId ?? appointmentProfessionals[0]?.id ?? null,
+        price: value,
+      },
+    }));
   };
 
   const handleSelectProfessionalForAppointment = (professional: ServiceOption) => {
-    setSelectedAppointmentProfessional(professional);
-    setShowProfessionalPickerModal(false);
+    if (!professionalPickerContext) {
+      handleCloseProfessionalPicker();
+      return;
+    }
+    setAppointmentProfessionals((previous) =>
+      previous.map((slot) =>
+        slot.id === professionalPickerContext.slotId ? { ...slot, professional } : slot,
+      ),
+    );
+    handleCloseProfessionalPicker();
+    setCreateAppointmentError(null);
   };
 
   const handleSelectPaymentOption = (payment: PaymentType) => {
@@ -2968,6 +3681,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const handleResetPriceFromServices = () => {
     setPriceManuallyEdited(false);
     setPriceInput(appointmentServicesSubtotal.toFixed(2));
+    setServiceAssignments((prev) => {
+      const updated: Record<number, ServiceAssignment> = { ...prev };
+      selectedAppointmentServices.forEach((service) => {
+        updated[service.id] = {
+          professionalSlotId:
+            prev[service.id]?.professionalSlotId ?? appointmentProfessionals[0]?.id ?? null,
+          price: getDefaultServicePrice(service.price),
+        };
+      });
+      return updated;
+    });
   };
 
   const handleOpenSaleModal = () => {
@@ -3270,6 +3994,149 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     handleStartCreateProduct,
   ]);
 
+  useEffect(() => {
+    if (activeTab !== "finances" || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchFinanceSummary = async () => {
+      setFinanceSummaryLoading(true);
+      setFinanceSummaryError(null);
+      try {
+        const url = new URL(financeSummaryEndpoint);
+        url.searchParams.set("month", financeMonth);
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar o resumo financeiro.");
+        }
+
+        const data: FinanceSummary = await response.json();
+        setFinanceSummary(data);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setFinanceSummaryError(
+            err instanceof Error
+              ? err.message
+              : "Erro inesperado ao carregar o resumo financeiro.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setFinanceSummaryLoading(false);
+        }
+      }
+    };
+
+    fetchFinanceSummary();
+    return () => controller.abort();
+  }, [activeTab, accessToken, financeMonth]);
+
+  useEffect(() => {
+    if (activeTab !== "finances" || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchRepasses = async () => {
+      setRepassesLoading(true);
+      setRepassesError(null);
+      try {
+        const url = new URL(repassesEndpoint);
+        url.searchParams.set("month", financeMonth);
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os repasses.");
+        }
+
+        const data = await response.json();
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.results)
+            ? data.results
+            : [];
+        setRepassesList(list);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setRepassesError(
+            err instanceof Error ? err.message : "Erro inesperado ao carregar os repasses.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setRepassesLoading(false);
+        }
+      }
+    };
+
+    fetchRepasses();
+    return () => controller.abort();
+  }, [activeTab, accessToken, financeMonth]);
+
+  useEffect(() => {
+    if (activeTab !== "finances" || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchBills = async () => {
+      setBillsLoading(true);
+      setBillsError(null);
+      try {
+        const url = new URL(billsEndpointBase);
+        url.searchParams.set("month", financeMonth);
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar as contas.");
+        }
+
+        const data = await response.json();
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.results)
+            ? data.results
+            : Array.isArray(data?.bills)
+              ? data.bills
+              : [];
+        setBillsList(list);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setBillsError(
+            err instanceof Error ? err.message : "Erro inesperado ao carregar as contas.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setBillsLoading(false);
+        }
+      }
+    };
+
+    fetchBills();
+    return () => controller.abort();
+  }, [activeTab, accessToken, financeMonth]);
+
   const handleCreateProduct = handleSubmitCreateProduct(async (values) => {
     setProductFormError(null);
     if (!accessToken) {
@@ -3426,16 +4293,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const handleSubmitAppointment = async () => {
     setCreateAppointmentError(null);
+    const isEditingExistingAppointment = editingAppointmentId !== null;
     if (!accessToken) {
       setCreateAppointmentError("Sessão expirada. Faça login novamente.");
       return;
     }
     if (!selectedClient) {
       setCreateAppointmentError("Selecione um cliente.");
-      return;
-    }
-    if (!selectedAppointmentProfessional) {
-      setCreateAppointmentError("Selecione um profissional.");
       return;
     }
     if (selectedAppointmentServices.length === 0) {
@@ -3446,32 +4310,90 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setCreateAppointmentError("Selecione a forma de pagamento.");
       return;
     }
-    const priceValue = appointmentPriceValue;
-    if (priceValue <= 0) {
-      setCreateAppointmentError("Informe um preço válido.");
-      return;
-    }
+    const totalPriceValue = appointmentPriceValue;
     const dateTimeIso = buildDateTimeISOString(appointmentDateInput, appointmentTimeInput);
     if (!dateTimeIso) {
       setCreateAppointmentError("Informe uma data e hora válidas.");
       return;
     }
+    if (filledAppointmentProfessionals.length === 0) {
+      setCreateAppointmentError("Selecione pelo menos um profissional.");
+      return;
+    }
+    if (!hasMultipleProfessionals) {
+      if (totalPriceValue <= 0) {
+        setCreateAppointmentError("Informe um preço válido.");
+        return;
+      }
+    } else {
+      for (const service of selectedAppointmentServices) {
+        const assignment = serviceAssignments[service.id];
+        if (!assignment?.professionalSlotId) {
+          setCreateAppointmentError("Defina o profissional responsável por cada serviço.");
+          return;
+        }
+        const slot = appointmentProfessionals.find(
+          (item) => item.id === assignment.professionalSlotId,
+        );
+        if (!slot?.professional) {
+          setCreateAppointmentError("Selecione profissionais válidos para os serviços.");
+          return;
+        }
+        const priceValue = parseCurrencyInput(assignment.price);
+        if (priceValue <= 0) {
+          setCreateAppointmentError("Informe o preço pago para cada serviço.");
+          return;
+        }
+      }
+    }
     setIsSavingAppointment(true);
     try {
-      const payload = {
+      const basePayload = {
         date_time: dateTimeIso,
         client: selectedClient.id,
-        professional: selectedAppointmentProfessional.id,
-        services: selectedAppointmentServices.map((service) => service.id),
-        price_paid: priceValue.toFixed(2),
         discount: normalizedDiscount,
         payment_type: selectedPaymentType,
         status: selectedAppointmentStatus,
         observations: appointmentObservations || null,
       };
+      let payload: Record<string, unknown> = basePayload;
 
-      const response = await fetch(appointmentsEndpointBase, {
-        method: "POST",
+      if (hasMultipleProfessionals) {
+        const professionalServices = selectedAppointmentServices.map((service) => {
+          const assignment = serviceAssignments[service.id];
+          const slot = appointmentProfessionals.find(
+            (item) => item.id === assignment?.professionalSlotId,
+          );
+          const professional = slot?.professional;
+          if (!professional) {
+            throw new Error("Selecione profissionais válidos para os serviços.");
+          }
+          const priceValue = parseCurrencyInput(assignment?.price ?? "0");
+          return {
+            professional: professional.id,
+            service: service.id,
+            price_paid: priceValue.toFixed(2),
+          };
+        });
+        payload = {
+          ...basePayload,
+          professional_services: professionalServices,
+        };
+      } else {
+        const professional = filledAppointmentProfessionals[0]?.professional;
+        payload = {
+          ...basePayload,
+          professional: professional?.id ?? 0,
+          services: selectedAppointmentServices.map((service) => service.id),
+          price_paid: appointmentPriceValue.toFixed(2),
+        };
+      }
+
+      const endpoint = isEditingExistingAppointment
+        ? `${appointmentsEndpointBase}${editingAppointmentId}/`
+        : appointmentsEndpointBase;
+      const response = await fetch(endpoint, {
+        method: isEditingExistingAppointment ? "PATCH" : "POST",
         credentials: "include",
         headers: {
           Accept: "application/json",
@@ -3482,7 +4404,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       });
 
       if (!response.ok) {
-        let errorMessage = "Não foi possível criar o agendamento.";
+        let errorMessage = isEditingExistingAppointment
+          ? "Não foi possível atualizar o agendamento."
+          : "Não foi possível criar o agendamento.";
         try {
           const errorData = await response.json();
           if (errorData?.detail) {
@@ -3496,16 +4420,23 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
       setFeedbackMessage({
         type: "success",
-        message: "Agendamento criado com sucesso.",
+        message: isEditingExistingAppointment
+          ? "Agendamento atualizado com sucesso."
+          : "Agendamento criado com sucesso.",
       });
       setAppointmentsRefreshToken((previous) => previous + 1);
+      if (isEditingExistingAppointment) {
+        refreshAppointmentDetail();
+      }
       setIsCreatingAppointment(false);
       resetAppointmentForm();
     } catch (err) {
       setCreateAppointmentError(
         err instanceof Error
           ? err.message
-          : "Erro inesperado ao criar o agendamento.",
+          : isEditingExistingAppointment
+            ? "Erro inesperado ao atualizar o agendamento."
+            : "Erro inesperado ao criar o agendamento.",
       );
     } finally {
       setIsSavingAppointment(false);
@@ -3751,6 +4682,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </button>
         </div>
       ) : null}
+
     </div>
   );
 
@@ -4970,11 +5902,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const renderCreateAppointmentScreen = () => {
+    const isEditingExisting = editingAppointmentId !== null;
     const clientName = selectedClient
       ? [selectedClient.first_name, selectedClient.last_name].filter(Boolean).join(" ") ||
         selectedClient.email
       : "Selecionar";
-    const professionalName = selectedAppointmentProfessional?.name ?? "Selecionar";
+    const professionalName = hasMultipleProfessionals
+      ? "Múltiplos profissionais"
+      : filledAppointmentProfessionals[0]?.professional?.name ?? "Selecionar";
     const paymentLabel =
       selectedPaymentType
         ? paymentTypeOptions.find((option) => option.value === selectedPaymentType)?.label ??
@@ -4996,7 +5931,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       : "Defina data e hora";
 
     return (
-      <div className="flex flex-col gap-5 pb-24">
+      <>
+        <div className="flex flex-col gap-5 pb-24">
         <header className="flex items-center justify-between">
           <button
             type="button"
@@ -5007,7 +5943,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </button>
           <div className="flex-1 text-center">
             <p className="text-sm text-white/60">Agenda</p>
-            <p className="text-2xl font-semibold">Novo agendamento</p>
+            <p className="text-2xl font-semibold">
+              {isEditingExisting ? "Editar agendamento" : "Novo agendamento"}
+            </p>
           </div>
           <button
             type="button"
@@ -5077,7 +6015,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </div>
             <button
               type="button"
-              onClick={() => setShowServicesPickerModal(true)}
+              onClick={handleOpenServicesPickerModal}
               className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
             >
               <Plus className="h-4 w-4" />
@@ -5090,37 +6028,95 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </p>
           ) : (
             <ul className="space-y-3 text-sm text-white/80">
-              {selectedAppointmentServices.map((service) => (
-                <li
-                  key={service.id}
-                  className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3"
-                >
-                  <div>
-                    <p className="font-semibold">{service.name}</p>
-                    <p className="text-xs text-white/60">{formatCurrency(service.price)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAppointmentService(service.id)}
-                    className="rounded-full border border-white/10 p-2 text-white/60 hover:text-white"
-                    aria-label="Remover serviço"
+              {selectedAppointmentServices.map((service) => {
+                const assignment = serviceAssignments[service.id];
+                const currentProfessional = appointmentProfessionals.find(
+                  (slot) => slot.id === assignment?.professionalSlotId,
+                )?.professional;
+                return (
+                  <li
+                    key={service.id}
+                    className="rounded-2xl border border-white/10 px-4 py-3"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{service.name}</p>
+                        <p className="text-xs text-white/60">{formatCurrency(service.price)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAppointmentService(service.id)}
+                        className="rounded-full border border-white/10 p-2 text-white/60 hover:text-white"
+                        aria-label="Remover serviço"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs text-white/60">
+                        Profissional responsável
+                        <select
+                          value={assignment?.professionalSlotId ?? ""}
+                          onChange={(event) =>
+                            handleServiceAssignmentProfessionalChange(
+                              service.id,
+                              event.target.value || null,
+                            )
+                          }
+                          className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                        >
+                          <option value="">Selecione</option>
+                          {appointmentProfessionals
+                            .filter((slot) => slot.professional)
+                            .map((slot) => (
+                              <option key={slot.id} value={slot.id}>
+                                {slot.professional?.name}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <label className="text-xs text-white/60">
+                        Preço pago (R$)
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={assignment?.price ?? ""}
+                          onChange={(event) => handleServiceAssignmentPriceChange(service.id, event)}
+                          placeholder="0.00"
+                          className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm outline-none focus:border-white/40"
+                        />
+                      </label>
+                    </div>
+                    {currentProfessional ? (
+                      <p className="mt-2 text-xs text-white/50">
+                        Profissional selecionado: <span className="text-white">{currentProfessional.name}</span>
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           )}
           <p className="text-right text-sm text-white/60">
             Subtotal dos serviços:{" "}
             <span className="font-semibold text-white">
-              {formatCurrency(appointmentServicesSubtotal.toFixed(2))}
+              {formatCurrency(servicesGrossTotal.toFixed(2))}
             </span>
           </p>
         </section>
 
         <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
-          <p className="text-sm text-white/60">Cliente</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-white/60">Cliente</p>
+            <button
+              type="button"
+              onClick={handleOpenClientRegistrationModal}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-3 py-1 text-xs font-semibold text-white/80 transition hover:border-white/40 hover:text-white"
+            >
+              <Plus className="h-3 w-3" />
+              Registrar cliente
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setShowClientPickerModal(true)}
@@ -5142,23 +6138,54 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         </section>
 
         <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
-          <p className="text-sm text-white/60">Profissional</p>
-          <button
-            type="button"
-            onClick={() => setShowProfessionalPickerModal(true)}
-            className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
-                <UserRound className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold">{professionalName}</p>
-                <p className="text-xs text-white/60">Selecione quem executará o serviço.</p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-white/50" />
-          </button>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-white/60">Profissionais</p>
+            <button
+              type="button"
+              onClick={handleAddProfessionalSlot}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-3 py-1 text-xs font-semibold text-white/80 transition hover:border-white/40 hover:text-white"
+            >
+              <Plus className="h-3 w-3" />
+              Adicionar outro profissional
+            </button>
+          </div>
+          <div className="space-y-2">
+            {appointmentProfessionals.map((slot, index) => {
+              const slotLabel = slot.professional?.name ?? "Selecionar";
+              return (
+                <div key={slot.id} className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenProfessionalPicker(slot.id)}
+                    className="flex flex-1 items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+                        <UserRound className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">{slotLabel}</p>
+                        <p className="text-xs text-white/60">
+                          {`Profissional ${index + 1}`}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-white/50" />
+                  </button>
+                  {index > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProfessionalSlot(slot.id)}
+                      className="rounded-full border border-white/10 p-2 text-white/60 transition hover:text-white"
+                      aria-label="Remover profissional"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </section>
 
         <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
@@ -5297,25 +6324,25 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               <p className="text-white/60">Nenhum serviço selecionado.</p>
             ) : (
               selectedAppointmentServices.map((service) => {
-                const value = Number(service.price ?? 0);
-                const cleanValue = Number.isNaN(value) ? 0 : value;
-                const discounted = Math.max(
-                  cleanValue - (cleanValue * normalizedDiscount) / 100,
-                  0,
+                const assignment = serviceAssignments[service.id];
+                const slot = appointmentProfessionals.find(
+                  (item) => item.id === assignment?.professionalSlotId,
+                );
+                const professionalLabel = slot?.professional?.name ?? "Não definido";
+                const paidValue = formatCurrency(
+                  parseCurrencyInput(assignment?.price ?? service.price ?? "0").toFixed(2),
                 );
                 return (
                   <div
                     key={`summary-${service.id}`}
-                    className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-2"
+                    className="space-y-1 rounded-2xl border border-white/10 px-4 py-2"
                   >
-                    <div>
+                    <div className="flex items-center justify-between gap-3">
                       <p className="font-semibold">{service.name}</p>
-                      <p className="text-xs text-white/60">
-                        Valor original: {formatCurrency(cleanValue.toFixed(2))}
-                      </p>
+                      <span className="text-sm font-semibold text-white">{paidValue}</span>
                     </div>
-                    <p className="text-sm font-semibold text-white">
-                      {formatCurrency(discounted.toFixed(2))}
+                    <p className="text-xs text-white/60">
+                      Profissional: <span className="font-medium text-white">{professionalLabel}</span>
                     </p>
                   </div>
                 );
@@ -5344,14 +6371,336 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           <div className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/80">
             <div className="flex items-center justify-between text-base font-semibold text-white">
               <span>Total a receber</span>
-              <span>{formatCurrency(appointmentTotalAfterDiscount.toFixed(2))}</span>
+              <span>{formatCurrency(appointmentGrandTotal.toFixed(2))}</span>
             </div>
             <p className="mt-1 text-xs text-white/60">
-              Desconto aplicado: {normalizedDiscount}% (
-              {formatCurrency(appointmentDiscountAmount.toFixed(2))})
+              Desconto aplicado (serviços): {normalizedDiscount}% (
+              {formatCurrency(servicesDiscountAmount.toFixed(2))})
             </p>
+            {addedSales.length > 0 ? (
+              <p className="text-xs text-white/60">
+                Vendas adicionais:{" "}
+                <span className="font-semibold text-white">
+                  {formatCurrency(addedSalesTotal.toFixed(2))}
+                </span>
+              </p>
+            ) : null}
           </div>
         </fieldset>
+        </div>
+        {showClientRegistrationModal ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white/60">Cliente</p>
+                  <h2 className="text-xl font-semibold">Registrar cliente</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowClientRegistrationModal(false);
+                    setClientRegistrationError(null);
+                  }}
+                  className="rounded-full border border-white/10 p-2 text-white/70"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <form onSubmit={handleSubmitClientRegistration} className="space-y-3">
+                <label className="block text-sm text-white/70">
+                  Nome
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={clientRegistrationForm.firstName}
+                    onChange={handleClientRegistrationInputChange}
+                    className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    placeholder="João"
+                  />
+                </label>
+                <label className="block text-sm text-white/70">
+                  Sobrenome
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={clientRegistrationForm.lastName}
+                    onChange={handleClientRegistrationInputChange}
+                    className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    placeholder="Silva"
+                  />
+                </label>
+                <label className="block text-sm text-white/70">
+                  Email
+                  <input
+                    type="email"
+                    name="email"
+                    value={clientRegistrationForm.email}
+                    onChange={handleClientRegistrationInputChange}
+                    className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    placeholder="joao.silva@example.com"
+                  />
+                </label>
+                <label className="block text-sm text-white/70">
+                  CPF
+                  <input
+                    type="text"
+                    name="cpf"
+                    value={clientRegistrationForm.cpf}
+                    onChange={handleClientRegistrationInputChange}
+                    className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    placeholder="12345678910"
+                  />
+                </label>
+                <label className="block text-sm text-white/70">
+                  Telefone
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={clientRegistrationForm.phone}
+                    onChange={handleClientRegistrationInputChange}
+                    className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    placeholder="71988887777"
+                  />
+                </label>
+                <label className="block text-sm text-white/70">
+                  Data de nascimento
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={clientRegistrationForm.dateOfBirth}
+                    onChange={handleClientRegistrationInputChange}
+                    className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                  />
+                </label>
+                {clientRegistrationError ? (
+                  <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs text-red-200">
+                    {clientRegistrationError}
+                  </p>
+                ) : null}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowClientRegistrationModal(false);
+                      setClientRegistrationError(null);
+                    }}
+                    className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={clientRegistrationSubmitting}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {clientRegistrationSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
+      </>
+    );
+  };
+
+  const renderAppointmentDetailScreen = () => {
+    const detail = appointmentDetail;
+    const clientName = detail?.client_name ?? "Cliente não informado";
+    const professionalName = detail?.professional_name ?? "Profissional não informado";
+    const appointmentDateLabel = detail
+      ? new Date(detail.date_time).toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "--/--/----";
+    const createdAtLabel = detail?.created_at
+      ? new Date(detail.created_at).toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Não informado";
+    const updatedAtLabel = detail?.updated_at
+      ? new Date(detail.updated_at).toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "Não informado";
+    const paymentLabel = getPaymentTypeLabel(detail?.payment_type as PaymentType);
+    const statusValue = detail?.status as AppointmentStatus | undefined;
+
+    return (
+      <div className="flex flex-col gap-5 pb-24">
+        <header className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+            onClick={handleCloseAppointmentDetail}
+            aria-label="Voltar para agenda"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 text-center">
+            <p className="text-sm text-white/60">Agendamento #{selectedAppointmentId}</p>
+            <p className="text-2xl font-semibold">{clientName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleStartAppointmentEdit}
+            disabled={!detail || appointmentDetailLoading}
+            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <PenSquare className="h-4 w-4" />
+            Editar atendimento
+          </button>
+        </header>
+
+        {appointmentDetailLoading && !detail ? (
+          <div className="flex flex-1 flex-col items-center justify-center rounded-3xl border border-white/5 bg-[#0b0b0b] p-10 text-white/70">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p className="mt-3 text-sm">Carregando agendamento...</p>
+          </div>
+        ) : null}
+
+        {appointmentDetailError && !detail ? (
+          <div className="space-y-3 rounded-3xl border border-red-500/40 bg-red-500/10 p-5 text-sm text-red-100">
+            <p>{appointmentDetailError}</p>
+            <button
+              type="button"
+              onClick={refreshAppointmentDetail}
+              className="rounded-2xl border border-white/20 px-4 py-2 text-xs font-semibold text-white/80"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : null}
+
+        {detail ? (
+          <>
+            <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+              <div>
+                <p className="text-sm text-white/60">Status</p>
+                <p className="text-lg font-semibold">Atualize a situação do atendimento</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {appointmentStatusOptions.map((option) => {
+                  const isActive = option.value === statusValue;
+                  return (
+                    <button
+                      type="button"
+                      key={option.value}
+                      onClick={() => handleUpdateAppointmentStatus(option.value)}
+                      disabled={appointmentStatusUpdating || appointmentDetailLoading}
+                      className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                        isActive ? "bg-white text-black" : "bg-white/10 text-white/70"
+                      } disabled:cursor-not-allowed disabled:opacity-60`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">Cliente</p>
+                  <p className="text-base font-semibold text-white">{clientName}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">Profissional</p>
+                  <p className="text-base font-semibold text-white">{professionalName}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">Data e hora</p>
+                  <p className="text-base font-semibold text-white">{appointmentDateLabel}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">Pagamento</p>
+                  <p className="text-base font-semibold text-white">{paymentLabel}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">Valor pago</p>
+                  <p className="text-base font-semibold text-white">
+                    {formatCurrency(detail.price_paid ?? "0")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">Desconto</p>
+                  <p className="text-base font-semibold text-white">
+                    {detail.discount ? `${detail.discount}%` : "Sem desconto"}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white/60">Serviços</p>
+                  <p className="text-lg font-semibold">Itens do atendimento</p>
+                </div>
+                <span className="text-xs text-white/60">{detail.services.length} item(ns)</span>
+              </div>
+              {detail.services.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-white/60">
+                  Nenhum serviço associado.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {detail.services.map((service) => (
+                    <li
+                      key={`detail-service-${service.id}`}
+                      className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3"
+                    >
+                      <div>
+                        <p className="font-semibold">{service.name}</p>
+                        <p className="text-xs text-white/60">{service.category_name}</p>
+                      </div>
+                      <span className="text-xs text-white/50">#{service.id}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="space-y-2 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+              <p className="text-sm text-white/60">Observações</p>
+              <p className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/80">
+                {detail.observations && detail.observations.trim().length > 0
+                  ? detail.observations
+                  : "Nenhuma observação registrada."}
+              </p>
+            </section>
+
+            <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 text-sm text-white/70">
+              <p>
+                Criado em: <span className="font-semibold text-white">{createdAtLabel}</span>
+              </p>
+              <p className="mt-1">
+                Atualizado em: <span className="font-semibold text-white">{updatedAtLabel}</span>
+              </p>
+            </section>
+          </>
+        ) : null}
       </div>
     );
   };
@@ -5359,6 +6708,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const renderAppointmentsContent = () => {
     if (isCreatingAppointment) {
       return renderCreateAppointmentScreen();
+    }
+    if (selectedAppointmentId) {
+      return renderAppointmentDetailScreen();
     }
     const summaryValue = formatCurrency(appointmentsSummary.completed_total_price ?? "0");
     return (
@@ -5434,7 +6786,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               return (
                 <article
                   key={appointment.id}
-                  className="flex items-center justify-between rounded-3xl border border-white/5 bg-[#0b0b0b] px-4 py-3"
+                  onClick={() => handleOpenAppointmentDetail(appointment.id)}
+                  className="flex cursor-pointer items-center justify-between rounded-3xl border border-white/5 bg-[#0b0b0b] px-4 py-3 transition hover:border-white/20"
+                  role="button"
+                  tabIndex={0}
                 >
                   <div>
                     <p className="text-xs text-white/60">{time}</p>
@@ -6758,12 +8113,326 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     );
   };
 
-  const renderComingSoon = (label: string) => (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 pt-24 text-center text-white/60">
-      <p className="text-lg font-semibold">{label}</p>
-      <p className="text-sm">Em breve você verá informações aqui.</p>
-    </div>
-  );
+  const renderFinancesContent = () => {
+    const monthLabel = getMonthLabel(financeMonth);
+    const appointmentPaymentData =
+      financeSummary?.appointments_by_payment_type?.map((entry) => ({
+        name: getPaymentTypeLabel(entry.payment_type as PaymentType),
+        raw: entry.payment_type,
+        value: entry.total,
+      })) ?? [];
+    const sellPaymentData =
+      financeSummary?.sell_by_payment_type?.map((entry) => ({
+        name: getSellPaymentLabel(entry.transaction_payment),
+        raw: entry.transaction_payment,
+        value: entry.total,
+      })) ?? [];
+  const cards = [
+    {
+      label: "Receitas",
+      description: "Entradas do mês",
+      value: formatCurrency(financeSummary?.revenue ?? "0"),
+      icon: Coins,
+      iconClass: "text-emerald-400",
+    },
+    {
+      label: "Despesas",
+      description: "Saídas do mês",
+      value: formatCurrency(financeSummary?.expenses ?? "0"),
+      icon: Wallet,
+      iconClass: "text-red-400",
+    },
+    {
+      label: "Serviços",
+      description: "Total executados",
+      value: financeSummary?.appointments_count ?? 0,
+      icon: Scissors,
+      iconClass: "text-white",
+    },
+    {
+      label: "Vendas",
+      description: "Produtos vendidos",
+      value: financeSummary?.sell_transactions_count ?? 0,
+      icon: DollarSign,
+      iconClass: "text-white",
+    },
+  ];
+
+    const renderPieCard = (
+      title: string,
+      subtitle: string,
+      data: { name: string; raw: string; value: number }[],
+    ) => {
+      if (data.length === 0) {
+        return (
+          <article className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 text-sm text-white/60">
+            <p className="text-base font-semibold text-white">{title}</p>
+            <p>{subtitle}</p>
+            <p className="mt-4 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-xs">
+              Nenhum dado disponível para o período.
+            </p>
+          </article>
+        );
+      }
+      return (
+        <article className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-white/60">{subtitle}</p>
+              <p className="text-lg font-semibold text-white">{title}</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={data} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={4}>
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${entry.raw}`} fill={pieChartColors[index % pieChartColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(Number(value).toFixed(2))}
+                    contentStyle={{
+                      backgroundColor: "#111",
+                      borderRadius: 12,
+                      border: "1px solid #333",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-3 text-sm text-white/80">
+              {data.map((item, index) => (
+                <div
+                  key={item.raw}
+                  className="flex items-center justify-between rounded-2xl border border-white/10 px-3 py-2"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: pieChartColors[index % pieChartColors.length] }}
+                    />
+                    <p>{item.name}</p>
+                  </div>
+                  <span className="font-semibold text-white">
+                    {formatCurrency(item.value.toFixed(2))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </article>
+      );
+    };
+
+    return (
+      <div className="flex flex-col gap-5 pb-24">
+        <header className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-white/60">Financeiro</p>
+            <p className="text-2xl font-semibold">{monthLabel}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenFinanceMonthModal}
+            className="inline-flex items-center justify-center rounded-2xl border border-white/10 p-2 text-white/80"
+            aria-label="Selecionar mês"
+          >
+            <Calendar className="h-5 w-5" />
+          </button>
+        </header>
+
+        {financeSummaryError ? (
+          <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {financeSummaryError}
+          </p>
+        ) : null}
+
+        {financeSummaryLoading && !financeSummary ? (
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-white/5 bg-[#0b0b0b] p-6 text-white/70">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p className="mt-2 text-sm">Carregando indicadores...</p>
+          </div>
+        ) : (
+          <>
+            <section className="grid gap-3 sm:grid-cols-2">
+              {cards.map((card, index) => {
+                const Icon = card.icon;
+                const isFirstRow = index < 2;
+                return (
+                  <article
+                    key={card.label}
+                    className="flex items-center gap-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card"
+                  >
+                    <div
+                      className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-white/5 ${card.iconClass}`}
+                    >
+                      <Icon className={`h-5 w-5 ${card.iconClass}`} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/60">{card.description}</p>
+                      <p className="mt-1 text-lg font-semibold text-white">{card.label}</p>
+                      <p
+                        className={`mt-1 text-2xl font-semibold ${
+                          isFirstRow && card.label === "Receitas"
+                            ? "text-emerald-300"
+                            : isFirstRow && card.label === "Despesas"
+                              ? "text-red-300"
+                              : "text-white"
+                        }`}
+                      >
+                        {typeof card.value === "number" ? card.value : card.value}
+                      </p>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+
+            <section className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {renderPieCard("Pagamentos dos serviços", "Distribuição por forma", appointmentPaymentData)}
+                {renderPieCard("Pagamentos das vendas", "Distribuição por forma", sellPaymentData)}
+              </div>
+            </section>
+          </>
+        )}
+
+        <fieldset className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+          <legend className="px-2 text-xs uppercase tracking-wide text-white/50">Repasses</legend>
+          {repassesLoading ? (
+            <div className="flex items-center justify-center py-6 text-white/70">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : repassesError ? (
+            <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              {repassesError}
+            </p>
+          ) : repassesList.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-white/60">
+              Nenhum repasse encontrado para o período.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {repassesList.map((repasse) => {
+                const serviceValue = parseCurrencyInput(repasse.value_service ?? "0");
+                const productValue = parseCurrencyInput(repasse.value_product ?? "0");
+                const totalValue = serviceValue + productValue;
+                return (
+                  <li
+                    key={repasse.id}
+                    className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-white">{repasse.professional.name}</p>
+                        <p className="text-xs text-white/60">
+                          Serviços: {formatCurrency(serviceValue.toFixed(2))} • Produtos:{" "}
+                          {formatCurrency(productValue.toFixed(2))}
+                        </p>
+                      </div>
+                      <p className="text-lg font-semibold text-white">
+                        {formatCurrency(totalValue.toFixed(2))}
+                      </p>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-xs text-white/60">
+                      <span className="inline-flex items-center gap-2 font-semibold">
+                        {repasse.is_paid ? (
+                          <Check className="h-4 w-4 text-emerald-400" />
+                        ) : (
+                          <X className="h-4 w-4 text-red-400" />
+                        )}
+                        {repasse.is_paid ? "Pago" : "Pendente"}
+                      </span>
+                      {repasse.invoice ? (
+                        <a
+                          href={repasse.invoice}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-white/80 underline-offset-2 hover:underline"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Ver NF
+                        </a>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </fieldset>
+
+        <fieldset className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+          <legend className="px-2 text-xs uppercase tracking-wide text-white/50">Contas</legend>
+          {billsLoading ? (
+            <div className="flex items-center justify-center py-6 text-white/70">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : billsError ? (
+            <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              {billsError}
+            </p>
+          ) : billsList.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-white/60">
+              Nenhuma conta cadastrada para o período.
+            </p>
+          ) : (
+            <>
+              <ul className="space-y-3">
+                {(showAllBills ? billsList : billsList.slice(0, 6)).map((bill) => {
+                  const dueDate = bill.date_of_payment
+                    ? new Date(bill.date_of_payment).toLocaleDateString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })
+                    : "--/--/----";
+                  return (
+                    <li
+                      key={bill.id}
+                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-base font-semibold text-white">{bill.name}</p>
+                          <p className="text-xs text-white/60">{bill.bill_type}</p>
+                        </div>
+                        <p className="text-lg font-semibold text-white">
+                          {formatCurrency(bill.value ?? "0")}
+                        </p>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between text-xs text-white/60">
+                        <span className="inline-flex items-center gap-2 font-semibold">
+                          {bill.is_paid ? (
+                            <Check className="h-4 w-4 text-emerald-400" />
+                          ) : (
+                            <X className="h-4 w-4 text-red-400" />
+                          )}
+                          {bill.is_paid ? "Pago" : "Pendente"}
+                        </span>
+                        <span>Vencimento: {dueDate}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              {billsList.length > 6 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAllBills((previous) => !previous)}
+                  className="w-full rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white/80 hover:border-white/30"
+                >
+                  {showAllBills ? "Ver menos" : "Ver todas"}
+                </button>
+              ) : null}
+            </>
+          )}
+        </fieldset>
+      </div>
+    );
+  };
 
   const renderContentByTab = () => {
     switch (activeTab) {
@@ -6778,7 +8447,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       case "products":
         return renderProductsContent();
       case "finances":
-        return renderComingSoon("Financeiro");
+        return renderFinancesContent();
       default:
         return renderHomeContent();
     }
@@ -6990,7 +8659,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               </div>
               <button
                 type="button"
-                onClick={() => setShowServicesPickerModal(false)}
+                onClick={handleCancelServicesPicker}
                 className="rounded-full border border-white/10 p-2 text-white/70"
               >
                 <X className="h-4 w-4" />
@@ -7024,7 +8693,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               ) : (
                 <ul className="divide-y divide-white/5 text-sm text-white/80">
                   {servicesPickerResults.map((service) => {
-                    const isSelected = selectedAppointmentServices.some(
+                    const isSelected = servicesPickerTempSelection.some(
                       (item) => item.id === service.id,
                     );
                     return (
@@ -7039,7 +8708,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => handleToggleAppointmentService(service)}
+                            onChange={() => handleToggleServiceInModal(service)}
                             className="h-4 w-4 rounded border-white/20 bg-transparent text-black"
                           />
                         </label>
@@ -7048,6 +8717,22 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   })}
                 </ul>
               )}
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCancelServicesPicker}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmServicesPicker}
+                className="flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black"
+              >
+                Adicionar serviços
+              </button>
             </div>
           </div>
         </div>
@@ -7063,7 +8748,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               </div>
               <button
                 type="button"
-                onClick={() => setShowProfessionalPickerModal(false)}
+                onClick={handleCloseProfessionalPicker}
                 className="rounded-full border border-white/10 p-2 text-white/70"
               >
                 <X className="h-4 w-4" />
@@ -7101,7 +8786,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               ) : (
                 <ul className="divide-y divide-white/5 text-sm text-white/80">
                   {professionalPickerResults.map((professional) => {
-                    const isSelected = professional.id === selectedAppointmentProfessional?.id;
+                    const isSelected =
+                      currentProfessionalPickerSlot?.professional?.id === professional.id;
                     return (
                       <li key={professional.id}>
                         <button
@@ -7342,6 +9028,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         </div>
       ) : null}
 
+      {feedbackMessage ? (
+        <div
+          className={`fixed top-6 left-1/2 z-[70] w-[90%] max-w-md -translate-x-1/2 rounded-2xl border px-5 py-3 text-sm shadow-xl ${
+            feedbackMessage.type === "success"
+              ? "border-emerald-500/40 text-emerald-700"
+              : "border-red-500/40 text-red-700"
+          } bg-white`}
+        >
+          {feedbackMessage.message}
+        </div>
+      ) : null}
+
       {showSummaryFilters ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4">
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
@@ -7456,6 +9154,77 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   Aplicar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showFinanceMonthModal ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Financeiro</p>
+                <h2 className="text-xl font-semibold">Selecionar mês</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseFinanceMonthModal}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3 text-sm text-white/70">
+              <label className="block">
+                Ano
+                <select
+                  value={financeMonthYearInput}
+                  onChange={(event) => setFinanceMonthYearInput(event.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-white/15 bg-[#050505] px-4 py-3 text-base outline-none focus:border-white/40"
+                >
+                  {summaryFilterYears.map((year) => (
+                    <option key={`finance-year-${year}`} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                Mês
+                <select
+                  value={financeMonthValueInput}
+                  onChange={(event) => setFinanceMonthValueInput(event.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-white/15 bg-[#050505] px-4 py-3 text-base outline-none focus:border-white/40"
+                >
+                  {summaryFilterMonthOptions.map((month) => (
+                    <option key={`finance-month-${month.value}`} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {financeMonthError ? (
+                <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {financeMonthError}
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCloseFinanceMonthModal}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyFinanceMonth}
+                className="flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black"
+              >
+                Aplicar
+              </button>
             </div>
           </div>
         </div>
