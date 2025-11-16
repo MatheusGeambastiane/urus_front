@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import type { LucideIcon } from "lucide-react";
@@ -303,6 +303,29 @@ type BillItem = {
   value: string;
   is_paid: boolean;
   date_of_payment: string;
+};
+
+type BillTransaction = {
+  id: number;
+  type: string;
+  price: string;
+  date_of_transaction: string;
+  transaction_payment: string;
+  payment_proof: string | null;
+  product: number | null;
+  quantity: number;
+  user: number | null;
+  bill: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type BillDetail = BillItem & {
+  type: string;
+  finish_month: string | null;
+  created_at: string;
+  updated_at: string;
+  transactions: BillTransaction[];
 };
 
 type AppointmentsResponse = {
@@ -982,6 +1005,14 @@ const billFrequencyOptions = [
   { value: "emergency", label: "Emergencial", icon: AlertTriangle },
 ];
 
+const getBillFrequencyLabel = (value: string | null | undefined) => {
+  if (!value) {
+    return "Tipo";
+  }
+  const option = billFrequencyOptions.find((item) => item.value === value);
+  return option?.label ?? value;
+};
+
 const paymentTypeOptions: { value: PaymentType; label: string; icon: LucideIcon }[] = [
   { value: "credit", label: "Cartão de crédito", icon: CreditCard },
   { value: "debit", label: "Cartão de débito", icon: Wallet },
@@ -1052,6 +1083,7 @@ const summaryFilterMonthOptions = [
 
 export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const accessToken = session?.accessToken ?? null;
   const sessionProfilePic =
@@ -1069,6 +1101,9 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
     },
     [router],
   );
+  const newAppointmentParam = searchParams.get("novo_atendimento");
+  const newSaleParam = searchParams.get("nova_venda_produto");
+  const newProductParam = searchParams.get("novo_produto");
   const [usersData, setUsersData] = useState<UsersResponse | null>(null);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -1272,7 +1307,6 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [dailySummary, setDailySummary] = useState<DailySummaryResponse | null>(null);
   const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
   const [dailySummaryError, setDailySummaryError] = useState<string | null>(null);
-  const [pendingQuickAction, setPendingQuickAction] = useState<QuickActionKey | null>(null);
   const [showSummaryFilters, setShowSummaryFilters] = useState(false);
   const [summaryFilterMode, setSummaryFilterMode] = useState<"day" | "month">("day");
   const [summaryDayInput, setSummaryDayInput] = useState("");
@@ -1319,6 +1353,31 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [repasseAnalyticsData, setRepasseAnalyticsData] = useState<ProfessionalServiceSummary | null>(null);
   const [repasseAnalyticsLoading, setRepasseAnalyticsLoading] = useState(false);
   const [repasseAnalyticsError, setRepasseAnalyticsError] = useState<string | null>(null);
+  const [selectedBillId, setSelectedBillId] = useState<number | null>(null);
+  const [billDetail, setBillDetail] = useState<BillDetail | null>(null);
+  const [billDetailLoading, setBillDetailLoading] = useState(false);
+  const [billDetailError, setBillDetailError] = useState<string | null>(null);
+  const [showBillDetail, setShowBillDetail] = useState(false);
+  const [billDetailsCache, setBillDetailsCache] = useState<Record<number, BillDetail>>({});
+  const [billEditForm, setBillEditForm] = useState({
+    name: "",
+    value: "",
+    type: "fixed",
+    bill_type: "maintenance",
+    date_of_payment: "",
+    finish_month: "",
+    is_paid: false,
+  });
+  const [billEditSubmitting, setBillEditSubmitting] = useState(false);
+  const [billEditError, setBillEditError] = useState<string | null>(null);
+  const [showBillPaymentModal, setShowBillPaymentModal] = useState(false);
+  const [billPaymentForm, setBillPaymentForm] = useState({
+    price: "",
+    transactionPayment: "pix" as PaymentType,
+    paymentProof: null as File | null,
+  });
+  const [billPaymentError, setBillPaymentError] = useState<string | null>(null);
+  const [billPaymentSubmitting, setBillPaymentSubmitting] = useState(false);
   const [billsList, setBillsList] = useState<BillItem[]>([]);
   const [billsLoading, setBillsLoading] = useState(false);
   const [billsError, setBillsError] = useState<string | null>(null);
@@ -3684,7 +3743,78 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     [accessToken, repasseDetailsCache],
   );
 
+  const fetchBillDetail = useCallback(
+    async (billId: number, options?: { force?: boolean }) => {
+      if (!accessToken) {
+        setBillDetailError("Sessão expirada. Faça login novamente.");
+        return null;
+      }
+      setSelectedBillId(billId);
+      setBillDetailError(null);
+      const cachedDetail = billDetailsCache[billId];
+      if (cachedDetail && !options?.force) {
+        setBillDetail(cachedDetail);
+        return cachedDetail;
+      }
+      if (!cachedDetail) {
+        setBillDetail(null);
+      }
+      setBillDetailLoading(true);
+      try {
+        const response = await fetch(`${billsEndpointBase}${billId}/`, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        if (!response.ok) {
+          let errorMessage = "Não foi possível carregar a conta.";
+          try {
+            const data = await response.json();
+            if (data?.detail) {
+              errorMessage = data.detail;
+            }
+          } catch {
+            /* noop */
+          }
+          throw new Error(errorMessage);
+        }
+        const data: BillDetail = await response.json();
+        setBillDetail(data);
+        setBillDetailsCache((previous) => ({
+          ...previous,
+          [billId]: data,
+        }));
+        setBillsList((previous) =>
+          previous.map((item) =>
+            item.id === data.id
+              ? {
+                  ...item,
+                  name: data.name,
+                  value: data.value,
+                  bill_type: data.bill_type,
+                  is_paid: data.is_paid,
+                  date_of_payment: data.date_of_payment,
+                }
+              : item,
+          ),
+        );
+        return data;
+      } catch (err) {
+        setBillDetailError(
+          err instanceof Error ? err.message : "Erro inesperado ao carregar a conta.",
+        );
+        return null;
+      } finally {
+        setBillDetailLoading(false);
+      }
+    },
+    [accessToken, billDetailsCache],
+  );
+
   const handleSelectRepasse = (repasseId: number) => {
+    setShowBillDetail(false);
     setShowRepasseDetail(true);
     void fetchRepasseDetail(repasseId);
   };
@@ -3714,6 +3844,215 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const handleCloseRepassePaymentModal = () => {
     setShowRepassePaymentModal(false);
     setRepassePaymentError(null);
+  };
+
+  const handleSelectBill = (billId: number) => {
+    setShowRepasseDetail(false);
+    setShowRepasseAnalytics(false);
+    setShowBillDetail(true);
+    void fetchBillDetail(billId);
+  };
+
+  const handleCloseBillDetail = () => {
+    setShowBillDetail(false);
+    setBillEditError(null);
+  };
+
+  const handleBillEditInputChange = (
+    field: keyof typeof billEditForm,
+    value: string | boolean,
+  ) => {
+    setBillEditForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  };
+
+  const handleBillEditValueChange = (value: string) => {
+    const masked = formatMoneyInputValue(value);
+    handleBillEditInputChange("value", masked);
+  };
+
+  const handleSubmitBillEdit = async () => {
+    if (!billDetail || !accessToken) {
+      setBillEditError("Selecione uma conta para editar.");
+      return;
+    }
+    if (!billEditForm.name.trim()) {
+      setBillEditError("Informe o nome da conta.");
+      return;
+    }
+    const numericValue = parseCurrencyInput(billEditForm.value);
+    if (numericValue <= 0) {
+      setBillEditError("Informe um valor válido.");
+      return;
+    }
+    if (!billEditForm.date_of_payment) {
+      setBillEditError("Informe a data de pagamento/vencimento.");
+      return;
+    }
+    setBillEditSubmitting(true);
+    setBillEditError(null);
+    try {
+      const payload = {
+        name: billEditForm.name.trim(),
+        value: numericValue.toFixed(2),
+        type: billEditForm.type,
+        bill_type: billEditForm.bill_type,
+        finish_month: billEditForm.finish_month
+          ? `${billEditForm.finish_month}-01`
+          : null,
+        date_of_payment: billEditForm.date_of_payment,
+        is_paid: billEditForm.is_paid,
+      };
+      const response = await fetch(`${billsEndpointBase}${billDetail.id}/`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        let errorMessage = "Não foi possível atualizar a conta.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+      setFeedbackMessage({
+        type: "success",
+        message: "Conta atualizada com sucesso.",
+      });
+      await fetchBillDetail(billDetail.id, { force: true });
+    } catch (err) {
+      setBillEditError(
+        err instanceof Error ? err.message : "Erro inesperado ao atualizar a conta.",
+      );
+    } finally {
+      setBillEditSubmitting(false);
+    }
+  };
+
+  const handleOpenBillPaymentModal = () => {
+    if (!billDetail) {
+      setFeedbackMessage({
+        type: "error",
+        message: "Selecione uma conta para adicionar um pagamento.",
+      });
+      return;
+    }
+    setBillPaymentForm({
+      price: "",
+      transactionPayment: "pix",
+      paymentProof: null,
+    });
+    setBillPaymentError(null);
+    setShowBillPaymentModal(true);
+  };
+
+  const handleCloseBillPaymentModal = () => {
+    setShowBillPaymentModal(false);
+    setBillPaymentError(null);
+  };
+
+  const handleBillPaymentPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const masked = formatMoneyInputValue(event.target.value);
+    setBillPaymentForm((previous) => ({
+      ...previous,
+      price: masked,
+    }));
+  };
+
+  const handleBillPaymentTypeSelect = (value: PaymentType) => {
+    setBillPaymentForm((previous) => ({
+      ...previous,
+      transactionPayment: value,
+    }));
+  };
+
+  const handleBillPaymentProofChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setBillPaymentForm((previous) => ({
+      ...previous,
+      paymentProof: file,
+    }));
+  };
+
+  const handleSubmitBillPayment = async () => {
+    if (!billDetail) {
+      setBillPaymentError("Selecione uma conta para registrar o pagamento.");
+      return;
+    }
+    if (!accessToken) {
+      setBillPaymentError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    const priceValue = parseCurrencyInput(billPaymentForm.price);
+    if (priceValue <= 0) {
+      setBillPaymentError("Informe um valor válido.");
+      return;
+    }
+    setBillPaymentSubmitting(true);
+    setBillPaymentError(null);
+    try {
+      const formData = new FormData();
+      formData.append("type", "payment");
+      formData.append("price", priceValue.toFixed(2));
+      formData.append("date_of_transaction", formatDateParam(new Date()));
+      formData.append("transaction_payment", billPaymentForm.transactionPayment);
+      formData.append("bill", String(billDetail.id));
+      if (billPaymentForm.paymentProof) {
+        formData.append("payment_proof", billPaymentForm.paymentProof);
+      }
+
+      const response = await fetch(transactionsEndpointBase, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível registrar o pagamento.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Pagamento registrado para a conta.",
+      });
+      setShowBillPaymentModal(false);
+      setBillPaymentForm({
+        price: "",
+        transactionPayment: "pix",
+        paymentProof: null,
+      });
+      await fetchBillDetail(billDetail.id, { force: true });
+    } catch (err) {
+      setBillPaymentError(
+        err instanceof Error ? err.message : "Erro inesperado ao registrar o pagamento.",
+      );
+    } finally {
+      setBillPaymentSubmitting(false);
+    }
   };
 
   const handleOpenRepasseInvoiceModal = () => {
@@ -4486,11 +4825,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const triggerQuickAction = (action: QuickActionKey) => {
     if (action === "create-appointment") {
-      navigateToTab("agenda");
-    } else {
-      navigateToTab("products");
+      router.push("/dashboard/agenda?novo_atendimento=1");
+      return;
     }
-    setPendingQuickAction(action);
+    if (action === "create-product-sale") {
+      router.push("/dashboard/produtos?nova_venda_produto=1");
+      return;
+    }
+    if (action === "create-product") {
+      router.push("/dashboard/produtos?novo_produto=1");
+      return;
+    }
   };
 
   const handleOpenSummaryFilters = () => {
@@ -4549,32 +4894,27 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   useEffect(() => {
-    if (!pendingQuickAction) {
-      return;
-    }
-
-    if (pendingQuickAction === "create-appointment" && activeTab === "agenda") {
+    if (activeTab === "agenda" && newAppointmentParam === "1") {
       handleStartCreateAppointment();
-      setPendingQuickAction(null);
-      return;
+      router.replace("/dashboard/agenda", { scroll: false });
     }
-
-    if (pendingQuickAction === "create-product-sale" && activeTab === "products") {
+    if (activeTab === "products" && newSaleParam === "1") {
       handleStartCreateProductSale();
-      setPendingQuickAction(null);
-      return;
+      router.replace("/dashboard/produtos", { scroll: false });
     }
-
-    if (pendingQuickAction === "create-product" && activeTab === "products") {
+    if (activeTab === "products" && newProductParam === "1") {
       handleStartCreateProduct();
-      setPendingQuickAction(null);
+      router.replace("/dashboard/produtos", { scroll: false });
     }
   }, [
-    pendingQuickAction,
     activeTab,
+    newAppointmentParam,
+    newSaleParam,
+    newProductParam,
     handleStartCreateAppointment,
     handleStartCreateProductSale,
     handleStartCreateProduct,
+    router,
   ]);
 
   useEffect(() => {
@@ -4684,6 +5024,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setShowRepasseDetail(false);
     setShowRepasseAnalytics(false);
     setRepasseDetailsCache({});
+    setSelectedBillId(null);
+    setBillDetail(null);
+    setBillDetailError(null);
+    setShowBillDetail(false);
+    setBillDetailsCache({});
+    setBillEditError(null);
   }, [financeMonth]);
 
   useEffect(() => {
@@ -4698,6 +5044,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setShowRepasseAnalytics(false);
     }
   }, [repassesList, selectedRepasseId]);
+
+  useEffect(() => {
+    if (!selectedBillId) {
+      return;
+    }
+    const stillExists = billsList.some((bill) => bill.id === selectedBillId);
+    if (!stillExists) {
+      setSelectedBillId(null);
+      setBillDetail(null);
+      setShowBillDetail(false);
+    }
+  }, [billsList, selectedBillId]);
 
   useEffect(() => {
     if (!showRepasseAnalytics || !repasseDetail || !accessToken) {
@@ -4742,6 +5100,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     fetchProfessionalSummary();
     return () => controller.abort();
   }, [showRepasseAnalytics, repasseDetail, accessToken, financeMonth]);
+
+  useEffect(() => {
+    if (!billDetail) {
+      return;
+    }
+    setBillEditForm({
+      name: billDetail.name ?? "",
+      value: formatMoneyFromDecimalString(billDetail.value ?? "0"),
+      type: billDetail.type ?? "fixed",
+      bill_type: billDetail.bill_type ?? "maintenance",
+      date_of_payment: billDetail.date_of_payment ?? "",
+      finish_month: billDetail.finish_month ? billDetail.finish_month.slice(0, 7) : "",
+      is_paid: Boolean(billDetail.is_paid),
+    });
+  }, [billDetail]);
 
   useEffect(() => {
     if (activeTab !== "finances" || !accessToken) {
@@ -9347,6 +9720,257 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           )}
         </div>
       );
+    } else if (showBillDetail) {
+      const detail = billDetail;
+      return (
+        <div className="space-y-4">
+          <header className="mb-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleCloseBillDetail}
+              className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+              aria-label="Voltar para lista de contas"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className="flex-1 text-right">
+              <p className="text-sm text-white/60">Conta</p>
+              <p className="text-lg font-semibold text-white">{detail?.name ?? "Detalhes"}</p>
+            </div>
+          </header>
+
+          {billDetailError ? (
+            <p className="rounded-3xl border border-red-500/30 bg-red-500/10 px-4 py-4 text-sm text-red-100">
+              {billDetailError}
+            </p>
+          ) : null}
+
+          {billDetailLoading && !detail ? (
+            <div className="flex items-center justify-center rounded-3xl border border-white/10 px-4 py-10 text-white/70">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : detail ? (
+            <>
+              <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card text-white">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-white/50">Conta</p>
+                    <p className="text-lg font-semibold">{detail.name}</p>
+                    <p className="text-sm text-white/60">{getBillFrequencyLabel(detail.type)}</p>
+                    <p className="text-xs text-white/60">
+                      Categoria: {getBillTypeDefinition(detail.bill_type).label}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+                      detail.is_paid ? "bg-emerald-500/10 text-emerald-200" : "bg-amber-500/10 text-amber-200"
+                    }`}
+                  >
+                    {detail.is_paid ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                    {detail.is_paid ? "Pago" : "Pendente"}
+                  </span>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <p className="text-xs uppercase tracking-wide text-white/60">Valor</p>
+                  <p className="mt-1 text-2xl font-semibold">{formatCurrency(detail.value ?? "0")}</p>
+                  <p className="text-xs text-white/60">
+                    Vencimento:{" "}
+                    {detail.date_of_payment
+                      ? new Date(detail.date_of_payment).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                      : "--/--/----"}
+                  </p>
+                  {detail.finish_month ? (
+                    <p className="text-xs text-white/60">Finaliza em: {formatMonthReference(detail.finish_month)}</p>
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card text-white/80">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-white">Editar conta</h2>
+                  <button
+                    type="button"
+                    onClick={handleSubmitBillEdit}
+                    disabled={billEditSubmitting}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {billEditSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar alterações"
+                    )}
+                  </button>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <label className="block text-white/70">
+                    Nome
+                    <input
+                      type="text"
+                      value={billEditForm.name}
+                      onChange={(event) => handleBillEditInputChange("name", event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base text-white outline-none focus:border-white/40"
+                    />
+                  </label>
+                  <label className="block text-white/70">
+                    Valor
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={billEditForm.value}
+                      onChange={(event) => handleBillEditValueChange(event.target.value)}
+                      className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base text-white outline-none focus:border-white/40"
+                    />
+                  </label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-white/70">
+                      Tipo
+                      <select
+                        value={billEditForm.type}
+                        onChange={(event) => handleBillEditInputChange("type", event.target.value)}
+                        className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base text-white outline-none focus:border-white/40"
+                      >
+                        {billFrequencyOptions.map((option) => (
+                          <option key={`bill-type-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block text-white/70">
+                      Categoria
+                      <select
+                        value={billEditForm.bill_type}
+                        onChange={(event) => handleBillEditInputChange("bill_type", event.target.value)}
+                        className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base text-white outline-none focus:border-white/40"
+                      >
+                        {billTypeOptions.map((option) => (
+                          <option key={`bill-cat-${option.value}`} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="block text-white/70">
+                      Data de pagamento
+                      <input
+                        type="date"
+                        value={billEditForm.date_of_payment}
+                        onChange={(event) => handleBillEditInputChange("date_of_payment", event.target.value)}
+                        className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base text-white outline-none focus:border-white/40"
+                      />
+                    </label>
+                    <label className="block text-white/70">
+                      Mês final
+                      <input
+                        type="month"
+                        value={billEditForm.finish_month}
+                        onChange={(event) => handleBillEditInputChange("finish_month", event.target.value)}
+                        className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base text-white outline-none focus:border-white/40"
+                      />
+                    </label>
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-sm text-white/80">
+                    <input
+                      type="checkbox"
+                      checked={billEditForm.is_paid}
+                      onChange={(event) => handleBillEditInputChange("is_paid", event.target.checked)}
+                      className="h-4 w-4 rounded border-white/20 bg-transparent text-black"
+                    />
+                    Marcar como pago
+                  </label>
+                  {billEditError ? (
+                    <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                      {billEditError}
+                    </p>
+                  ) : null}
+                </div>
+              </section>
+
+              <fieldset className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+                <legend className="px-2 text-xs uppercase tracking-wide text-white/50">Transações</legend>
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-white/70">
+                  <p>Pagamentos registrados para esta conta.</p>
+                  <button
+                    type="button"
+                    onClick={handleOpenBillPaymentModal}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/30 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/60"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Adicionar pagamento
+                  </button>
+                </div>
+                {detail.transactions.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/60">
+                    Nenhum pagamento registrado.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {detail.transactions.map((transaction) => {
+                      const transactionDate = transaction.date_of_transaction
+                        ? new Date(transaction.date_of_transaction).toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "numeric",
+                          })
+                        : "--/--/----";
+                      const paymentLabel =
+                        getPaymentTypeLabel(transaction.transaction_payment as PaymentType) ||
+                        capitalizeFirstLetter(transaction.transaction_payment);
+                      return (
+                        <li
+                          key={`bill-transaction-${transaction.id}`}
+                          className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-white">
+                                {transaction.type === "payment"
+                                  ? "Pagamento"
+                                  : capitalizeFirstLetter(transaction.type)}
+                              </p>
+                              <p className="text-xs text-white/60">{transactionDate}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-semibold text-white">
+                                {formatCurrency(transaction.price ?? "0")}
+                              </p>
+                              <p className="text-xs text-white/60">{paymentLabel}</p>
+                            </div>
+                          </div>
+                          {transaction.payment_proof ? (
+                            <a
+                              href={transaction.payment_proof}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-white/80 underline-offset-2 hover:underline"
+                            >
+                              <FileText className="h-4 w-4" />
+                              Ver comprovante
+                            </a>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </fieldset>
+            </>
+          ) : (
+            <p className="rounded-3xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">
+              Detalhes indisponíveis. Volte para a lista e tente novamente.
+            </p>
+          )}
+        </div>
+      );
     }
 
     const renderPieCard = (
@@ -9602,7 +10226,16 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   return (
                     <li
                       key={bill.id}
-                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelectBill(bill.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSelectBill(bill.id);
+                        }
+                      }}
+                      className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80 transition hover:border-white/30"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
@@ -10170,8 +10803,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 Comprovante de pagamento
                 <input
                   type="file"
-                  accept="image/*"
-                  capture="environment"
+                  accept="image/*,application/pdf"
                   onChange={handleRepassePaymentProofChange}
                   className="mt-1 w-full rounded-2xl border border-dashed border-white/20 bg-transparent px-4 py-3 text-sm text-white/70 outline-none file:mr-4 file:rounded-2xl file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black focus:border-white/40"
                 />
@@ -10283,6 +10915,113 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </span>
                 ) : (
                   "Enviar nota fiscal"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showBillPaymentModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Contas</p>
+                <h2 className="text-xl font-semibold">Adicionar pagamento</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseBillPaymentModal}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+                aria-label="Fechar modal de pagamento da conta"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm text-white/70">
+              <label className="block text-white/80">
+                Valor
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={billPaymentForm.price}
+                  onChange={handleBillPaymentPriceChange}
+                  placeholder="R$ 0,00"
+                  className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base text-white outline-none focus:border-white/40"
+                />
+              </label>
+              <div>
+                <p className="text-sm text-white/80">Tipo de transação</p>
+                <div className="mt-2 space-y-2">
+                  {paymentTypeOptions.map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = option.value === billPaymentForm.transactionPayment;
+                    return (
+                      <button
+                        key={`bill-payment-type-${option.value}`}
+                        type="button"
+                        onClick={() => handleBillPaymentTypeSelect(option.value)}
+                        className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                          isSelected
+                            ? "border-white bg-white text-black"
+                            : "border-white/10 text-white/80"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="h-5 w-5" />
+                          {option.label}
+                        </div>
+                        {isSelected ? <Check className="h-4 w-4" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <label className="block text-white/80">
+                Comprovante de pagamento
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={handleBillPaymentProofChange}
+                  className="mt-1 w-full rounded-2xl border border-dashed border-white/20 bg-transparent px-4 py-3 text-sm text-white/70 outline-none file:mr-4 file:rounded-2xl file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black focus:border-white/40"
+                />
+                {billPaymentForm.paymentProof ? (
+                  <p className="mt-1 text-xs text-white/60">
+                    Arquivo selecionado: {billPaymentForm.paymentProof.name}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-white/60">Suporta imagens ou documentos.</p>
+                )}
+              </label>
+              {billPaymentError ? (
+                <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {billPaymentError}
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCloseBillPaymentModal}
+                disabled={billPaymentSubmitting}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitBillPayment}
+                disabled={billPaymentSubmitting}
+                className="flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {billPaymentSubmitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Salvando...
+                  </span>
+                ) : (
+                  "Adicionar pagamento"
                 )}
               </button>
             </div>
