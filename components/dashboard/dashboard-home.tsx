@@ -45,6 +45,7 @@ import {
   PenSquare,
   Plus,
   DollarSign,
+  ArrowLeftRight,
   Coins,
   CreditCard,
   QrCode,
@@ -58,6 +59,9 @@ import {
   Wallet,
   Waves,
   Trash2,
+  Repeat,
+  Shuffle,
+  Wrench,
 } from "lucide-react";
 import { env } from "@/lib/env";
 
@@ -231,6 +235,71 @@ type RepasseItem = {
   month: string;
   created_at: string;
   updated_at: string;
+};
+
+type RepasseTransaction = {
+  id: number;
+  type: string;
+  price: string;
+  date_of_transaction: string;
+  transaction_payment: string;
+  payment_proof: string | null;
+  product: number | null;
+  quantity: number;
+  user: number;
+  bill: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type RepasseDetail = {
+  id: number;
+  professional: {
+    id: number;
+    user_id: number;
+    name: string;
+    email: string;
+    professional_type: string;
+  };
+  value_service: string;
+  value_product: string;
+  is_paid: boolean;
+  transactions: RepasseTransaction[];
+  invoice: string | null;
+  month: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ProfessionalServiceSummary = {
+  professional: {
+    id: number;
+    user_id: number;
+    name: string;
+    professional_type: string;
+  };
+  period: {
+    month: string;
+    start: string;
+    end: string;
+  };
+  totals: {
+    service_revenue: string;
+    sales_revenue: string;
+    overall_revenue: string;
+    appointments_count: number;
+    services_performed: number;
+  };
+  services_breakdown: {
+    service_id: number;
+    service_name: string;
+    total: number;
+  }[];
+  categories_breakdown: {
+    category_id: number;
+    category_name: string;
+    total: number;
+  }[];
 };
 
 type BillItem = {
@@ -434,6 +503,7 @@ const clientsEndpointBase = `${env.apiBaseUrl}/dashboard/users/clients/`;
 const financeSummaryEndpoint = `${env.apiBaseUrl}/dashboard/summary/`;
 const repassesEndpoint = `${env.apiBaseUrl}/dashboard/repasses/`;
 const billsEndpointBase = `${env.apiBaseUrl}/dashboard/bills/`;
+const professionalServiceSummaryEndpointBase = `${env.apiBaseUrl}/dashboard/professionals/`;
 
 const formatDisplayDate = (value: string) => {
   const digitsOnly = value.replace(/\D/g, "").slice(0, 8);
@@ -629,6 +699,17 @@ const getSellPaymentLabel = (value: string | null | undefined) => {
   }
 };
 
+const getBillTypeDefinition = (value: string | null | undefined) => {
+  if (!value) {
+    return { label: "Categoria", icon: FileText };
+  }
+  const option = billTypeOptions.find((item) => item.value === value);
+  if (option) {
+    return { label: option.label, icon: option.icon };
+  }
+  return { label: value, icon: FileText };
+};
+
 const formatIsoToDisplay = (iso: string) => {
   if (!iso) {
     return "";
@@ -676,6 +757,35 @@ const formatDateParam = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const formatMonthReference = (value: string) => {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
+
+const calculateRepasseTotals = (detail: RepasseDetail | null) => {
+  if (!detail) {
+    return { total: 0, paid: 0, remaining: 0 };
+  }
+  const serviceValue = parseCurrencyInput(detail.value_service ?? "0");
+  const productValue = parseCurrencyInput(detail.value_product ?? "0");
+  const total = serviceValue + productValue;
+  const paid = detail.transactions.reduce(
+    (accumulator, transaction) => accumulator + parseCurrencyInput(transaction.price ?? "0"),
+    0,
+  );
+  const remaining = Math.max(total - paid, 0);
+  return { total, paid, remaining };
 };
 
 const formatDatePillLabel = (date: Date, today: Date) => {
@@ -864,6 +974,19 @@ const appointmentStatusOptions: { value: AppointmentStatus; label: string }[] = 
 ];
 
 const pieChartColors = ["#F97066", "#7F56D9", "#12B76A", "#FDB022", "#2E90FA"];
+
+const billTypeOptions = [
+  { value: "maintenance", label: "Manutenção", icon: Wrench },
+  { value: "creditcard", label: "Cartão de crédito", icon: CreditCard },
+  { value: "tax", label: "Imposto", icon: Coins },
+  { value: "marketing", label: "Marketing", icon: Sparkles },
+];
+
+const billFrequencyOptions = [
+  { value: "fixed", label: "Fixo", icon: Repeat },
+  { value: "unprevisible", label: "Imprevisível", icon: Shuffle },
+  { value: "emergency", label: "Emergencial", icon: AlertTriangle },
+];
 
 const paymentTypeOptions: { value: PaymentType; label: string; icon: LucideIcon }[] = [
   { value: "credit", label: "Cartão de crédito", icon: CreditCard },
@@ -1165,11 +1288,49 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const [repassesList, setRepassesList] = useState<RepasseItem[]>([]);
   const [repassesLoading, setRepassesLoading] = useState(false);
   const [repassesError, setRepassesError] = useState<string | null>(null);
+  const [selectedRepasseId, setSelectedRepasseId] = useState<number | null>(null);
+  const [repasseDetail, setRepasseDetail] = useState<RepasseDetail | null>(null);
+  const [repasseDetailLoading, setRepasseDetailLoading] = useState(false);
+  const [repasseDetailError, setRepasseDetailError] = useState<string | null>(null);
+  const [repasseDetailsCache, setRepasseDetailsCache] = useState<Record<number, RepasseDetail>>({});
+  const [showRepassePaymentModal, setShowRepassePaymentModal] = useState(false);
+  const [repassePaymentForm, setRepassePaymentForm] = useState<{
+    price: string;
+    transactionPayment: PaymentType;
+    paymentProof: File | null;
+  }>({
+    price: "",
+    transactionPayment: "pix",
+    paymentProof: null,
+  });
+  const [repassePaymentError, setRepassePaymentError] = useState<string | null>(null);
+  const [repassePaymentSubmitting, setRepassePaymentSubmitting] = useState(false);
+  const [showRepasseDetail, setShowRepasseDetail] = useState(false);
+  const [showRepasseInvoiceModal, setShowRepasseInvoiceModal] = useState(false);
+  const [repasseInvoiceFile, setRepasseInvoiceFile] = useState<File | null>(null);
+  const [repasseInvoiceError, setRepasseInvoiceError] = useState<string | null>(null);
+  const [repasseInvoiceSubmitting, setRepasseInvoiceSubmitting] = useState(false);
+  const [showRepasseAnalytics, setShowRepasseAnalytics] = useState(false);
+  const [repasseAnalyticsData, setRepasseAnalyticsData] = useState<ProfessionalServiceSummary | null>(null);
+  const [repasseAnalyticsLoading, setRepasseAnalyticsLoading] = useState(false);
+  const [repasseAnalyticsError, setRepasseAnalyticsError] = useState<string | null>(null);
   const [billsList, setBillsList] = useState<BillItem[]>([]);
   const [billsLoading, setBillsLoading] = useState(false);
   const [billsError, setBillsError] = useState<string | null>(null);
   const [showAllBills, setShowAllBills] = useState(false);
   const [financeMonthError, setFinanceMonthError] = useState<string | null>(null);
+  const [showFinanceFabOptions, setShowFinanceFabOptions] = useState(false);
+  const [isCreatingBill, setIsCreatingBill] = useState(false);
+  const [createBillError, setCreateBillError] = useState<string | null>(null);
+  const [isSavingBill, setIsSavingBill] = useState(false);
+  const [createBillForm, setCreateBillForm] = useState({
+    name: "",
+    value: "",
+    date_of_payment: "",
+    finish_month: "",
+    type: "fixed",
+    bill_type: "maintenance",
+  });
 
   const {
     register: registerCreateUser,
@@ -1194,6 +1355,14 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
     resolver: zodResolver(editUserSchema),
     defaultValues: editUserDefaultValues,
   });
+
+  const repassePaymentTotals = useMemo(() => calculateRepasseTotals(repasseDetail), [repasseDetail]);
+  const repassePaymentValueNumeric = useMemo(
+    () => parseCurrencyInput(repassePaymentForm.price),
+    [repassePaymentForm.price],
+  );
+  const repassePaymentOutOfBounds =
+    Boolean(repasseDetail) && Math.abs(repassePaymentValueNumeric - repassePaymentTotals.remaining) > 0.009;
 
   const resetAppointmentForm = useCallback(() => {
     setAppointmentDateInput(formatDateParam(selectedDate));
@@ -3324,6 +3493,415 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setShowAllBills(false);
   };
 
+  const handleToggleFinanceFab = () => {
+    setShowFinanceFabOptions((previous) => !previous);
+  };
+
+  const handleOpenCreateBill = () => {
+    setIsCreatingBill(true);
+    setShowFinanceFabOptions(false);
+    setCreateBillError(null);
+  };
+
+  const handleCancelCreateBill = () => {
+    setIsCreatingBill(false);
+    setCreateBillForm({
+      name: "",
+      value: "",
+      date_of_payment: "",
+      finish_month: "",
+      type: "fixed",
+      bill_type: "maintenance",
+    });
+    setCreateBillError(null);
+  };
+
+  const handleCreateBillInputChange = (
+    field: keyof typeof createBillForm,
+    value: string,
+  ) => {
+    setCreateBillForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  };
+
+  const handleCreateBillValueChange = (value: string) => {
+    const maskedValue = formatMoneyInputValue(value);
+    handleCreateBillInputChange("value", maskedValue);
+  };
+
+  const handleCreateBillTypeSelect = (value: string) => {
+    setCreateBillForm((previous) => ({
+      ...previous,
+      type: value,
+    }));
+  };
+
+  const handleCreateBillCategorySelect = (value: string) => {
+    setCreateBillForm((previous) => ({
+      ...previous,
+      bill_type: value,
+    }));
+  };
+
+  const handleSubmitCreateBill = async () => {
+    if (!accessToken) {
+      setCreateBillError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    if (!createBillForm.name.trim()) {
+      setCreateBillError("Informe o nome da conta.");
+      return;
+    }
+    const numericValue = parseCurrencyInput(createBillForm.value);
+    if (numericValue <= 0) {
+      setCreateBillError("Informe um valor válido.");
+      return;
+    }
+    if (!createBillForm.date_of_payment) {
+      setCreateBillError("Informe a data de vencimento.");
+      return;
+    }
+    setIsSavingBill(true);
+    setCreateBillError(null);
+    try {
+      const payload = {
+        name: createBillForm.name.trim(),
+        value: numericValue.toFixed(2),
+        type: createBillForm.type,
+        bill_type: createBillForm.bill_type,
+        finish_month: createBillForm.finish_month || null,
+        date_of_payment: createBillForm.date_of_payment,
+      };
+
+      const response = await fetch(billsEndpointBase, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível criar a conta.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      const createdBill: BillItem = await response.json();
+      setFeedbackMessage({
+        type: "success",
+        message: "Conta criada com sucesso.",
+      });
+      setBillsList((previous) => [createdBill, ...previous]);
+      handleCancelCreateBill();
+    } catch (err) {
+      setCreateBillError(
+        err instanceof Error ? err.message : "Erro inesperado ao criar a conta.",
+      );
+    } finally {
+      setIsSavingBill(false);
+    }
+  };
+
+  const handleCreateTransactionPlaceholder = () => {
+    setShowFinanceFabOptions(false);
+    setFeedbackMessage({
+      type: "error",
+      message: "Cadastro de transação em desenvolvimento.",
+    });
+  };
+
+  const fetchRepasseDetail = useCallback(
+    async (repasseId: number, options?: { force?: boolean }) => {
+      if (!accessToken) {
+        setRepasseDetailError("Sessão expirada. Faça login novamente.");
+        return null;
+      }
+      setSelectedRepasseId(repasseId);
+      setRepasseDetailError(null);
+      const cachedDetail = repasseDetailsCache[repasseId];
+      if (cachedDetail && !options?.force) {
+        setRepasseDetail(cachedDetail);
+        return cachedDetail;
+      }
+      if (!cachedDetail) {
+        setRepasseDetail(null);
+      }
+      setRepasseDetailLoading(true);
+      try {
+        const response = await fetch(`${repassesEndpoint}${repasseId}/`, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        if (!response.ok) {
+          let errorMessage = "Não foi possível carregar o repasse.";
+          try {
+            const data = await response.json();
+            if (data?.detail) {
+              errorMessage = data.detail;
+            }
+          } catch {
+            /* noop */
+          }
+          throw new Error(errorMessage);
+        }
+        const data: RepasseDetail = await response.json();
+        setRepasseDetail(data);
+        setRepasseDetailsCache((previous) => ({
+          ...previous,
+          [repasseId]: data,
+        }));
+        return data;
+      } catch (err) {
+        setRepasseDetailError(
+          err instanceof Error ? err.message : "Erro inesperado ao carregar o repasse.",
+        );
+        return null;
+      } finally {
+        setRepasseDetailLoading(false);
+      }
+    },
+    [accessToken, repasseDetailsCache],
+  );
+
+  const handleSelectRepasse = (repasseId: number) => {
+    setShowRepasseDetail(true);
+    void fetchRepasseDetail(repasseId);
+  };
+
+  const handleCloseRepasseDetail = () => {
+    setShowRepasseDetail(false);
+    setShowRepasseAnalytics(false);
+  };
+
+  const handleOpenRepassePaymentModal = () => {
+    if (!repasseDetail) {
+      setFeedbackMessage({
+        type: "error",
+        message: "Selecione um repasse para adicionar um pagamento.",
+      });
+      return;
+    }
+    setRepassePaymentForm({
+      price: "",
+      transactionPayment: "pix",
+      paymentProof: null,
+    });
+    setRepassePaymentError(null);
+    setShowRepassePaymentModal(true);
+  };
+
+  const handleCloseRepassePaymentModal = () => {
+    setShowRepassePaymentModal(false);
+    setRepassePaymentError(null);
+  };
+
+  const handleOpenRepasseInvoiceModal = () => {
+    if (!repasseDetail) {
+      setFeedbackMessage({
+        type: "error",
+        message: "Selecione um repasse antes de adicionar a nota fiscal.",
+      });
+      return;
+    }
+    setRepasseInvoiceFile(null);
+    setRepasseInvoiceError(null);
+    setShowRepasseInvoiceModal(true);
+  };
+
+  const handleCloseRepasseInvoiceModal = () => {
+    setShowRepasseInvoiceModal(false);
+    setRepasseInvoiceError(null);
+  };
+
+  const handleRepasseInvoiceFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setRepasseInvoiceFile(file);
+  };
+
+  const handleSubmitRepasseInvoice = async () => {
+    if (!repasseDetail) {
+      setRepasseInvoiceError("Selecione um repasse para adicionar a nota fiscal.");
+      return;
+    }
+    if (!accessToken) {
+      setRepasseInvoiceError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    if (!repasseInvoiceFile) {
+      setRepasseInvoiceError("Escolha um arquivo antes de enviar.");
+      return;
+    }
+    setRepasseInvoiceSubmitting(true);
+    setRepasseInvoiceError(null);
+    try {
+      const formData = new FormData();
+      formData.append("invoice", repasseInvoiceFile);
+      const response = await fetch(`${repassesEndpoint}${repasseDetail.id}/`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+      if (!response.ok) {
+        let errorMessage = "Não foi possível cadastrar a nota fiscal.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+      setFeedbackMessage({
+        type: "success",
+        message: "Nota fiscal anexada ao repasse.",
+      });
+      setShowRepasseInvoiceModal(false);
+      setRepasseInvoiceFile(null);
+      await fetchRepasseDetail(repasseDetail.id, { force: true });
+    } catch (err) {
+      setRepasseInvoiceError(
+        err instanceof Error ? err.message : "Erro inesperado ao enviar a nota fiscal.",
+      );
+    } finally {
+      setRepasseInvoiceSubmitting(false);
+    }
+  };
+
+  const handleRepassePaymentPriceChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const maskedValue = formatMoneyInputValue(event.target.value);
+    setRepassePaymentForm((previous) => ({
+      ...previous,
+      price: maskedValue,
+    }));
+  };
+
+  const handleRepassePaymentTypeSelect = (value: PaymentType) => {
+    setRepassePaymentForm((previous) => ({
+      ...previous,
+      transactionPayment: value,
+    }));
+  };
+
+  const handleRepassePaymentProofChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setRepassePaymentForm((previous) => ({
+      ...previous,
+      paymentProof: file,
+    }));
+  };
+
+  const handleSubmitRepassePayment = async () => {
+    if (!repasseDetail) {
+      setRepassePaymentError("Selecione um repasse para adicionar o pagamento.");
+      return;
+    }
+    if (!accessToken) {
+      setRepassePaymentError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    const priceValue = parseCurrencyInput(repassePaymentForm.price);
+    if (priceValue <= 0) {
+      setRepassePaymentError("Informe um valor válido para o pagamento.");
+      return;
+    }
+    setRepassePaymentSubmitting(true);
+    setRepassePaymentError(null);
+    try {
+      const formData = new FormData();
+      formData.append("type", "payment");
+      formData.append("price", priceValue.toFixed(2));
+      formData.append("date_of_transaction", formatDateParam(new Date()));
+      formData.append("transaction_payment", repassePaymentForm.transactionPayment);
+      const professionalUserId =
+        repasseDetail.professional.user_id ?? repasseDetail.professional.id;
+      formData.append("user", String(professionalUserId));
+      if (repassePaymentForm.paymentProof) {
+        formData.append("payment_proof", repassePaymentForm.paymentProof);
+      }
+
+      const response = await fetch(transactionsEndpointBase, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível registrar o pagamento.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Pagamento adicionado ao repasse.",
+      });
+      setShowRepassePaymentModal(false);
+      setRepassePaymentForm({
+        price: "",
+        transactionPayment: "pix",
+        paymentProof: null,
+      });
+      await fetchRepasseDetail(repasseDetail.id, { force: true });
+    } catch (err) {
+      setRepassePaymentError(
+        err instanceof Error ? err.message : "Erro inesperado ao adicionar o pagamento.",
+      );
+    } finally {
+      setRepassePaymentSubmitting(false);
+    }
+  };
+
+  const handleOpenRepasseAnalytics = () => {
+    if (!repasseDetail) {
+      setFeedbackMessage({
+        type: "error",
+        message: "Selecione um repasse para visualizar as análises.",
+      });
+      return;
+    }
+    setRepasseAnalyticsData(null);
+    setRepasseAnalyticsError(null);
+    setRepasseAnalyticsLoading(false);
+    setShowRepasseAnalytics(true);
+  };
+
+  const handleCloseRepasseAnalytics = () => {
+    setShowRepasseAnalytics(false);
+    setRepasseAnalyticsError(null);
+    setRepasseAnalyticsLoading(false);
+  };
+
   const handleOpenAppointmentDetail = (appointmentId: number) => {
     setSelectedAppointmentId(appointmentId);
     setAppointmentDetail(null);
@@ -3995,6 +4573,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   ]);
 
   useEffect(() => {
+    if (activeTab !== "finances") {
+      setShowFinanceFabOptions(false);
+      setIsCreatingBill(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     if (activeTab !== "finances" || !accessToken) {
       return;
     }
@@ -4086,6 +4671,72 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     fetchRepasses();
     return () => controller.abort();
   }, [activeTab, accessToken, financeMonth]);
+
+  useEffect(() => {
+    setSelectedRepasseId(null);
+    setRepasseDetail(null);
+    setRepasseDetailError(null);
+    setShowRepasseDetail(false);
+    setShowRepasseAnalytics(false);
+    setRepasseDetailsCache({});
+  }, [financeMonth]);
+
+  useEffect(() => {
+    if (!selectedRepasseId) {
+      return;
+    }
+    const stillExists = repassesList.some((repasse) => repasse.id === selectedRepasseId);
+    if (!stillExists) {
+      setSelectedRepasseId(null);
+      setRepasseDetail(null);
+      setShowRepasseDetail(false);
+      setShowRepasseAnalytics(false);
+    }
+  }, [repassesList, selectedRepasseId]);
+
+  useEffect(() => {
+    if (!showRepasseAnalytics || !repasseDetail || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchProfessionalSummary = async () => {
+      setRepasseAnalyticsLoading(true);
+      setRepasseAnalyticsError(null);
+      try {
+        const monthFilter = repasseDetail.month?.slice(0, 7) || financeMonth;
+        const endpoint = `${professionalServiceSummaryEndpointBase}${repasseDetail.professional.id}/service-summary/`;
+        const url = new URL(endpoint);
+        url.searchParams.set("month", monthFilter);
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar as análises do profissional.");
+        }
+        const data: ProfessionalServiceSummary = await response.json();
+        setRepasseAnalyticsData(data);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setRepasseAnalyticsError(
+            err instanceof Error
+              ? err.message
+              : "Erro inesperado ao carregar as análises do profissional.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setRepasseAnalyticsLoading(false);
+        }
+      }
+    };
+    fetchProfessionalSummary();
+    return () => controller.abort();
+  }, [showRepasseAnalytics, repasseDetail, accessToken, financeMonth]);
 
   useEffect(() => {
     if (activeTab !== "finances" || !accessToken) {
@@ -6705,6 +7356,142 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     );
   };
 
+  const renderCreateBillScreen = () => {
+    const typeSelected = createBillForm.type;
+    const billTypeSelected = createBillForm.bill_type;
+    return (
+      <div className="flex flex-col gap-5 pb-24">
+        <header className="flex items-center justify-between">
+          <button
+            type="button"
+            className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+            onClick={handleCancelCreateBill}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 text-center">
+            <p className="text-sm text-white/60">Financeiro</p>
+            <p className="text-2xl font-semibold">Cadastrar conta</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSubmitCreateBill}
+            disabled={isSavingBill}
+            className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSavingBill ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isSavingBill ? "Salvando..." : "Salvar"}
+          </button>
+        </header>
+
+        <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+          <label className="block text-sm text-white/70">
+            Descrição
+            <input
+              type="text"
+              value={createBillForm.name}
+              onChange={(event) => handleCreateBillInputChange("name", event.target.value)}
+              placeholder="Ex: Energia, aluguel..."
+              className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="text-sm text-white/70">
+              Valor (R$)
+              <input
+                type="text"
+                value={createBillForm.value}
+                onChange={(event) => handleCreateBillValueChange(event.target.value)}
+                placeholder="0,00"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+            <label className="text-sm text-white/70">
+              Vencimento
+              <input
+                type="date"
+                value={createBillForm.date_of_payment}
+                onChange={(event) => handleCreateBillInputChange("date_of_payment", event.target.value)}
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+          </div>
+            <label className="text-sm text-white/70">
+              Mês final
+              <input
+                type="date"
+                value={createBillForm.finish_month}
+                onChange={(event) => handleCreateBillInputChange("finish_month", event.target.value)}
+                placeholder="Deixe em branco se for despesa única"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+        </section>
+
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+          <div>
+            <p className="text-sm text-white/60">Categoria</p>
+            <p className="text-lg font-semibold">Selecione a categoria da conta</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            {billTypeOptions.map((option) => {
+              const Icon = option.icon;
+              const isActive = option.value === billTypeSelected;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleCreateBillCategorySelect(option.value)}
+                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                    isActive ? "border-white bg-white text-black" : "border-white/10 text-white/80"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="h-5 w-5" />
+                    {option.label}
+                  </div>
+                  {isActive ? <Check className="h-4 w-4" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+          <div>
+            <p className="text-sm text-white/60">Tipo</p>
+            <p className="text-lg font-semibold">Periodicidade</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {billFrequencyOptions.map((option) => {
+              const Icon = option.icon;
+              const isActive = option.value === typeSelected;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleCreateBillTypeSelect(option.value)}
+                  className={`flex flex-1 min-w-[120px] items-center justify-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
+                    isActive ? "border-white bg-white text-black" : "border-white/10 text-white/70"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {createBillError ? (
+          <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {createBillError}
+          </p>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderAppointmentsContent = () => {
     if (isCreatingAppointment) {
       return renderCreateAppointmentScreen();
@@ -8114,6 +8901,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const renderFinancesContent = () => {
+    if (isCreatingBill) {
+      return renderCreateBillScreen();
+    }
     const monthLabel = getMonthLabel(financeMonth);
     const appointmentPaymentData =
       financeSummary?.appointments_by_payment_type?.map((entry) => ({
@@ -8157,6 +8947,395 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       iconClass: "text-white",
     },
   ];
+
+    if (showRepasseDetail) {
+      const detail = repasseDetail;
+      if (showRepasseAnalytics) {
+        const analytics = repasseAnalyticsData;
+        const professionalName = analytics?.professional.name ?? detail?.professional.name ?? "";
+        const totals = analytics?.totals;
+        const serviceRevenue = totals?.service_revenue ?? "0";
+        const salesRevenue = totals?.sales_revenue ?? "0";
+        const overallRevenue = totals?.overall_revenue ?? "0";
+        const appointmentsCount = totals?.appointments_count ?? 0;
+        const servicesPerformed = totals?.services_performed ?? 0;
+        const servicesBreakdown = analytics?.services_breakdown ?? [];
+        const categoriesBreakdown = analytics?.categories_breakdown ?? [];
+        const totalServicesFromBreakdown = servicesBreakdown.reduce(
+          (accumulator, item) => accumulator + item.total,
+          0,
+        );
+        const monthLabelAnalytics = analytics?.period?.month ?? detail?.month?.slice(0, 7) ?? "";
+
+        return (
+          <div className="space-y-4">
+            <header className="mb-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleCloseRepasseAnalytics}
+                className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+                aria-label="Voltar para detalhes do repasse"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <div className="flex-1 text-right">
+                <p className="text-sm text-white/60">Visão do profissional</p>
+                <p className="text-lg font-semibold text-white">{professionalName}</p>
+              </div>
+            </header>
+
+            {repasseAnalyticsError ? (
+              <p className="rounded-3xl border border-red-500/30 bg-red-500/10 px-4 py-4 text-sm text-red-100">
+                {repasseAnalyticsError}
+              </p>
+            ) : null}
+
+            {repasseAnalyticsLoading && !analytics ? (
+              <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 px-4 py-10 text-white/70">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <p className="mt-2 text-sm">Carregando análises...</p>
+              </div>
+            ) : analytics ? (
+              <>
+                <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-white/50">Informações do mês</p>
+                      <p className="text-lg font-semibold">Informações do mês de {professionalName}</p>
+                      <p className="text-sm text-white/60">Período: {monthLabelAnalytics}</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                      <p className="text-xs text-white/60">Total a receber</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatCurrency(overallRevenue)}</p>
+                      <p className="text-xs text-white/60">Serviços: {formatCurrency(serviceRevenue)}</p>
+                      <p className="text-xs text-white/60">Vendas: {formatCurrency(salesRevenue)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                      <p className="text-xs text-white/60">Serviços x Atendimentos</p>
+                      <p className="mt-1 text-2xl font-semibold">
+                        {appointmentsCount} / {servicesPerformed}
+                      </p>
+                      <p className="text-xs text-white/60">Serviços realizados / Atendimentos</p>
+                    </div>
+                  </div>
+                </section>
+
+                <fieldset className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+                  <legend className="px-2 text-xs uppercase tracking-wide text-white/50">
+                    Serviços realizados
+                  </legend>
+                  <div className="flex items-center justify-between text-sm text-white/70">
+                    <p>Total do período</p>
+                    <span className="font-semibold text-white">{totalServicesFromBreakdown} serviços</span>
+                  </div>
+                  {servicesBreakdown.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/60">
+                      Nenhum serviço encontrado para o período.
+                    </p>
+                  ) : (
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={servicesBreakdown}>
+                          <XAxis dataKey="service_name" tick={{ fill: "#A1A1AA", fontSize: 12 }} />
+                          <YAxis tick={{ fill: "#A1A1AA", fontSize: 12 }} />
+                          <Tooltip
+                            formatter={(value: number) => `${value} serviços`}
+                            contentStyle={{
+                              backgroundColor: "#111",
+                              borderRadius: 12,
+                              border: "1px solid #333",
+                            }}
+                          />
+                          <Bar dataKey="total" radius={[8, 8, 0, 0]}>
+                            {servicesBreakdown.map((item, index) => (
+                              <Cell
+                                key={`service-bar-${item.service_id}`}
+                                fill={pieChartColors[index % pieChartColors.length]}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </fieldset>
+
+                <fieldset className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+                  <legend className="px-2 text-xs uppercase tracking-wide text-white/50">
+                    Distribuição por categoria
+                  </legend>
+                  {categoriesBreakdown.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/60">
+                      Nenhuma categoria encontrada.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col items-center gap-6">
+                      <div className="h-56 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={categoriesBreakdown}
+                              dataKey="total"
+                              nameKey="category_name"
+                              innerRadius={60}
+                              outerRadius={90}
+                              paddingAngle={4}
+                            >
+                              {categoriesBreakdown.map((item, index) => (
+                                <Cell
+                                  key={`category-pie-${item.category_id}`}
+                                  fill={pieChartColors[index % pieChartColors.length]}
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              formatter={(value: number, _name, payload) =>
+                                `${payload?.payload?.category_name ?? ""}: ${value} serviços`
+                              }
+                              contentStyle={{
+                                backgroundColor: "#111",
+                                borderRadius: 12,
+                                border: "1px solid #333",
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="w-full space-y-3 text-sm text-white/80">
+                        {categoriesBreakdown.map((item, index) => (
+                          <div
+                            key={`category-legend-${item.category_id}`}
+                            className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: pieChartColors[index % pieChartColors.length] }}
+                              />
+                              <div>
+                                <p className="font-semibold text-white">{item.category_name}</p>
+                                <p className="text-xs text-white/60">{item.total} serviços</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </fieldset>
+              </>
+            ) : (
+              <p className="rounded-3xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">
+                Nenhuma análise disponível para o período selecionado.
+              </p>
+            )}
+          </div>
+        );
+      }
+      return (
+        <div className="space-y-4">
+          <header className="mb-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleCloseRepasseDetail}
+              className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+              aria-label="Voltar para lista de repasses"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className="flex-1 text-right">
+              <p className="text-sm text-white/60">Repasse</p>
+              <p className="text-lg font-semibold text-white">Detalhes</p>
+            </div>
+          </header>
+          {repasseDetailLoading && !detail ? (
+            <div className="flex items-center justify-center rounded-3xl border border-white/10 px-4 py-10 text-white/70">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : repasseDetailError && !detail ? (
+            <p className="rounded-3xl border border-red-500/30 bg-red-500/10 px-4 py-4 text-sm text-red-100">
+              {repasseDetailError}
+            </p>
+          ) : !detail ? (
+            <p className="rounded-3xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">
+              Detalhes indisponíveis. Volte e tente novamente.
+            </p>
+          ) : (
+            <>
+              <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card text-white">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-white/50">Profissional</p>
+                    <p className="text-lg font-semibold">{detail.professional.name}</p>
+                    <p className="text-sm text-white/60">
+                      {detail.professional.professional_type || "Tipo não informado"}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+                      detail.is_paid ? "bg-emerald-500/10 text-emerald-200" : "bg-amber-500/10 text-amber-200"
+                    }`}
+                  >
+                    {detail.is_paid ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                    {detail.is_paid ? "Pago" : "Pendente"}
+                  </span>
+                </div>
+
+                {(() => {
+                  const serviceValue = parseCurrencyInput(detail.value_service ?? "0");
+                  const productValue = parseCurrencyInput(detail.value_product ?? "0");
+                  const totalValue = serviceValue + productValue;
+                  return (
+                    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                      <p className="text-xs uppercase tracking-wide text-white/60">Valor total</p>
+                      <p className="mt-1 text-2xl font-semibold">{formatCurrency(totalValue.toFixed(2))}</p>
+                      <p className="mt-2 text-xs text-white/60">
+                        Serviços: {formatCurrency(serviceValue.toFixed(2))} • Produtos:{" "}
+                        {formatCurrency(productValue.toFixed(2))}
+                      </p>
+                    </div>
+                  );
+                })()}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                    <p className="text-xs uppercase tracking-wide text-white/60">Mês de referência</p>
+                    <p className="mt-1 text-lg font-semibold">{formatMonthReference(detail.month)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                    <p className="text-xs uppercase tracking-wide text-white/60">Nota fiscal</p>
+                    {detail.invoice ? (
+                      <a
+                        href={detail.invoice}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-white underline-offset-4 hover:underline"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Ver nota fiscal
+                      </a>
+                    ) : (
+                      <div className="mt-2 space-y-2 text-sm text-white/60">
+                        <p>Sem nota fiscal cadastrada para esse repasse.</p>
+                        <button
+                          type="button"
+                          onClick={handleOpenRepasseInvoiceModal}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-white/30 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/60"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Adicionar nota fiscal
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <fieldset className="space-y-3 rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <legend className="px-2 text-xs uppercase tracking-wide text-white/50">Transações</legend>
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <p className="text-white/70">Pagamentos relacionados a este repasse.</p>
+                    <button
+                      type="button"
+                      onClick={handleOpenRepassePaymentModal}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-white/30 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/60"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Adicionar pagamento
+                    </button>
+                  </div>
+                  {repasseDetailLoading ? (
+                    <div className="flex items-center justify-center py-6 text-white/70">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    </div>
+                  ) : detail.transactions.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/60">
+                      Nenhuma transação registrada para este repasse.
+                    </p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {detail.transactions.map((transaction) => {
+                        const transactionDate = transaction.date_of_transaction
+                          ? new Date(transaction.date_of_transaction).toLocaleDateString("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            })
+                          : "--/--/----";
+                        const paymentLabel =
+                          getPaymentTypeLabel(transaction.transaction_payment as PaymentType) ||
+                          capitalizeFirstLetter(transaction.transaction_payment);
+                        return (
+                          <li
+                            key={transaction.id}
+                            className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-white">
+                                  {transaction.type === "payment"
+                                    ? "Pagamento"
+                                    : capitalizeFirstLetter(transaction.type)}
+                                </p>
+                                <p className="text-xs text-white/60">{transactionDate}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-semibold text-white">
+                                  {formatCurrency(transaction.price ?? "0")}
+                                </p>
+                                <p className="text-xs text-white/60">{paymentLabel}</p>
+                              </div>
+                            </div>
+                            {transaction.payment_proof ? (
+                              <a
+                                href={transaction.payment_proof}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-white/80 underline-offset-2 hover:underline"
+                              >
+                                <FileText className="h-4 w-4" />
+                                Ver comprovante
+                              </a>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </fieldset>
+              </section>
+
+              <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-1 shadow-card">
+                <button
+                  type="button"
+                  onClick={handleOpenRepasseAnalytics}
+                  className="flex w-full items-center overflow-hidden rounded-2xl bg-white text-left transition hover:shadow-lg"
+                >
+                  <div className="flex flex-1 flex-col gap-2 px-4 py-4 text-black">
+                    <p className="text-lg font-semibold">
+                      Veja as análises de {detail.professional.name}
+                    </p>
+                    <span className="inline-flex w-max items-center gap-2 rounded-full bg-black px-4 py-1 text-xs font-medium text-white">
+                      Ver análises
+                    </span>
+                  </div>
+                  <div className="relative h-32 w-32 flex-shrink-0 bg-black/5">
+                    <Image
+                      src="/relogio_urus.png"
+                      alt="Relógio Urus"
+                      fill
+                      sizes="128px"
+                      className="object-cover"
+                    />
+                  </div>
+                </button>
+              </section>
+            </>
+          )}
+        </div>
+      );
+    }
 
     const renderPieCard = (
       title: string,
@@ -8314,53 +9493,71 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               Nenhum repasse encontrado para o período.
             </p>
           ) : (
-            <ul className="space-y-3">
-              {repassesList.map((repasse) => {
-                const serviceValue = parseCurrencyInput(repasse.value_service ?? "0");
-                const productValue = parseCurrencyInput(repasse.value_product ?? "0");
-                const totalValue = serviceValue + productValue;
-                return (
-                  <li
-                    key={repasse.id}
-                    className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold text-white">{repasse.professional.name}</p>
-                        <p className="text-xs text-white/60">
-                          Serviços: {formatCurrency(serviceValue.toFixed(2))} • Produtos:{" "}
-                          {formatCurrency(productValue.toFixed(2))}
+            <div className="space-y-4">
+              <ul className="space-y-3">
+                {repassesList.map((repasse) => {
+                  const serviceValue = parseCurrencyInput(repasse.value_service ?? "0");
+                  const productValue = parseCurrencyInput(repasse.value_product ?? "0");
+                  const totalValue = serviceValue + productValue;
+                  const isSelected = repasse.id === selectedRepasseId;
+                  return (
+                    <li
+                      key={repasse.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelectRepasse(repasse.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSelectRepasse(repasse.id);
+                        }
+                      }}
+                      aria-pressed={isSelected}
+                      className={`rounded-2xl border px-4 py-3 text-sm text-white/80 transition ${
+                        isSelected
+                          ? "cursor-pointer border-white/40 bg-white/5"
+                          : "cursor-pointer border-white/10 bg-black/30 hover:border-white/30"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-base font-semibold text-white">{repasse.professional.name}</p>
+                          <p className="text-xs text-white/60">
+                            Serviços: {formatCurrency(serviceValue.toFixed(2))} • Produtos:{" "}
+                            {formatCurrency(productValue.toFixed(2))}
+                          </p>
+                        </div>
+                        <p className="text-lg font-semibold text-white">
+                          {formatCurrency(totalValue.toFixed(2))}
                         </p>
                       </div>
-                      <p className="text-lg font-semibold text-white">
-                        {formatCurrency(totalValue.toFixed(2))}
-                      </p>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between text-xs text-white/60">
-                      <span className="inline-flex items-center gap-2 font-semibold">
-                        {repasse.is_paid ? (
-                          <Check className="h-4 w-4 text-emerald-400" />
-                        ) : (
-                          <X className="h-4 w-4 text-red-400" />
-                        )}
-                        {repasse.is_paid ? "Pago" : "Pendente"}
-                      </span>
-                      {repasse.invoice ? (
-                        <a
-                          href={repasse.invoice}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-white/80 underline-offset-2 hover:underline"
-                        >
-                          <FileText className="h-4 w-4" />
-                          Ver NF
-                        </a>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                      <div className="mt-3 flex items-center justify-between text-xs text-white/60">
+                        <span className="inline-flex items-center gap-2 font-semibold">
+                          {repasse.is_paid ? (
+                            <Check className="h-4 w-4 text-emerald-400" />
+                          ) : (
+                            <X className="h-4 w-4 text-red-400" />
+                          )}
+                          {repasse.is_paid ? "Pago" : "Pendente"}
+                        </span>
+                        {repasse.invoice ? (
+                          <a
+                            href={repasse.invoice}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-white/80 underline-offset-2 hover:underline"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Ver NF
+                          </a>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+            </div>
           )}
         </fieldset>
 
@@ -8389,19 +9586,25 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                         year: "numeric",
                       })
                     : "--/--/----";
+                  const { label: billTypeLabel, icon: BillTypeIcon } = getBillTypeDefinition(bill.bill_type);
                   return (
                     <li
                       key={bill.id}
                       className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div>
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/5">
+                            <BillTypeIcon className="h-5 w-5 text-white/80" />
+                          </span>
                           <p className="text-base font-semibold text-white">{bill.name}</p>
-                          <p className="text-xs text-white/60">{bill.bill_type}</p>
                         </div>
-                        <p className="text-lg font-semibold text-white">
-                          {formatCurrency(bill.value ?? "0")}
-                        </p>
+                        <div className="text-right">
+                          <p className="text-xs text-white/60">{billTypeLabel}</p>
+                          <p className="text-lg font-semibold text-white">
+                            {formatCurrency(bill.value ?? "0")}
+                          </p>
+                        </div>
                       </div>
                       <div className="mt-3 flex items-center justify-between text-xs text-white/60">
                         <span className="inline-flex items-center gap-2 font-semibold">
@@ -8430,6 +9633,36 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </>
           )}
         </fieldset>
+
+        <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3">
+          {showFinanceFabOptions ? (
+            <>
+              <button
+                type="button"
+                onClick={handleOpenCreateBill}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg"
+              >
+                <FileText className="h-4 w-4" />
+                Criar conta
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateTransactionPlaceholder}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg"
+              >
+                <ArrowLeftRight className="h-4 w-4" />
+                Criar transação
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleToggleFinanceFab}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-xl transition-transform duration-200"
+          >
+            <Plus className={`h-6 w-6 transition-transform duration-200 ${showFinanceFabOptions ? "rotate-45" : ""}`} />
+          </button>
+        </div>
       </div>
     );
   };
@@ -8845,6 +10078,201 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showRepassePaymentModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Repasses</p>
+                <h2 className="text-xl font-semibold">Adicionar pagamento</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseRepassePaymentModal}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+                aria-label="Fechar modal de pagamento do repasse"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm text-white/70">
+              <label className="block text-white/80">
+                Valor
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={repassePaymentForm.price}
+                  onChange={handleRepassePaymentPriceChange}
+                  placeholder="R$ 0,00"
+                  className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-base text-white outline-none ${
+                    repassePaymentOutOfBounds
+                      ? "border-red-500/60 focus:border-red-400"
+                      : "border-white/15 focus:border-white/40"
+                  }`}
+                />
+                {repasseDetail ? (
+                  <p
+                    className={`mt-1 text-xs ${
+                      repassePaymentOutOfBounds ? "text-red-300" : "text-white/60"
+                    }`}
+                  >
+                    Valor restante: {formatCurrency(repassePaymentTotals.remaining.toFixed(2))} • Total:{" "}
+                    {formatCurrency(repassePaymentTotals.total.toFixed(2))} • Pago:{" "}
+                    {formatCurrency(repassePaymentTotals.paid.toFixed(2))}
+                  </p>
+                ) : null}
+              </label>
+              <div>
+                <p className="text-sm text-white/80">Tipo de transação</p>
+                <div className="mt-2 space-y-2">
+                  {paymentTypeOptions.map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = option.value === repassePaymentForm.transactionPayment;
+                    return (
+                      <button
+                        key={`repasse-payment-type-${option.value}`}
+                        type="button"
+                        onClick={() => handleRepassePaymentTypeSelect(option.value)}
+                        className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                          isSelected
+                            ? "border-white bg-white text-black"
+                            : "border-white/10 text-white/80"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="h-5 w-5" />
+                          {option.label}
+                        </div>
+                        {isSelected ? <Check className="h-4 w-4" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <label className="block text-white/80">
+                Comprovante de pagamento
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleRepassePaymentProofChange}
+                  className="mt-1 w-full rounded-2xl border border-dashed border-white/20 bg-transparent px-4 py-3 text-sm text-white/70 outline-none file:mr-4 file:rounded-2xl file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black focus:border-white/40"
+                />
+                {repassePaymentForm.paymentProof ? (
+                  <p className="mt-1 text-xs text-white/60">
+                    Arquivo selecionado: {repassePaymentForm.paymentProof.name}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-white/60">
+                    Permita o envio de uma foto ou arquivo do dispositivo.
+                  </p>
+                )}
+              </label>
+              {repassePaymentError ? (
+                <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {repassePaymentError}
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCloseRepassePaymentModal}
+                disabled={repassePaymentSubmitting}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitRepassePayment}
+                disabled={repassePaymentSubmitting}
+                className="flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {repassePaymentSubmitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Salvando...
+                  </span>
+                ) : (
+                  "Adicionar pagamento"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showRepasseInvoiceModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Repasses</p>
+                <h2 className="text-xl font-semibold">Adicionar nota fiscal</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseRepasseInvoiceModal}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+                aria-label="Fechar modal de nota fiscal"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm text-white/80">
+              <p>Faça upload da nota fiscal referente a este repasse.</p>
+              <label className="block">
+                Arquivo
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  onChange={handleRepasseInvoiceFileChange}
+                  className="mt-1 w-full rounded-2xl border border-dashed border-white/20 bg-transparent px-4 py-3 text-sm text-white/70 outline-none file:mr-4 file:rounded-2xl file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black focus:border-white/40"
+                />
+                {repasseInvoiceFile ? (
+                  <p className="mt-1 text-xs text-white/60">Selecionado: {repasseInvoiceFile.name}</p>
+                ) : (
+                  <p className="mt-1 text-xs text-white/60">
+                    Suporta imagens ou PDF diretamente do dispositivo.
+                  </p>
+                )}
+              </label>
+              {repasseInvoiceError ? (
+                <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {repasseInvoiceError}
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCloseRepasseInvoiceModal}
+                disabled={repasseInvoiceSubmitting}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitRepasseInvoice}
+                disabled={repasseInvoiceSubmitting}
+                className="flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {repasseInvoiceSubmitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Enviando...
+                  </span>
+                ) : (
+                  "Enviar nota fiscal"
+                )}
+              </button>
             </div>
           </div>
         </div>
