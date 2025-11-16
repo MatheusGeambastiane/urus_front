@@ -64,18 +64,12 @@ import {
   Wrench,
 } from "lucide-react";
 import { env } from "@/lib/env";
+import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
 
 type DashboardHomeProps = {
   firstName: string;
+  activeTab: DashboardTab;
 };
-
-type NavKey =
-  | "home"
-  | "agenda"
-  | "services"
-  | "products"
-  | "users"
-  | "finances";
 
 type RoleOption = {
   value: string;
@@ -955,7 +949,7 @@ const createProductDefaultValues: CreateProductFormValues = {
 };
 
 const bottomNavItems: {
-  key: NavKey;
+  key: DashboardTab;
   label: string;
   icon: LucideIcon;
 }[] = [
@@ -1056,7 +1050,7 @@ const summaryFilterMonthOptions = [
   { value: "12", label: "Dezembro" },
 ];
 
-export function DashboardHome({ firstName }: DashboardHomeProps) {
+export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const accessToken = session?.accessToken ?? null;
@@ -1066,10 +1060,15 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
         (session.user as { image?: string | null }).image ??
         null)
       : null;
-  const [activeTab, setActiveTab] = useState<NavKey>("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
+  const navigateToTab = useCallback(
+    (tab: DashboardTab) => {
+      const segment = dashboardTabRoutes[tab];
+      router.push(`/dashboard/${segment}`);
+    },
+    [router],
+  );
   const [usersData, setUsersData] = useState<UsersResponse | null>(null);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -4487,9 +4486,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const triggerQuickAction = (action: QuickActionKey) => {
     if (action === "create-appointment") {
-      setActiveTab("agenda");
+      navigateToTab("agenda");
     } else {
-      setActiveTab("products");
+      navigateToTab("products");
     }
     setPendingQuickAction(action);
   };
@@ -8674,12 +8673,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         <header className="mb-6 flex items-center justify-between">
           <button
             type="button"
-          className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
-          onClick={() => setActiveTab("home")}
-          aria-label="Voltar para Home"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
+            className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+            onClick={() => navigateToTab("home")}
+            aria-label="Voltar para Home"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
         <div className="flex-1">
           <p className="text-center text-sm text-white/60">Painel</p>
           <p className="text-center text-2xl font-semibold">Usuários</p>
@@ -9714,7 +9713,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               <button
                 key={item.key}
                 type="button"
-                onClick={() => setActiveTab(item.key)}
+                onClick={() => navigateToTab(item.key)}
                 className={`flex flex-col items-center rounded-2xl px-2 py-2 text-[11px] font-medium transition ${
                   isActive ? "bg-white text-black shadow-inner" : "text-white/70"
                 }`}
