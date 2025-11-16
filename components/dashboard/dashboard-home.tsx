@@ -1060,6 +1060,12 @@ export function DashboardHome({ firstName }: DashboardHomeProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const accessToken = session?.accessToken ?? null;
+  const sessionProfilePic =
+    typeof session?.user === "object"
+      ? ((session.user as { profile_pic?: string | null }).profile_pic ??
+        (session.user as { image?: string | null }).image ??
+        null)
+      : null;
   const [activeTab, setActiveTab] = useState<NavKey>("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -5312,14 +5318,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         type="button"
         className="h-12 w-12 overflow-hidden rounded-full border border-white/20"
         onClick={() => setMenuOpen((prev) => !prev)}
+        aria-label="Abrir menu do usuário"
       >
-        <Image
-          src="https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=200&q=80"
-          alt="Foto do usuário"
-          width={48}
-          height={48}
-          className="h-full w-full object-cover"
-        />
+        {sessionProfilePic ? (
+          <Image
+            src={sessionProfilePic}
+            alt="Foto do usuário"
+            width={48}
+            height={48}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-white/5">
+            <UserRound className="h-5 w-5 text-white/80" />
+          </div>
+        )}
       </button>
       {menuOpen ? (
         <div className="absolute right-0 mt-3 w-40 rounded-2xl border border-white/10 bg-[#111] p-2 shadow-xl">
