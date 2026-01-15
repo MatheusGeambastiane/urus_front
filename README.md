@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Urus Frontend
 
-## Getting Started
+Aplicação Next.js que concentra o backoffice da barbearia Urus. O projeto foi organizado para que as rotas do App Router fiquem enxutas e toda a lógica de cada domínio viva em `src/features`.
 
-First, run the development server:
+## Como rodar
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Organização das pastas
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+src/
+├─ app/                    # Rotas, layouts e loaders do App Router
+├─ features/
+│  ├─ dashboard/           # Componentes, dados e providers do dashboard
+│  │  ├─ components/       # UI específica do dashboard (home, navegação, etc.)
+│  │  ├─ data/             # Constantes e mapeamentos (ex.: tabs)
+│  │  ├─ providers/        # Contextos como o DashboardProvider
+│  │  └─ services/         # Cliente HTTP (createDashboardClient) e erros
+│  └─ agenda/              # Funcionalidades do módulo de agenda
+│     ├─ components/       # Páginas e componentes de UI do módulo
+│     └─ hooks/            # Hooks de dados, ex.: useDashboardAppointments
+├─ lib/                    # Configurações e utilitários globais (auth, env, etc.)
+├─ providers/              # Providers compartilhados (AuthSessionProvider)
+├─ shared/
+│  └─ assets/
+│     └─ icons/            # Ícones/SVG importados via Next Image
+├─ styles/                 # Camadas globais (ex.: globals.css)
+└─ types/                  # Tipos globais e declarações (.d.ts)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Recursos estáticos seguem o padrão:
 
-## Learn More
+- `public/marketing`: imagens institucionais usadas nas telas de login e do dashboard.
+- `src/shared/assets/icons`: ícones reutilizáveis importados como módulos (ver `src/shared/assets/icons/index.ts`).
 
-To learn more about Next.js, take a look at the following resources:
+Todos os imports absolutos utilizam o alias `@/*`, mapeado para `src/*` no `tsconfig.json`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Fluxo de dados do dashboard
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `src/features/dashboard/services/dashboard-client.ts` centraliza chamadas HTTP, trata erros (`DashboardApiError`) e aplica o token de sessão.
+- `src/features/dashboard/providers/dashboard-provider.tsx` apenas orquestra sessão/autenticação e expõe `fetchDashboard`, `accessToken` e `refreshToken` via contexto.
+- Hooks específicos (ex.: `useDashboardAppointments`) recebem `fetchDashboard` do contexto e ficam sob o respectivo domínio em `src/features/<feature>/hooks`.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Esse formato facilita adicionar novos domínios: crie uma pasta em `src/features`, exponha componentes/hook/services dali e use-os diretamente nas rotas dentro de `src/app`.
