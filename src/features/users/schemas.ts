@@ -9,14 +9,12 @@ const meetsAllPasswordRequirements = (password: string) =>
 export const createUserSchema = z
   .object({
     firstName: z.string().min(1, "Informe o primeiro nome."),
-    lastName: z.string().min(1, "Informe o sobrenome."),
+    lastName: z.string().optional(),
     email: z.string().email("Informe um e-mail válido."),
     phone: z.string().optional(),
     cpf: z.string().optional(),
     role: z.string().min(1, "Selecione uma função."),
-    dateOfBirth: z
-      .string()
-      .regex(/^\d{2}\/\d{2}\/\d{4}$/, "Use o formato dd/mm/aaaa."),
+    dateOfBirth: z.string().optional(),
     password: z
       .string()
       .min(8, "A senha deve ter pelo menos 8 caracteres.")
@@ -35,14 +33,45 @@ export const createUserSchema = z
       ),
     confirmPassword: z.string().min(1, "Confirme a senha."),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "As senhas não conferem.",
-    path: ["confirmPassword"],
-  })
-  .refine((data) => meetsAllPasswordRequirements(data.password), {
-    message:
-      "A senha deve ter ao menos 8 caracteres, letras maiúsculas, minúsculas, números e caracteres especiais.",
-    path: ["password"],
+  .superRefine((data, ctx) => {
+    const isClient = data.role === "client";
+    if (!isClient && !data.lastName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["lastName"],
+        message: "Informe o sobrenome.",
+      });
+    }
+    if (!isClient) {
+      if (!data.dateOfBirth) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dateOfBirth"],
+          message: "Use o formato dd/mm/aaaa.",
+        });
+      } else if (!/^\d{2}\/\d{2}\/\d{4}$/.test(data.dateOfBirth)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["dateOfBirth"],
+          message: "Use o formato dd/mm/aaaa.",
+        });
+      }
+    }
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["confirmPassword"],
+        message: "As senhas não conferem.",
+      });
+    }
+    if (!meetsAllPasswordRequirements(data.password)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message:
+          "A senha deve ter ao menos 8 caracteres, letras maiúsculas, minúsculas, números e caracteres especiais.",
+      });
+    }
   });
 
 export type CreateUserFormValues = z.infer<typeof createUserSchema>;

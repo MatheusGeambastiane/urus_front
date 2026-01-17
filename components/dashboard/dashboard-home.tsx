@@ -787,6 +787,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const passwordValue = watchCreateUser("password") ?? "";
   const confirmPasswordValue = watchCreateUser("confirmPassword") ?? "";
   const dateOfBirthValue = watchCreateUser("dateOfBirth") ?? "";
+  const createUserRole = watchCreateUser("role") ?? "";
   const passwordChecks = passwordRequirementCheck(passwordValue);
   const totalPasswordRequirements = Object.keys(passwordRequirementLabels).length;
   const passwordStrengthScore = Object.values(passwordChecks).filter(Boolean).length;
@@ -1074,6 +1075,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   useEffect(() => {
     registerProfile("services");
   }, [registerProfile]);
+
+  useEffect(() => {
+    if (createUserRole !== "client") {
+      return;
+    }
+    const defaultPassword = "Urus123?";
+    setCreateUserValue("password", defaultPassword, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setCreateUserValue("confirmPassword", defaultPassword, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [createUserRole, setCreateUserValue]);
 
   useEffect(() => {
     if (!profilePicWatch || !(profilePicWatch instanceof FileList)) {
@@ -2538,15 +2554,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       return;
     }
 
-    const isoDate = convertDisplayDateToIso(values.dateOfBirth);
-    if (!isoDate) {
+    const isClient = values.role === "client";
+    const isoDate = values.dateOfBirth
+      ? convertDisplayDateToIso(values.dateOfBirth)
+      : null;
+    if (!isClient && !isoDate) {
       setFormError("Informe uma data de nascimento válida (dd/mm/aaaa).");
       return;
     }
 
     const payload = {
       first_name: values.firstName.trim(),
-      last_name: values.lastName.trim(),
+      last_name: values.lastName?.trim() || null,
       email: values.email.trim(),
       password: values.password,
       cpf: values.cpf?.trim() || null,
@@ -6505,15 +6524,6 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               {isEditingExisting ? "Editar agendamento" : "Novo agendamento"}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleSubmitAppointment}
-            disabled={isSavingAppointment}
-            className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isSavingAppointment ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isSavingAppointment ? "Salvando..." : "Salvar"}
-          </button>
         </header>
 
         <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
@@ -6945,6 +6955,31 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             ) : null}
           </div>
         </fieldset>
+
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={handleSubmitAppointment}
+            disabled={isSavingAppointment}
+            className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSavingAppointment ? (
+              <span className="inline-flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Salvando...
+              </span>
+            ) : (
+              "Salvar agendamento"
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={handleCancelCreateAppointment}
+            className="w-full rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white/80 transition hover:border-white/40"
+          >
+            Cancelar agendamento
+          </button>
+        </div>
         </div>
         {showClientRegistrationModal ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
