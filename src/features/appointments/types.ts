@@ -52,3 +52,14 @@ export type AppointmentsResponse = {
   completed_total_price: string;
   completed_total_count: number;
 };
+
+export type Last7DaysItem = {
+  day: number;
+  date: string;
+  count: number;
+};
+
+export type Last7DaysResponse = {
+  last_7_days: Last7DaysItem[];
+  top_day_in_month: Last7DaysItem | null;
+};

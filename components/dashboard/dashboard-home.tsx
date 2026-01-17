@@ -121,6 +121,7 @@ import {
 } from "@/src/features/services/services/endpoints";
 import {
   appointmentsEndpointBase,
+  appointmentsLast7DaysEndpoint,
   professionalProfilesSimpleListEndpoint,
 } from "@/src/features/appointments/services/endpoints";
 import {
@@ -139,6 +140,7 @@ import type {
   AppointmentService,
   AppointmentStatus,
   AppointmentsResponse,
+  Last7DaysResponse,
   ServiceAssignment,
 } from "@/src/features/appointments/types";
 import type { BillDetail, BillItem } from "@/src/features/bills/types";
@@ -388,10 +390,12 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const datePickerRef = useRef<HTMLInputElement & { showPicker?: () => void }>(null);
   const editDatePickerRef = useRef<HTMLInputElement & { showPicker?: () => void }>(null);
   const profilePicInputRef = useRef<HTMLInputElement | null>(null);
+  const productPicInputRef = useRef<HTMLInputElement | null>(null);
   const servicesDropdownRef = useRef<HTMLDivElement>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
+  const [productPicPreview, setProductPicPreview] = useState<string | null>(null);
   const [professionalIntervalForm, setProfessionalIntervalForm] = useState({
     dateStart: "",
     dateFinish: "",
@@ -426,6 +430,12 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [serviceCategoriesRefreshToken, setServiceCategoriesRefreshToken] = useState(0);
   const [servicesList, setServicesList] = useState<ServiceItem[]>([]);
   const [servicesCount, setServicesCount] = useState(0);
+  const [servicesNextPage, setServicesNextPage] = useState<string | null>(null);
+  const [servicesPreviousPage, setServicesPreviousPage] = useState<string | null>(null);
+  const [servicesPageSize, setServicesPageSize] = useState<typeof PAGE_SIZE_OPTIONS[number]>(
+    PAGE_SIZE_OPTIONS[0],
+  );
+  const [servicesPageUrl, setServicesPageUrl] = useState<string | null>(null);
   const [servicesFetchError, setServicesFetchError] = useState<string | null>(null);
   const [servicesSearchInput, setServicesSearchInput] = useState("");
   const [servicesSearchTerm, setServicesSearchTerm] = useState("");
@@ -591,6 +601,9 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [dailySummary, setDailySummary] = useState<DailySummaryResponse | null>(null);
   const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
   const [dailySummaryError, setDailySummaryError] = useState<string | null>(null);
+  const [last7DaysData, setLast7DaysData] = useState<Last7DaysResponse | null>(null);
+  const [last7DaysLoading, setLast7DaysLoading] = useState(false);
+  const [last7DaysError, setLast7DaysError] = useState<string | null>(null);
   const [showSummaryFilters, setShowSummaryFilters] = useState(false);
   const [summaryFilterMode, setSummaryFilterMode] = useState<"day" | "month">("day");
   const [summaryDayInput, setSummaryDayInput] = useState("");
@@ -806,6 +819,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const selectedProfessionalServices = watchProfile("services") ?? [];
   const editDateOfBirthValue = watchEditUser("dateOfBirth") ?? "";
   const profilePicWatch = watchEditUser("profilePic");
+  const createProductPictureWatch = watchCreateProduct("picture");
   const selectedServiceNames = servicesOptions
     .filter((service) => selectedProfessionalServices.includes(service.id))
     .map((service) => service.name);
@@ -947,7 +961,51 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchServiceCategories();
     return () => controller.abort();
-  }, [accessToken]);
+  }, [accessToken, serviceCategoriesRefreshToken]);
+
+  useEffect(() => {
+    if (activeTab !== "home" || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+
+    const fetchLast7Days = async () => {
+      setLast7DaysLoading(true);
+      setLast7DaysError(null);
+      try {
+        const response = await fetch(appointmentsLast7DaysEndpoint, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os atendimentos recentes.");
+        }
+
+        const data: Last7DaysResponse = await response.json();
+        setLast7DaysData(data);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setLast7DaysError(
+            err instanceof Error
+              ? err.message
+              : "Erro inesperado ao carregar atendimentos.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLast7DaysLoading(false);
+        }
+      }
+    };
+
+    fetchLast7Days();
+    return () => controller.abort();
+  }, [activeTab, accessToken]);
 
   const buildUsersUrl = useCallback(() => {
     const url = new URL(usersEndpointBase);
@@ -975,12 +1033,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setServicesLoadingList(true);
       setServicesFetchError(null);
       try {
-        const url = new URL(servicesEndpointBase);
-        if (servicesSearchTerm) {
-          url.searchParams.set("search", servicesSearchTerm);
-        }
-        if (selectedServiceCategory) {
-          url.searchParams.set("category_id", String(selectedServiceCategory));
+        const url = servicesPageUrl
+          ? new URL(servicesPageUrl)
+          : new URL(servicesEndpointBase);
+        if (!servicesPageUrl) {
+          url.searchParams.set("page_size", servicesPageSize.toString());
+          if (servicesSearchTerm) {
+            url.searchParams.set("search", servicesSearchTerm);
+          }
+          if (selectedServiceCategory) {
+            url.searchParams.set("category_id", String(selectedServiceCategory));
+          }
         }
         const response = await fetch(url.toString(), {
           credentials: "include",
@@ -998,10 +1061,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         const data: ServicesResponse = await response.json();
         setServicesList(data.results);
         setServicesCount(data.count);
+        setServicesNextPage(data.next);
+        setServicesPreviousPage(data.previous);
       } catch (err) {
         if (!controller.signal.aborted) {
           setServicesList([]);
           setServicesCount(0);
+          setServicesNextPage(null);
+          setServicesPreviousPage(null);
           setServicesFetchError(
             err instanceof Error
               ? err.message
@@ -1017,7 +1084,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchServices();
     return () => controller.abort();
-  }, [activeTab, accessToken, servicesSearchTerm, selectedServiceCategory, servicesRefreshToken]);
+  }, [
+    activeTab,
+    accessToken,
+    servicesSearchTerm,
+    selectedServiceCategory,
+    servicesRefreshToken,
+    servicesPageSize,
+    servicesPageUrl,
+  ]);
 
   useEffect(() => {
     if (activeTab !== "users" || !accessToken) {
@@ -1105,6 +1180,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProfilePicPreview(previewUrl);
     return () => URL.revokeObjectURL(previewUrl);
   }, [profilePicWatch]);
+
+  useEffect(() => {
+    if (!createProductPictureWatch || !(createProductPictureWatch instanceof FileList)) {
+      setProductPicPreview(null);
+      return;
+    }
+    const file = createProductPictureWatch[0];
+    if (!file) {
+      setProductPicPreview(null);
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setProductPicPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [createProductPictureWatch]);
 
   useEffect(() => {
     if (activeTab !== "users") {
@@ -2268,10 +2358,25 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const handleServiceSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setServicesSearchTerm(servicesSearchInput.trim());
+    setServicesPageUrl(null);
   };
 
   const handleServiceCategorySelect = (categoryId: number | null) => {
     setSelectedServiceCategory(categoryId);
+    setServicesPageUrl(null);
+  };
+
+  const handleServicesPageSizeChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const value = Number(event.target.value) as typeof PAGE_SIZE_OPTIONS[number];
+    setServicesPageSize(value);
+    setServicesPageUrl(null);
+  };
+
+  const handleServicesPagination = (direction: "next" | "previous") => {
+    const target = direction === "next" ? servicesNextPage : servicesPreviousPage;
+    if (target) {
+      setServicesPageUrl(target);
+    }
   };
 
   const refreshServicesList = () => {
@@ -5273,6 +5378,24 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       1,
     );
     const topServicesData = dailySummary?.top_services ?? [];
+    const last7DaysItems = last7DaysData?.last_7_days ?? [];
+    const topDayInMonth = last7DaysData?.top_day_in_month ?? null;
+    const last7DaysChartData = last7DaysItems.map((item) => {
+      const date = new Date(item.date);
+      const label = Number.isNaN(date.getTime())
+        ? item.date
+        : date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+      return {
+        ...item,
+        label,
+      };
+    });
+    const topDayLabel = topDayInMonth?.date
+      ? new Date(topDayInMonth.date).toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+        })
+      : "--";
     const quickActions = [
       {
         key: "create-appointment" as QuickActionKey,
@@ -5410,6 +5533,61 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </>
           ) : (
             <p className="mt-3 text-sm text-white/60">Nenhum agendamento encontrado.</p>
+          )}
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <p className="text-sm text-white/60">Dia com maior atendimento</p>
+          {last7DaysLoading ? (
+            <p className="mt-4 text-sm text-white/60">Carregando...</p>
+          ) : last7DaysError ? (
+            <p className="mt-4 text-sm text-red-300">{last7DaysError}</p>
+          ) : topDayInMonth ? (
+            <div className="mt-3 flex items-center justify-between">
+              <div>
+                <p className="text-xl font-semibold">{topDayLabel}</p>
+                <p className="text-sm text-white/60">Maior pico no mês</p>
+              </div>
+              <span className="rounded-2xl bg-white/10 px-4 py-2 text-lg font-semibold text-white">
+                {topDayInMonth.count}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-white/60">Sem dados no período.</p>
+          )}
+        </section>
+
+        <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <div className="flex items-center justify-between">
+            <p className="text-lg font-semibold">Atendimentos nos últimos sete dias</p>
+          </div>
+          {last7DaysLoading ? (
+            <div className="flex items-center justify-center py-10 text-white/70">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : last7DaysError ? (
+            <p className="mt-4 text-sm text-red-300">{last7DaysError}</p>
+          ) : last7DaysChartData.length === 0 ? (
+            <p className="mt-4 text-sm text-white/60">Nenhum atendimento registrado.</p>
+          ) : (
+            <div className="mt-4 h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={last7DaysChartData}>
+                  <XAxis dataKey="label" tick={{ fill: "#cbd5f5", fontSize: 12 }} />
+                  <YAxis tick={{ fill: "#cbd5f5", fontSize: 12 }} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(255,255,255,0.06)" }}
+                    contentStyle={{
+                      backgroundColor: "#0b0b0b",
+                      borderRadius: "12px",
+                      borderColor: "rgba(255,255,255,0.1)",
+                    }}
+                    labelStyle={{ color: "#fff" }}
+                  />
+                  <Bar dataKey="count" fill="#ffffff" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </section>
 
@@ -5905,6 +6083,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const renderCreateProductScreen = () => {
+    const pictureField = registerCreateProduct("picture");
     return (
       <div className="flex flex-col gap-5">
         <header className="flex items-center justify-between">
@@ -5920,6 +6099,49 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <p className="text-2xl font-semibold">Adicionar produto</p>
           </div>
         </header>
+
+        <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => productPicInputRef.current?.click()}
+              className="group relative h-28 w-28 overflow-hidden rounded-3xl border border-white/10 bg-white/5"
+              aria-label="Selecionar foto do produto"
+            >
+              {productPicPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={productPicPreview}
+                  alt="Foto do produto"
+                  className="h-full w-full object-cover transition group-hover:blur-sm group-focus-visible:blur-sm"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-white/60">
+                  Sem foto
+                </div>
+              )}
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-3xl bg-black/40 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                <PenSquare className="h-5 w-5 text-white" />
+              </span>
+            </button>
+            <input
+              type="file"
+              accept="image/*"
+              {...pictureField}
+              ref={(element) => {
+                pictureField.ref(element);
+                productPicInputRef.current = element;
+              }}
+              className="hidden"
+            />
+            {createProductErrors.picture ? (
+              <span className="text-xs text-red-400">
+                {createProductErrors.picture.message as string}
+              </span>
+            ) : null}
+            <span className="text-xs text-white/50">Toque para adicionar a foto</span>
+          </div>
+        </div>
 
         <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
           <form onSubmit={handleCreateProduct} className="space-y-4">
@@ -6042,25 +6264,6 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               {createProductErrors.alarmQuantity ? (
                 <span className="mt-1 block text-xs text-red-400">
                   {createProductErrors.alarmQuantity.message}
-                </span>
-              ) : null}
-            </label>
-
-            <label className="text-sm text-white/70">
-              Foto do produto
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                {...registerCreateProduct("picture")}
-                className="mt-1 w-full rounded-2xl border border-dashed border-white/20 bg-transparent px-4 py-3 text-sm outline-none file:mr-3 file:rounded-xl file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-semibold file:text-black"
-              />
-              <span className="mt-1 block text-xs text-white/50">
-                Escolha uma foto da galeria ou utilize a câmera do celular para registrar o produto.
-              </span>
-              {createProductErrors.picture ? (
-                <span className="mt-1 block text-xs text-red-400">
-                  {createProductErrors.picture.message as string}
                 </span>
               ) : null}
             </label>
@@ -8122,6 +8325,24 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           ))}
         </div>
 
+        <div className="flex items-center justify-between text-xs text-white/60">
+          <span>Exibindo {servicesList.length} de {servicesCount}</span>
+          <label className="flex items-center gap-2 rounded-2xl border border-white/10 px-3 py-2 text-xs text-white/70">
+            Itens por página
+            <select
+              value={servicesPageSize}
+              onChange={handleServicesPageSizeChange}
+              className="bg-transparent text-sm text-white focus:outline-none"
+            >
+              {PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         {serviceCategoriesError ? (
           <p className="text-xs text-red-300">{serviceCategoriesError}</p>
         ) : null}
@@ -8150,6 +8371,28 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </div>
           )}
         </section>
+
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/70">
+          <button
+            type="button"
+            onClick={() => handleServicesPagination("previous")}
+            disabled={!servicesPreviousPage || servicesLoadingList}
+            className="rounded-2xl border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Página anterior
+          </button>
+          <span>
+            {servicesPreviousPage ? "•" : ""} {servicesNextPage ? "•" : ""}
+          </span>
+          <button
+            type="button"
+            onClick={() => handleServicesPagination("next")}
+            disabled={!servicesNextPage || servicesLoadingList}
+            className="rounded-2xl border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Próxima página
+          </button>
+        </div>
 
         <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3">
           {showServicesFabOptions ? (
