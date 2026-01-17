@@ -127,6 +127,7 @@ import {
 import {
   productsEndpointBase,
   transactionsEndpointBase,
+  transactionsSellListEndpoint,
 } from "@/src/features/products/services/endpoints";
 import {
   financeSummaryEndpoint,
@@ -154,6 +155,8 @@ import type {
   ProductItem,
   ProductSalePaymentType,
   ProductsResponse,
+  ProductSalesResponse,
+  ProductSaleListItem,
 } from "@/src/features/products/types";
 import type {
   ProfessionalServiceSummary,
@@ -396,6 +399,15 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
   const [productPicPreview, setProductPicPreview] = useState<string | null>(null);
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [passwordResetForm, setPasswordResetForm] = useState({
+    password: "",
+    confirmPassword: "",
+  });
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [showPasswordResetConfirm, setShowPasswordResetConfirm] = useState(false);
+  const [passwordResetError, setPasswordResetError] = useState<string | null>(null);
+  const [passwordResetSubmitting, setPasswordResetSubmitting] = useState(false);
   const [professionalIntervalForm, setProfessionalIntervalForm] = useState({
     dateStart: "",
     dateFinish: "",
@@ -562,6 +574,10 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [saleProductsList, setSaleProductsList] = useState<ProductItem[]>([]);
   const [saleProductsLoading, setSaleProductsLoading] = useState(false);
   const [saleProductsError, setSaleProductsError] = useState<string | null>(null);
+  const [saleProfessionalsList, setSaleProfessionalsList] = useState<
+    { userId: number; name: string }[]
+  >([]);
+  const [saleProfessionalId, setSaleProfessionalId] = useState<number | null>(null);
   const [selectedSaleProductId, setSelectedSaleProductId] = useState<number | null>(null);
   const [saleQuantityInput, setSaleQuantityInput] = useState("1");
   const [salePriceInput, setSalePriceInput] = useState("");
@@ -581,6 +597,28 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [isCreatingProductSale, setIsCreatingProductSale] = useState(false);
   const [showProductsFabOptions, setShowProductsFabOptions] = useState(false);
+  const [isViewingProductSales, setIsViewingProductSales] = useState(false);
+  const [productSalesData, setProductSalesData] = useState<ProductSalesResponse | null>(null);
+  const [productSalesLoading, setProductSalesLoading] = useState(false);
+  const [productSalesError, setProductSalesError] = useState<string | null>(null);
+  const [productSalesSearchInput, setProductSalesSearchInput] = useState("");
+  const [productSalesSearchTerm, setProductSalesSearchTerm] = useState("");
+  const [productSalesRefreshToken, setProductSalesRefreshToken] = useState(0);
+  const [selectedProductSaleId, setSelectedProductSaleId] = useState<number | null>(null);
+  const [productSaleDetailLoading, setProductSaleDetailLoading] = useState(false);
+  const [productSaleDetailError, setProductSaleDetailError] = useState<string | null>(null);
+  const [productSaleDetailSubmitting, setProductSaleDetailSubmitting] = useState(false);
+  const [productSaleDetailForm, setProductSaleDetailForm] = useState({
+    price: "",
+    dateOfTransaction: "",
+    transactionPayment: "",
+    quantity: "",
+    userId: "",
+    productId: "",
+  });
+  const [productSalesProfessionals, setProductSalesProfessionals] = useState<
+    { userId: number; name: string }[]
+  >([]);
   const [productFormError, setProductFormError] = useState<string | null>(null);
   const [productSaleError, setProductSaleError] = useState<string | null>(null);
   const [isSavingProduct, setIsSavingProduct] = useState(false);
@@ -1479,6 +1517,47 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   }, [saleModalOpen, accessToken]);
 
   useEffect(() => {
+    if (!saleModalOpen || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchSaleProfessionals = async () => {
+      try {
+        const response = await fetch(professionalProfilesSimpleListEndpoint, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar profissionais.");
+        }
+
+        const data: ProfessionalSimple[] = await response.json();
+        const mapped = Array.isArray(data)
+          ? data
+              .map((item) => ({
+                userId: item.user_id ?? item.id,
+                name: item.user_name,
+              }))
+              .filter((item) => Number.isFinite(item.userId))
+          : [];
+        setSaleProfessionalsList(mapped);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setSaleProfessionalsList([]);
+        }
+      }
+    };
+
+    fetchSaleProfessionals();
+    return () => controller.abort();
+  }, [saleModalOpen, accessToken]);
+
+  useEffect(() => {
     if (!productSaleProductModalOpen || !accessToken) {
       return;
     }
@@ -1520,6 +1599,139 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     fetchSalePickerProducts();
     return () => controller.abort();
   }, [productSaleProductModalOpen, accessToken]);
+
+  useEffect(() => {
+    if (!isViewingProductSales || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchProductSales = async () => {
+      setProductSalesLoading(true);
+      setProductSalesError(null);
+      try {
+        const url = new URL(transactionsSellListEndpoint);
+        if (productSalesSearchTerm) {
+          url.searchParams.set("search", productSalesSearchTerm);
+        }
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar as vendas.");
+        }
+        const data: ProductSalesResponse = await response.json();
+        setProductSalesData(data);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setProductSalesError(
+            err instanceof Error ? err.message : "Erro inesperado ao carregar vendas.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setProductSalesLoading(false);
+        }
+      }
+    };
+
+    fetchProductSales();
+    return () => controller.abort();
+  }, [isViewingProductSales, accessToken, productSalesSearchTerm, productSalesRefreshToken]);
+
+  useEffect(() => {
+    if (!selectedProductSaleId || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchProductSaleDetail = async () => {
+      setProductSaleDetailLoading(true);
+      setProductSaleDetailError(null);
+      try {
+        const response = await fetch(
+          `${transactionsSellListEndpoint}${selectedProductSaleId}/`,
+          {
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            signal: controller.signal,
+          },
+        );
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar a venda.");
+        }
+        const data = await response.formData();
+        setProductSaleDetailForm({
+          price: String(data.get("price") ?? ""),
+          dateOfTransaction: String(data.get("date_of_transaction") ?? ""),
+          transactionPayment: String(data.get("transaction_payment") ?? ""),
+          quantity: String(data.get("quantity") ?? ""),
+          userId: String(data.get("user") ?? ""),
+          productId: String(data.get("product") ?? ""),
+        });
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setProductSaleDetailError(
+            err instanceof Error ? err.message : "Erro inesperado ao carregar venda.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setProductSaleDetailLoading(false);
+        }
+      }
+    };
+
+    fetchProductSaleDetail();
+    return () => controller.abort();
+  }, [selectedProductSaleId, accessToken]);
+
+  useEffect(() => {
+    if (!selectedProductSaleId || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchProductSaleProfessionals = async () => {
+      try {
+        const response = await fetch(professionalProfilesSimpleListEndpoint, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar profissionais.");
+        }
+
+        const data: ProfessionalSimple[] = await response.json();
+        const mapped = Array.isArray(data)
+          ? data
+              .map((item) => ({
+                userId: item.user_id ?? item.id,
+                name: item.user_name,
+              }))
+              .filter((item) => Number.isFinite(item.userId))
+          : [];
+        setProductSalesProfessionals(mapped);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setProductSalesProfessionals([]);
+        }
+      }
+    };
+
+    fetchProductSaleProfessionals();
+    return () => controller.abort();
+  }, [selectedProductSaleId, accessToken]);
 
   useEffect(() => {
     if (activeTab !== "home" || !accessToken) {
@@ -2481,6 +2693,77 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setShowServicesFabOptions((prev) => !prev);
   };
 
+  const handleOpenPasswordResetModal = () => {
+    setPasswordResetForm({ password: "", confirmPassword: "" });
+    setPasswordResetError(null);
+    setShowPasswordResetModal(true);
+  };
+
+  const handleClosePasswordResetModal = () => {
+    setShowPasswordResetModal(false);
+    setPasswordResetForm({ password: "", confirmPassword: "" });
+    setPasswordResetError(null);
+  };
+
+  const handlePasswordResetInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setPasswordResetForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitPasswordReset = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!accessToken || !userDetail) {
+      setPasswordResetError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    if (!passwordResetForm.password.trim()) {
+      setPasswordResetError("Informe a nova senha.");
+      return;
+    }
+    if (passwordResetForm.password !== passwordResetForm.confirmPassword) {
+      setPasswordResetError("As senhas não conferem.");
+      return;
+    }
+
+    setPasswordResetSubmitting(true);
+    setPasswordResetError(null);
+    try {
+      const response = await fetch(`${env.apiBaseUrl}/dashboard/auth/password-change/`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          user_id: userDetail.id,
+          password: passwordResetForm.password,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const detail =
+          (data && (data.detail || data.message)) ||
+          "Não foi possível redefinir a senha.";
+        throw new Error(detail);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Senha redefinida com sucesso.",
+      });
+      handleClosePasswordResetModal();
+    } catch (err) {
+      setPasswordResetError(
+        err instanceof Error ? err.message : "Erro inesperado ao redefinir senha.",
+      );
+    } finally {
+      setPasswordResetSubmitting(false);
+    }
+  };
+
   const handleIntervalDateChange =
     (field: "dateStart" | "dateFinish") => (event: ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
@@ -3075,14 +3358,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const trimmedPhone = clientRegistrationForm.phone.trim();
     const birthDate = clientRegistrationForm.dateOfBirth;
 
-    if (
-      !trimmedFirstName ||
-      !trimmedLastName ||
-      !trimmedEmail ||
-      !trimmedCpf ||
-      !trimmedPhone ||
-      !birthDate
-    ) {
+    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedCpf || !trimmedPhone) {
       setClientRegistrationError("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -3093,7 +3369,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       email: trimmedEmail,
       cpf: trimmedCpf,
       phone: trimmedPhone,
-      date_of_birth: birthDate,
+      date_of_birth: birthDate || null,
     };
 
     setClientRegistrationSubmitting(true);
@@ -4249,6 +4525,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const handleCloseSaleModal = () => {
     setSaleModalOpen(false);
+    setSaleProfessionalId(null);
   };
 
   const handleSelectSaleProduct = (productId: number) => {
@@ -4295,15 +4572,23 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       return;
     }
     const transactionDate = appointmentDateInput || formatDateParam(new Date());
+    const transactionPayment =
+      salePaymentSelect === "credit"
+        ? "creditcard"
+        : salePaymentSelect === "dinheiro"
+          ? "money"
+          : salePaymentSelect;
     setIsAddingSaleProduct(true);
     try {
       const formData = new FormData();
       formData.append("type", "sell");
       formData.append("price", priceValue.toFixed(2));
       formData.append("date_of_transaction", transactionDate);
-      formData.append("transaction_payment", salePaymentSelect);
+      formData.append("transaction_payment", transactionPayment);
       formData.append("quantity", quantityValue.toString());
-      formData.append("user", String(selectedClient.id));
+      if (saleProfessionalId) {
+        formData.append("user", String(saleProfessionalId));
+      }
       formData.append("product", String(selectedSaleProductId));
 
       const response = await fetch(transactionsEndpointBase, {
@@ -4387,6 +4672,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductFormError(null);
     setIsCreatingProduct(true);
     setShowProductsFabOptions(false);
+    setIsViewingProductSales(false);
   }, [resetCreateProductForm]);
 
   const handleCancelCreateProduct = () => {
@@ -4408,6 +4694,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSaleDateIso(todayIso);
     setProductSaleDateDisplay(formatIsoToDisplay(todayIso));
     setShowProductsFabOptions(false);
+    setIsViewingProductSales(false);
   }, []);
 
   const handleCancelCreateProductSale = () => {
@@ -4415,6 +4702,126 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSaleError(null);
     setProductSaleProductModalOpen(false);
     setProductSaleSelectedProduct(null);
+  };
+
+  const handleOpenProductSalesList = () => {
+    setIsViewingProductSales(true);
+    setIsCreatingProduct(false);
+    setIsCreatingProductSale(false);
+    setProductSalesSearchInput("");
+    setProductSalesSearchTerm("");
+    setProductSalesError(null);
+    setShowProductsFabOptions(false);
+  };
+
+  const handleCloseProductSalesList = () => {
+    setIsViewingProductSales(false);
+    setProductSalesError(null);
+    setSelectedProductSaleId(null);
+  };
+
+  const handleProductSalesSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setProductSalesSearchTerm(productSalesSearchInput.trim());
+  };
+
+  const handleOpenProductSaleDetail = (saleId: number | null | undefined) => {
+    if (!saleId) {
+      return;
+    }
+    setSelectedProductSaleId(saleId);
+    setProductSaleDetailError(null);
+  };
+
+  const handleCloseProductSaleDetail = () => {
+    setSelectedProductSaleId(null);
+    setProductSaleDetailError(null);
+  };
+
+  const handleProductSaleDetailInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setProductSaleDetailForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleProductSaleDetailPaymentChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setProductSaleDetailForm((prev) => ({
+      ...prev,
+      transactionPayment: event.target.value,
+    }));
+  };
+
+  const handleProductSaleDetailUserChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    setProductSaleDetailForm((prev) => ({
+      ...prev,
+      userId: event.target.value,
+    }));
+  };
+
+  const handleSubmitProductSaleDetail = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!accessToken || !selectedProductSaleId) {
+      setProductSaleDetailError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    if (!productSaleDetailForm.price || !productSaleDetailForm.quantity) {
+      setProductSaleDetailError("Preencha preço e quantidade.");
+      return;
+    }
+    if (!productSaleDetailForm.transactionPayment) {
+      setProductSaleDetailError("Selecione a forma de pagamento.");
+      return;
+    }
+
+    setProductSaleDetailSubmitting(true);
+    setProductSaleDetailError(null);
+    try {
+      const formData = new FormData();
+      formData.append("price", productSaleDetailForm.price);
+      if (productSaleDetailForm.dateOfTransaction) {
+        formData.append("date_of_transaction", productSaleDetailForm.dateOfTransaction);
+      }
+      formData.append("transaction_payment", productSaleDetailForm.transactionPayment);
+      formData.append("quantity", productSaleDetailForm.quantity);
+      if (productSaleDetailForm.userId) {
+        formData.append("user", productSaleDetailForm.userId);
+      }
+      if (productSaleDetailForm.productId) {
+        formData.append("product", productSaleDetailForm.productId);
+      }
+
+      const response = await fetch(
+        `${transactionsSellListEndpoint}${selectedProductSaleId}/`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: formData,
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const detail =
+          (data && (data.detail || data.message)) ||
+          "Não foi possível atualizar a venda.";
+        throw new Error(detail);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Venda atualizada com sucesso.",
+      });
+      setProductSalesRefreshToken((prev) => prev + 1);
+      handleCloseProductSaleDetail();
+    } catch (err) {
+      setProductSaleDetailError(
+        err instanceof Error ? err.message : "Erro inesperado ao atualizar venda.",
+      );
+    } finally {
+      setProductSaleDetailSubmitting(false);
+    }
   };
 
   const handleToggleProductsFab = () => {
@@ -6473,7 +6880,256 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     );
   };
 
+  const renderProductSalesListScreen = () => {
+    const sales = productSalesData?.results ?? [];
+    const filteredSales = productSalesSearchTerm
+      ? sales.filter((sale) =>
+          [sale.name, sale.user_name, sale.payment]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(productSalesSearchTerm.toLowerCase()),
+        )
+      : sales;
+
+    return (
+      <div className="flex flex-col gap-5">
+        <header className="flex items-center justify-between">
+          <button
+            type="button"
+            className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+            onClick={handleCloseProductSalesList}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 text-center">
+            <p className="text-sm text-white/60">Produtos</p>
+            <p className="text-2xl font-semibold">Vendas</p>
+          </div>
+        </header>
+
+        <form onSubmit={handleProductSalesSearchSubmit} className="relative" role="search">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+          <input
+            type="search"
+            value={productSalesSearchInput}
+            onChange={(event) => setProductSalesSearchInput(event.target.value)}
+            placeholder="Buscar por produto ou usuário"
+            className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-24 text-sm outline-none transition focus:border-white/40"
+          />
+          {productSalesSearchTerm ? (
+            <button
+              type="button"
+              onClick={() => {
+                setProductSalesSearchInput("");
+                setProductSalesSearchTerm("");
+              }}
+              className="absolute right-24 top-1/2 -translate-y-1/2 text-xs text-white/60"
+            >
+              Limpar
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black transition hover:bg-white/90"
+          >
+            Buscar
+          </button>
+        </form>
+
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Vendas realizadas</h3>
+            <span className="text-xs text-white/60">{filteredSales.length} itens</span>
+          </div>
+          {productSalesLoading ? (
+            <div className="flex items-center justify-center py-10 text-white/70">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : productSalesError ? (
+            <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {productSalesError}
+            </p>
+          ) : filteredSales.length === 0 ? (
+            <p className="rounded-2xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">
+              Nenhuma venda encontrada.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {filteredSales.map((sale, index) => {
+                const paymentLabel = getSellPaymentLabel(sale.payment);
+                const saleDate = sale.date ? formatIsoToDisplay(sale.date) : "--";
+                return (
+                  <li key={`${sale.name}-${sale.date}-${index}`}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenProductSaleDetail(sale.id)}
+                      disabled={!sale.id}
+                      className="flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-black/30 p-4 text-left disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-white/5">
+                        {sale.image ? (
+                          <Image
+                            src={sale.image}
+                            alt={sale.name}
+                            fill
+                            sizes="80px"
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[11px] text-white/60">
+                            Sem foto
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-base font-semibold">{sale.name}</p>
+                          <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] uppercase tracking-wide text-white/70">
+                            {paymentLabel}
+                          </span>
+                        </div>
+                        <p className="text-xs text-white/60">
+                          Vendido por: {sale.user_name ?? "—"}
+                        </p>
+                        <p className="text-xs text-white/60">Data: {saleDate}</p>
+                        <p className="text-sm font-semibold text-white">
+                          {formatCurrency(sale.price)}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {selectedProductSaleId ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white/60">Venda</p>
+                  <h2 className="text-xl font-semibold">Editar venda</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseProductSaleDetail}
+                  className="rounded-full border border-white/10 p-2 text-white/70"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {productSaleDetailLoading ? (
+                <div className="flex items-center justify-center py-6 text-white/70">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitProductSaleDetail} className="space-y-4">
+                  <label className="text-sm text-white/70">
+                    Preço
+                    <input
+                      type="text"
+                      name="price"
+                      value={productSaleDetailForm.price}
+                      onChange={handleProductSaleDetailInputChange}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    />
+                  </label>
+                  <label className="text-sm text-white/70">
+                    Data da venda
+                    <input
+                      type="date"
+                      name="dateOfTransaction"
+                      value={productSaleDetailForm.dateOfTransaction}
+                      onChange={handleProductSaleDetailInputChange}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    />
+                  </label>
+                  <label className="text-sm text-white/70">
+                    Forma de pagamento
+                    <select
+                      value={productSaleDetailForm.transactionPayment}
+                      onChange={handleProductSaleDetailPaymentChange}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
+                    >
+                      <option value="">Selecione</option>
+                      {productSalePaymentOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-white/70">
+                    Quantidade
+                    <input
+                      type="number"
+                      min={1}
+                      name="quantity"
+                      value={productSaleDetailForm.quantity}
+                      onChange={handleProductSaleDetailInputChange}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    />
+                  </label>
+                  <label className="text-sm text-white/70">
+                    Usuário
+                    <select
+                      value={productSaleDetailForm.userId}
+                      onChange={handleProductSaleDetailUserChange}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
+                    >
+                      <option value="">Sem usuário</option>
+                      {productSalesProfessionals.map((professional) => (
+                        <option key={professional.userId} value={professional.userId}>
+                          {professional.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {productSaleDetailError ? (
+                    <p className="text-sm text-red-300">{productSaleDetailError}</p>
+                  ) : null}
+
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCloseProductSaleDetail}
+                      className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={productSaleDetailSubmitting}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {productSaleDetailSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        "Salvar"
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderProductsContent = () => {
+    if (isViewingProductSales) {
+      return renderProductSalesListScreen();
+    }
     if (isCreatingProduct) {
       return renderCreateProductScreen();
     }
@@ -6662,6 +7318,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               >
                 <DollarSign className="h-4 w-4" />
                 Adicionar venda
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenProductSalesList}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg"
+              >
+                <FileText className="h-4 w-4" />
+                Ver vendas
               </button>
             </>
           ) : null}
@@ -8471,6 +9135,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       { label: "S", value: 4, name: "Sexta" },
       { label: "S", value: 5, name: "Sábado" },
     ];
+    const isAdmin = session?.user?.role === "admin";
 
     return (
       <div className="flex flex-col gap-5">
@@ -8746,6 +9411,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 />
                 Usuário ativo
               </label>
+              {isAdmin ? (
+                <div className="sm:col-span-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenPasswordResetModal}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40"
+                  >
+                    Redefinir senha
+                  </button>
+                </div>
+              ) : null}
           </form>
           {canEditUser ? (
             <div className="flex justify-end">
@@ -9063,6 +9739,104 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               </fieldset>
             </form>
           </section>
+        ) : null}
+
+        {showPasswordResetModal ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white/60">Usuário</p>
+                  <h2 className="text-xl font-semibold">Redefinir senha</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClosePasswordResetModal}
+                  className="rounded-full border border-white/10 p-2 text-white/70"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <form onSubmit={handleSubmitPasswordReset} className="space-y-4">
+                <label className="text-sm text-white/70">
+                  Digite a nova senha
+                  <div className="mt-1 flex items-center rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm focus-within:border-white/40">
+                    <input
+                      type={showPasswordReset ? "text" : "password"}
+                      name="password"
+                      value={passwordResetForm.password}
+                      onChange={handlePasswordResetInputChange}
+                      className="w-full bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordReset((prev) => !prev)}
+                      className="text-white/70"
+                      aria-label={showPasswordReset ? "Ocultar senha" : "Mostrar senha"}
+                    >
+                      {showPasswordReset ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </label>
+                <label className="text-sm text-white/70">
+                  Confirme a nova senha
+                  <div className="mt-1 flex items-center rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm focus-within:border-white/40">
+                    <input
+                      type={showPasswordResetConfirm ? "text" : "password"}
+                      name="confirmPassword"
+                      value={passwordResetForm.confirmPassword}
+                      onChange={handlePasswordResetInputChange}
+                      className="w-full bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordResetConfirm((prev) => !prev)}
+                      className="text-white/70"
+                      aria-label={
+                        showPasswordResetConfirm ? "Ocultar confirmação" : "Mostrar confirmação"
+                      }
+                    >
+                      {showPasswordResetConfirm ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </label>
+                {passwordResetError ? (
+                  <p className="text-sm text-red-300">{passwordResetError}</p>
+                ) : null}
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={handleClosePasswordResetModal}
+                    className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={passwordResetSubmitting}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {passwordResetSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         ) : null}
       </div>
     );
@@ -11121,6 +11895,25 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
               {selectedSaleProductId ? (
                 <div className="space-y-3 rounded-2xl border border-white/10 p-4 text-sm text-white/80">
+                  <label className="block text-white/70">
+                    Usuário que vendeu
+                    <select
+                      value={saleProfessionalId ? String(saleProfessionalId) : ""}
+                      onChange={(event) =>
+                        setSaleProfessionalId(
+                          event.target.value ? Number(event.target.value) : null,
+                        )
+                      }
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
+                    >
+                      <option value="">Sem usuário</option>
+                      {saleProfessionalsList.map((professional) => (
+                        <option key={professional.userId} value={professional.userId}>
+                          {professional.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="block text-white/70">
                     Forma de pagamento
                     <select

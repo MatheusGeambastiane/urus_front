@@ -25,6 +25,23 @@ export type ProductsResponse = {
 
 export type ProductSalePaymentType = "pix" | "creditcard" | "debit" | "money";
 
+export type ProductSaleListItem = {
+  id?: number;
+  name: string;
+  image: string | null;
+  price: string;
+  payment: ProductSalePaymentType | string;
+  date: string;
+  user_name: string | null;
+};
+
+export type ProductSalesResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ProductSaleListItem[];
+};
+
 export type AddedSaleItem = {
   productId: number;
   productName: string;

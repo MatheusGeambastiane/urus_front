@@ -42,5 +42,6 @@ export type ServiceCategoryOption = {
 
 export type ProfessionalSimple = {
   id: number;
+  user_id?: number;
   user_name: string;
 };
