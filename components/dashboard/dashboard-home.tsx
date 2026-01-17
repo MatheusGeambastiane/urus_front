@@ -25,7 +25,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Calendar,
@@ -65,397 +64,142 @@ import {
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
+import {
+  formatDisplayDate,
+  convertDisplayDateToIso,
+  formatTimeInputValue,
+  formatIsoToDisplay,
+  buildDateTimeISOString,
+  formatDateParam,
+  formatDatePillLabel,
+} from "@/src/features/shared/utils/date";
+import {
+  formatCurrency,
+  parseCurrencyInput,
+  formatMoneyInputValue,
+  normalizeMoneyValue,
+  formatMoneyFromDecimalString,
+} from "@/src/features/shared/utils/money";
+import { capitalizeFirstLetter } from "@/src/features/shared/utils/string";
+import {
+  createProfessionalSlot,
+  getDefaultServicePrice,
+  formatDurationLabel,
+} from "@/src/features/appointments/utils/appointments";
+import { getServiceIcon } from "@/src/features/services/utils/services";
+import { getSellPaymentLabel } from "@/src/features/products/utils/products";
+import {
+  formatMonthParam,
+  formatMonthReference,
+  getMonthLabel,
+  billTypeOptions,
+  billFrequencyOptions,
+  paymentTypeOptions,
+  getBillTypeDefinition,
+  calculateRepasseTotals,
+  priceStatusColor,
+  getBillFrequencyLabel,
+  getPaymentTypeLabel,
+} from "@/src/features/finances/utils/finances";
+import {
+  passwordRequirementLabels,
+  passwordRequirementCheck,
+} from "@/src/features/users/utils/password";
+import {
+  usersEndpointBase,
+  roleChoicesEndpoint,
+  servicesSimpleListEndpoint,
+  professionalProfilesEndpointBase,
+  clientsEndpointBase,
+  professionalIntervalsEndpointBase,
+} from "@/src/features/users/services/endpoints";
+import {
+  servicesEndpointBase,
+  serviceCategoriesEndpoint,
+  serviceCategoriesBaseEndpoint,
+  productUsagesEndpointBase,
+} from "@/src/features/services/services/endpoints";
+import {
+  appointmentsEndpointBase,
+  professionalProfilesSimpleListEndpoint,
+} from "@/src/features/appointments/services/endpoints";
+import {
+  productsEndpointBase,
+  transactionsEndpointBase,
+} from "@/src/features/products/services/endpoints";
+import {
+  financeSummaryEndpoint,
+  repassesEndpoint,
+  billsEndpointBase,
+  professionalServiceSummaryEndpointBase,
+} from "@/src/features/finances/services/endpoints";
+import type {
+  AppointmentItem,
+  AppointmentProfessionalSlot,
+  AppointmentService,
+  AppointmentStatus,
+  AppointmentsResponse,
+  ServiceAssignment,
+} from "@/src/features/appointments/types";
+import type { BillDetail, BillItem } from "@/src/features/bills/types";
+import type {
+  DailySummaryResponse,
+  QuickActionKey,
+} from "@/src/features/home/types";
+import type { FinanceSummary } from "@/src/features/finances/types";
+import type {
+  AddedSaleItem,
+  ProductItem,
+  ProductSalePaymentType,
+  ProductsResponse,
+} from "@/src/features/products/types";
+import type {
+  ProfessionalServiceSummary,
+  RepasseDetail,
+  RepasseItem,
+} from "@/src/features/repasses/types";
+import type {
+  ProductUsage,
+  ProfessionalSimple,
+  ServiceCategoryOption,
+  ServiceItem,
+  ServiceOption,
+  ServiceSimpleOption,
+  ServicesResponse,
+} from "@/src/features/services/types";
+import {
+  createServiceSchema,
+  type CreateServiceFormValues,
+} from "@/src/features/services/schemas";
+import type { PaymentType } from "@/src/shared/types/payment";
+import {
+  createProductSchema,
+  type CreateProductFormValues,
+} from "@/src/features/products/schemas";
+import {
+  createUserSchema,
+  editUserSchema,
+  professionalProfileSchema,
+  type CreateUserFormValues,
+  type EditUserFormValues,
+  type ProfessionalProfileFormValues,
+} from "@/src/features/users/schemas";
+import type {
+  ClientHistorySummary,
+  HistoryItem,
+  ProfessionalProfile,
+  ProfessionalProfileDetail,
+  RoleOption,
+  UserDetail,
+  UserItem,
+  UsersResponse,
+} from "@/src/features/users/types";
 
 type DashboardHomeProps = {
   firstName: string;
   activeTab: DashboardTab;
 };
 
-type RoleOption = {
-  value: string;
-  label: string;
-};
-
-type ProfessionalProfile = {
-  professional_type: string | null;
-};
-
-type ServiceOption = {
-  id: number;
-  name: string;
-};
-
-type ServiceSimpleOption = {
-  id: number;
-  name: string;
-  price: string;
-};
-
-type AppointmentProfessionalSlot = {
-  id: string;
-  professional: ServiceOption | null;
-};
-
-type ServiceAssignment = {
-  professionalSlotId: string | null;
-  price: string;
-};
-
-type PaymentType = "credit" | "debit" | "pix" | "dinheiro";
-
-type AppointmentStatus = "realizado" | "agendado" | "iniciado";
-
-type ProfessionalProfileDetail = {
-  id: number;
-  professional_type: string;
-  cnpj: string;
-  commission: number;
-  bio: string;
-  services: number[];
-};
-
-type HistoryItem = {
-  id: number;
-  name: string;
-  count: number;
-};
-
-type ClientHistorySummary = {
-  total_appointments: number;
-  total_paid_completed: string;
-  appointments_by_professional: HistoryItem[];
-  appointments_by_service: HistoryItem[];
-};
-
-type ProductUsage = {
-  id: number;
-  product: number;
-  product_name: string;
-  quantity_used: number;
-};
-
-type ServiceItem = {
-  id: number;
-  name: string;
-  price: string;
-  category: number;
-  category_name: string;
-  duration: string;
-  service_photo: string | null;
-  is_active: boolean;
-  product_usages?: ProductUsage[];
-};
-
-type ServicesResponse = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: ServiceItem[];
-};
-
-type ServiceCategoryOption = {
-  id: number;
-  name: string;
-};
-
-type ProfessionalSimple = {
-  id: number;
-  user_name: string;
-};
-
-type AppointmentService = {
-  id: number;
-  name: string;
-  category_name: string;
-};
-
-type AppointmentProfessionalService = {
-  professional: number;
-  professional_name?: string;
-  service: number;
-  service_name?: string;
-  price_paid: string;
-};
-
-type AppointmentItem = {
-  id: number;
-  date_time: string;
-  client: number | null;
-  professional: number | null;
-  services: AppointmentService[];
-  price_paid: string;
-  discount: number | null;
-  payment_type: string | null;
-  status: string;
-  observations: string | null;
-  professional_name: string | null;
-  client_name: string | null;
-  professional_services?: AppointmentProfessionalService[];
-  created_at?: string;
-  updated_at?: string;
-};
-
-type PaymentBreakdown = {
-  payment_type: string;
-  total: number;
-};
-
-type SellBreakdown = {
-  transaction_payment: string;
-  total: number;
-};
-
-type FinanceSummary = {
-  month: string;
-  revenue: string;
-  expenses: string;
-  appointments_count: number;
-  sell_transactions_count: number;
-  appointments_by_payment_type: PaymentBreakdown[];
-  sell_by_payment_type: SellBreakdown[];
-};
-
-type RepasseItem = {
-  id: number;
-  professional: {
-    id: number;
-    name: string;
-    user_id: number;
-  };
-  value_service: string;
-  value_product: string;
-  is_paid: boolean;
-  invoice: string | null;
-  month: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type RepasseTransaction = {
-  id: number;
-  type: string;
-  price: string;
-  date_of_transaction: string;
-  transaction_payment: string;
-  payment_proof: string | null;
-  product: number | null;
-  quantity: number;
-  user: number;
-  bill: number | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type RepasseDetail = {
-  id: number;
-  professional: {
-    id: number;
-    user_id: number;
-    name: string;
-    email: string;
-    professional_type: string;
-  };
-  value_service: string;
-  value_product: string;
-  is_paid: boolean;
-  transactions: RepasseTransaction[];
-  invoice: string | null;
-  month: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type ProfessionalServiceSummary = {
-  professional: {
-    id: number;
-    user_id: number;
-    name: string;
-    professional_type: string;
-  };
-  period: {
-    month: string;
-    start: string;
-    end: string;
-  };
-  totals: {
-    service_revenue: string;
-    sales_revenue: string;
-    overall_revenue: string;
-    appointments_count: number;
-    services_performed: number;
-  };
-  services_breakdown: {
-    service_id: number;
-    service_name: string;
-    total: number;
-  }[];
-  categories_breakdown: {
-    category_id: number;
-    category_name: string;
-    total: number;
-  }[];
-};
-
-type BillItem = {
-  id: number;
-  name: string;
-  bill_type: string;
-  value: string;
-  is_paid: boolean;
-  date_of_payment: string;
-};
-
-type BillTransaction = {
-  id: number;
-  type: string;
-  price: string;
-  date_of_transaction: string;
-  transaction_payment: string;
-  payment_proof: string | null;
-  product: number | null;
-  quantity: number;
-  user: number | null;
-  bill: number | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type BillDetail = BillItem & {
-  type: string;
-  finish_month: string | null;
-  created_at: string;
-  updated_at: string;
-  transactions: BillTransaction[];
-};
-
-type AppointmentsResponse = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: AppointmentItem[];
-  completed_total_price: string;
-  completed_total_count: number;
-};
-
-type UserDetail = {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  cpf: string;
-  phone: string;
-  role: string;
-  role_display: string;
-  is_active: boolean;
-  date_of_birth: string;
-  profile_pic: string | null;
-  professional_profile: ProfessionalProfileDetail | null;
-};
-
-type UserItem = {
-  id: number;
-  first_name: string;
-  last_name: string;
-  role: string;
-  email: string;
-  phone: string;
-  profile_pic: string | null;
-  professional_profile?: ProfessionalProfile | null;
-};
-
-type UsersResponse = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: UserItem[];
-};
-
-type ProductItem = {
-  id: number;
-  name: string;
-  price_paid: string;
-  quantity: number;
-  use_type: string;
-  type: string;
-  price_to_sell: string;
-  commission: number | null;
-  picture_of_product: string | null;
-  alarm_quantity: number;
-  next_to_finish: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
-type ProductsResponse = {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: ProductItem[];
-};
-
-type ProductSalePaymentType = "pix" | "creditcard" | "debit" | "money";
-
-type AddedSaleItem = {
-  productId: number;
-  productName: string;
-  price: string;
-  quantity: number;
-  paymentType: PaymentType;
-};
-
-type SummaryPaymentSplit = {
-  payment_type: string;
-  total: number;
-};
-
-type SummarySellPaymentSplit = {
-  transaction_payment: string;
-  total: number;
-};
-
-type SummaryNextAppointment = {
-  id: number;
-  date_time: string;
-  client_id: number;
-  client_name: string;
-  professional_id: number;
-  professional_name: string;
-};
-
-type SummaryProfessionalBreakdown = {
-  professional_id: number;
-  professional_name: string;
-  total: number;
-};
-
-type SummaryServiceHighlight = {
-  service_id: number;
-  service_name: string;
-  total: number;
-};
-
-type DailySummaryResponse = {
-  period: {
-    type: string;
-    start: string;
-    end: string;
-  };
-  filters: {
-    day: string | null;
-    month: string | null;
-  };
-  revenue: string;
-  appointments_value: string;
-  sell_value: string;
-  total_services_performed: number;
-  appointments_by_payment_type: SummaryPaymentSplit[];
-  sell_by_payment_type: SummarySellPaymentSplit[];
-  next_appointment: SummaryNextAppointment | null;
-  appointments_by_professional: SummaryProfessionalBreakdown[];
-  top_services: SummaryServiceHighlight[];
-};
-
-type QuickActionKey = "create-appointment" | "create-product-sale" | "create-product";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
@@ -505,460 +249,9 @@ const createServiceDefaultValues = {
   productUsage: [] as { product: number; quantity_used: number; product_name?: string }[],
 };
 
-const usersEndpointBase = `${env.apiBaseUrl}/dashboard/users/`;
-const roleChoicesEndpoint = `${env.apiBaseUrl}/dashboard/users/role-choices/`;
-const servicesSimpleListEndpoint = `${env.apiBaseUrl}/dashboard/services/simple-list/`;
-const professionalProfilesEndpointBase = `${env.apiBaseUrl}/dashboard/professional-profiles/`;
-const servicesEndpointBase = `${env.apiBaseUrl}/dashboard/services/`;
-const serviceCategoriesEndpoint = `${env.apiBaseUrl}/dashboard/service-categories/simple-list/`;
-const productUsagesEndpointBase = `${env.apiBaseUrl}/dashboard/product-usages/`;
-const appointmentsEndpointBase = `${env.apiBaseUrl}/dashboard/appointments/`;
-const professionalProfilesSimpleListEndpoint = `${env.apiBaseUrl}/dashboard/professional-profiles/simple-list/`;
-const productsEndpointBase = `${env.apiBaseUrl}/dashboard/products/`;
-const transactionsEndpointBase = `${env.apiBaseUrl}/dashboard/transactions/`;
-const clientsEndpointBase = `${env.apiBaseUrl}/dashboard/users/clients/`;
-const financeSummaryEndpoint = `${env.apiBaseUrl}/dashboard/summary/`;
-const repassesEndpoint = `${env.apiBaseUrl}/dashboard/repasses/`;
-const billsEndpointBase = `${env.apiBaseUrl}/dashboard/bills/`;
-const professionalServiceSummaryEndpointBase = `${env.apiBaseUrl}/dashboard/professionals/`;
 
-const formatDisplayDate = (value: string) => {
-  const digitsOnly = value.replace(/\D/g, "").slice(0, 8);
-  const parts: string[] = [];
 
-  if (digitsOnly.length >= 2) {
-    parts.push(digitsOnly.slice(0, 2));
-  } else if (digitsOnly.length > 0) {
-    parts.push(digitsOnly);
-  }
 
-  if (digitsOnly.length >= 4) {
-    parts.push(digitsOnly.slice(2, 4));
-  } else if (digitsOnly.length > 2) {
-    parts.push(digitsOnly.slice(2));
-  }
-
-  if (digitsOnly.length > 4) {
-    parts.push(digitsOnly.slice(4));
-  }
-
-  return parts.join("/");
-};
-
-const convertDisplayDateToIso = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length !== 8) {
-    return null;
-  }
-  const day = digits.slice(0, 2);
-  const month = digits.slice(2, 4);
-  const year = digits.slice(4);
-  return `${year}-${month}-${day}`;
-};
-
-const passwordRequirementLabels = {
-  length: "Pelo menos 8 caracteres",
-  uppercase: "Uma letra maiúscula",
-  lowercase: "Uma letra minúscula",
-  number: "Um número",
-  special: "Um caractere especial",
-} as const;
-
-const passwordRequirementCheck = (password: string) =>
-  ({
-    length: password.length >= 8,
-    uppercase: /[A-Z]/.test(password),
-    lowercase: /[a-z]/.test(password),
-    number: /\d/.test(password),
-    special: /[^A-Za-z0-9]/.test(password),
-  }) satisfies Record<keyof typeof passwordRequirementLabels, boolean>;
-
-const meetsAllPasswordRequirements = (password: string) => {
-  const checks = passwordRequirementCheck(password);
-  return Object.values(checks).every(Boolean);
-};
-
-const categoryIconMap: Record<string, LucideIcon> = {
-  cortes: Scissors,
-  corte: Scissors,
-  barba: Gem,
-  massagem: Waves,
-  combo: Package,
-};
-
-const getServiceIcon = (categoryName: string) => {
-  if (!categoryName) {
-    return Sparkles;
-  }
-  const key = categoryName.toLowerCase();
-  return categoryIconMap[key] ?? Sparkles;
-};
-
-const formatCurrency = (price: string) => {
-  const numeric = Number(price);
-  if (Number.isNaN(numeric)) {
-    return price;
-  }
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(numeric);
-};
-
-const parseCurrencyInput = (value: string) => {
-  if (!value) {
-    return 0;
-  }
-  const normalized = value.replace(/[^\d,.-]/g, "").replace(",", ".");
-  const parsed = Number(normalized);
-  return Number.isNaN(parsed) ? 0 : parsed;
-};
-
-const capitalizeFirstLetter = (value: string) => {
-  if (!value) {
-    return "";
-  }
-  return value.charAt(0).toUpperCase() + value.slice(1);
-};
-
-const formatMoneyInputValue = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) {
-    return "";
-  }
-  const numeric = Number(digits) / 100;
-  if (Number.isNaN(numeric)) {
-    return "";
-  }
-  return numeric.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
-
-const normalizeMoneyValue = (value: string) => {
-  if (!value) {
-    return "0";
-  }
-  return parseCurrencyInput(value).toFixed(2);
-};
-
-const formatMoneyFromDecimalString = (value: string) => {
-  const numeric = Number(value);
-  if (Number.isNaN(numeric)) {
-    return "";
-  }
-  return numeric.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
-
-const generateUniqueId = () => {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2, 11);
-};
-
-const createProfessionalSlot = (): AppointmentProfessionalSlot => ({
-  id: generateUniqueId(),
-  professional: null,
-});
-
-const getDefaultServicePrice = (price: string | number | null | undefined) => {
-  const parsed = parseCurrencyInput(String(price ?? 0));
-  return Number.isNaN(parsed) ? "0.00" : parsed.toFixed(2);
-};
-
-const formatTimeInputValue = (dateValue: Date) => {
-  const hours = dateValue.getHours().toString().padStart(2, "0");
-  const minutes = dateValue.getMinutes().toString().padStart(2, "0");
-  return `${hours}:${minutes}`;
-};
-
-const formatMonthParam = (date: Date) => {
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  return `${year}-${month}`;
-};
-
-const getMonthLabel = (monthValue: string) => {
-  const [year, month] = monthValue.split("-");
-  if (!year || !month) {
-    return "Mês atual";
-  }
-  const parsedDate = new Date(Number(year), Number(month) - 1, 1);
-  return parsedDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
-};
-
-const getSellPaymentLabel = (value: string | null | undefined) => {
-  if (!value) {
-    return "Desconhecido";
-  }
-  switch (value) {
-    case "creditcard":
-    case "credit":
-      return "Cartão de crédito";
-    case "debit":
-      return "Cartão de débito";
-    case "pix":
-      return "Pix";
-    case "dinheiro":
-    case "money":
-      return "Dinheiro";
-    default:
-      return value;
-  }
-};
-
-const getBillTypeDefinition = (value: string | null | undefined) => {
-  if (!value) {
-    return { label: "Categoria", icon: FileText };
-  }
-  const option = billTypeOptions.find((item) => item.value === value);
-  if (option) {
-    return { label: option.label, icon: option.icon };
-  }
-  return { label: value, icon: FileText };
-};
-
-const formatIsoToDisplay = (iso: string) => {
-  if (!iso) {
-    return "";
-  }
-  const [year, month, day] = iso.split("-");
-  if (!year || !month || !day) {
-    return "";
-  }
-  return `${day}/${month}/${year}`;
-};
-
-const buildDateTimeISOString = (date: string, time: string) => {
-  if (!date || !time) {
-    return null;
-  }
-  const dateTimeString = `${date}T${time}`;
-  const instance = new Date(dateTimeString);
-  if (Number.isNaN(instance.getTime())) {
-    return null;
-  }
-  return instance.toISOString();
-};
-
-const formatDurationLabel = (duration: string) => {
-  const [rawHours, rawMinutes, rawSeconds] = duration
-    .split(":")
-    .map((part) => Number(part));
-  const hours = Number.isNaN(rawHours) ? 0 : rawHours;
-  const minutes = Number.isNaN(rawMinutes) ? 0 : rawMinutes;
-  const seconds = Number.isNaN(rawSeconds) ? 0 : rawSeconds;
-  const totalMinutes = hours * 60 + minutes + Math.round(seconds / 60);
-  if (totalMinutes >= 60) {
-    const hrs = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    if (mins === 0) {
-      return `${hrs}h`;
-    }
-    return `${hrs}h ${mins}min`;
-  }
-  return `${totalMinutes}min`;
-};
-
-const formatDateParam = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const formatMonthReference = (value: string) => {
-  if (!value) {
-    return "";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat("pt-BR", {
-    month: "long",
-    year: "numeric",
-  }).format(date);
-};
-
-const calculateRepasseTotals = (detail: RepasseDetail | null) => {
-  if (!detail) {
-    return { total: 0, paid: 0, remaining: 0 };
-  }
-  const serviceValue = parseCurrencyInput(detail.value_service ?? "0");
-  const productValue = parseCurrencyInput(detail.value_product ?? "0");
-  const total = serviceValue + productValue;
-  const paid = detail.transactions.reduce(
-    (accumulator, transaction) => accumulator + parseCurrencyInput(transaction.price ?? "0"),
-    0,
-  );
-  const remaining = Math.max(total - paid, 0);
-  return { total, paid, remaining };
-};
-
-const formatDatePillLabel = (date: Date, today: Date) => {
-  const isToday =
-    date.getDate() === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear();
-  if (isToday) {
-    return "Hoje";
-  }
-  const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-  const weekday = weekdays[date.getDay()];
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${weekday}, ${day}`;
-};
-
-const priceStatusColor = (status: string) => {
-  const normalized = status?.toLowerCase();
-  if (normalized === "realizado" || normalized === "completed") {
-    return "text-emerald-400";
-  }
-  if (normalized === "iniciado" || normalized === "started") {
-    return "text-sky-400";
-  }
-  return "text-amber-300";
-};
-
-const createUserSchema = z
-  .object({
-    firstName: z.string().min(1, "Informe o primeiro nome."),
-    lastName: z.string().min(1, "Informe o sobrenome."),
-    email: z.string().email("Informe um e-mail válido."),
-    phone: z.string().optional(),
-    cpf: z.string().optional(),
-    role: z.string().min(1, "Selecione uma função."),
-    dateOfBirth: z
-      .string()
-      .regex(/^\d{2}\/\d{2}\/\d{4}$/, "Use o formato dd/mm/aaaa."),
-    password: z
-      .string()
-      .min(8, "A senha deve ter pelo menos 8 caracteres.")
-      .refine(
-        (value) => /[A-Z]/.test(value),
-        "Inclua pelo menos uma letra maiúscula.",
-      )
-      .refine(
-        (value) => /[a-z]/.test(value),
-        "Inclua pelo menos uma letra minúscula.",
-      )
-      .refine((value) => /\d/.test(value), "Inclua pelo menos um número.")
-      .refine(
-        (value) => /[^A-Za-z0-9]/.test(value),
-        "Inclua pelo menos um caractere especial.",
-      ),
-    confirmPassword: z.string().min(1, "Confirme a senha."),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "As senhas não conferem.",
-    path: ["confirmPassword"],
-  })
-  .refine((data) => meetsAllPasswordRequirements(data.password), {
-    message:
-      "A senha deve ter ao menos 8 caracteres, letras maiúsculas, minúsculas, números e caracteres especiais.",
-    path: ["password"],
-  });
-
-type CreateUserFormValues = z.infer<typeof createUserSchema>;
-
-const editUserSchema = z.object({
-  firstName: z.string().min(1, "Informe o primeiro nome."),
-  lastName: z.string().min(1, "Informe o sobrenome."),
-  email: z.string().email("Informe um e-mail válido."),
-  phone: z.string().optional(),
-  cpf: z.string().optional(),
-  role: z.string().min(1, "Selecione uma função."),
-  dateOfBirth: z
-    .string()
-    .regex(/^\d{2}\/\d{2}\/\d{4}$/, "Use o formato dd/mm/aaaa."),
-  isActive: z.boolean().default(true),
-  profilePic: z
-    .any()
-    .optional()
-    .refine(
-      (value) =>
-        !value ||
-        (typeof FileList !== "undefined" &&
-          value instanceof FileList &&
-          value.length <= 1),
-      "Envie apenas um arquivo.",
-    ),
-});
-
-type EditUserFormValues = z.infer<typeof editUserSchema>;
-
-const professionalProfileSchema = z.object({
-  professionalType: z.string().min(1, "Selecione o tipo."),
-  cnpj: z.string().min(1, "Informe o CNPJ."),
-  commission: z
-    .string()
-    .min(1, "Informe a comissão.")
-    .refine((value) => !Number.isNaN(Number(value)), "Informe um número válido."),
-  bio: z.string().optional(),
-  services: z.array(z.number()),
-});
-
-type ProfessionalProfileFormValues = z.infer<typeof professionalProfileSchema>;
-
-const createServiceSchema = z.object({
-  name: z.string().min(1, "Informe o nome do serviço."),
-  price: z.string().min(1, "Informe o preço."),
-  category: z.string().min(1, "Selecione a categoria."),
-  duration: z.string().min(1, "Informe a duração."),
-  isActive: z.boolean().default(true),
-  productUsage: z
-    .array(
-      z.object({
-        product: z.number().min(1, "Selecione um produto."),
-        quantity_used: z
-          .number()
-          .min(1, "Quantidade deve ser positiva."),
-        product_name: z.string().optional(),
-      }),
-    )
-    .optional(),
-});
-
-type CreateServiceFormValues = z.infer<typeof createServiceSchema>;
-
-const createProductSchema = z.object({
-  name: z.string().min(1, "Informe o nome do produto."),
-  pricePaid: z.string().min(1, "Informe o preço de custo."),
-  priceToSell: z.string().min(1, "Informe o preço de venda."),
-  quantity: z
-    .string()
-    .min(1, "Informe a quantidade.")
-    .refine((value) => !Number.isNaN(Number(value)), "Informe um número válido."),
-  useType: z.string().min(1, "Selecione o tipo de uso."),
-  type: z.string().min(1, "Selecione o tipo."),
-  alarmQuantity: z
-    .string()
-    .min(1, "Informe o limite de estoque.")
-    .refine((value) => !Number.isNaN(Number(value)), "Informe um número válido."),
-  picture: z
-    .any()
-    .optional()
-    .refine(
-      (value) =>
-        !value ||
-        (typeof FileList !== "undefined" &&
-          value instanceof FileList &&
-          value.length <= 1),
-      "Envie apenas um arquivo.",
-    ),
-});
-
-type CreateProductFormValues = z.infer<typeof createProductSchema>;
 
 const createProductDefaultValues: CreateProductFormValues = {
   name: "",
@@ -991,41 +284,6 @@ const appointmentStatusOptions: { value: AppointmentStatus; label: string }[] = 
 ];
 
 const pieChartColors = ["#F97066", "#7F56D9", "#12B76A", "#FDB022", "#2E90FA"];
-
-const billTypeOptions = [
-  { value: "maintenance", label: "Manutenção", icon: Wrench },
-  { value: "creditcard", label: "Cartão de crédito", icon: CreditCard },
-  { value: "tax", label: "Imposto", icon: Coins },
-  { value: "marketing", label: "Marketing", icon: Sparkles },
-];
-
-const billFrequencyOptions = [
-  { value: "fixed", label: "Fixo", icon: Repeat },
-  { value: "unprevisible", label: "Imprevisível", icon: Shuffle },
-  { value: "emergency", label: "Emergencial", icon: AlertTriangle },
-];
-
-const getBillFrequencyLabel = (value: string | null | undefined) => {
-  if (!value) {
-    return "Tipo";
-  }
-  const option = billFrequencyOptions.find((item) => item.value === value);
-  return option?.label ?? value;
-};
-
-const paymentTypeOptions: { value: PaymentType; label: string; icon: LucideIcon }[] = [
-  { value: "credit", label: "Cartão de crédito", icon: CreditCard },
-  { value: "debit", label: "Cartão de débito", icon: Wallet },
-  { value: "pix", label: "Pix", icon: QrCode },
-  { value: "dinheiro", label: "Dinheiro", icon: Coins },
-];
-
-const getPaymentTypeLabel = (value: PaymentType | null | undefined) => {
-  if (!value) {
-    return "";
-  }
-  return paymentTypeOptions.find((option) => option.value === value)?.label ?? value;
-};
 
 const productUseFilterOptions = [
   { label: "Todos", value: null },
@@ -1107,6 +365,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [usersData, setUsersData] = useState<UsersResponse | null>(null);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
+  const [usersRefreshToken, setUsersRefreshToken] = useState(0);
   const [pageSize, setPageSize] = useState<typeof PAGE_SIZE_OPTIONS[number]>(
     PAGE_SIZE_OPTIONS[0],
   );
@@ -1128,9 +387,21 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [isSavingUser, setIsSavingUser] = useState(false);
   const datePickerRef = useRef<HTMLInputElement & { showPicker?: () => void }>(null);
   const editDatePickerRef = useRef<HTMLInputElement & { showPicker?: () => void }>(null);
+  const profilePicInputRef = useRef<HTMLInputElement | null>(null);
   const servicesDropdownRef = useRef<HTMLDivElement>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
+  const [professionalIntervalForm, setProfessionalIntervalForm] = useState({
+    dateStart: "",
+    dateFinish: "",
+    hourStart: "",
+    hourFinish: "",
+    repeat: false,
+    weekDays: [] as number[],
+  });
+  const [professionalIntervalError, setProfessionalIntervalError] = useState<string | null>(null);
+  const [professionalIntervalSubmitting, setProfessionalIntervalSubmitting] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<
     { type: "success" | "error"; message: string } | null
   >(null);
@@ -1152,6 +423,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [clientHistoryError, setClientHistoryError] = useState<string | null>(null);
   const [serviceCategories, setServiceCategories] = useState<ServiceCategoryOption[]>([]);
   const [serviceCategoriesError, setServiceCategoriesError] = useState<string | null>(null);
+  const [serviceCategoriesRefreshToken, setServiceCategoriesRefreshToken] = useState(0);
   const [servicesList, setServicesList] = useState<ServiceItem[]>([]);
   const [servicesCount, setServicesCount] = useState(0);
   const [servicesFetchError, setServicesFetchError] = useState<string | null>(null);
@@ -1161,6 +433,17 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [servicesLoadingList, setServicesLoadingList] = useState(false);
   const [servicesRefreshToken, setServicesRefreshToken] = useState(0);
   const [isCreatingService, setIsCreatingService] = useState(false);
+  const [isCreatingServiceCategory, setIsCreatingServiceCategory] = useState(false);
+  const [serviceCategoryForm, setServiceCategoryForm] = useState<{
+    name: string;
+    icon: File | null;
+  }>({
+    name: "",
+    icon: null,
+  });
+  const [serviceCategoryError, setServiceCategoryError] = useState<string | null>(null);
+  const [serviceCategorySubmitting, setServiceCategorySubmitting] = useState(false);
+  const [showServicesFabOptions, setShowServicesFabOptions] = useState(false);
   const [isSavingService, setIsSavingService] = useState(false);
   const [productsModalOpen, setProductsModalOpen] = useState(false);
   const [productsList, setProductsList] = useState<ServiceOption[]>([]);
@@ -1287,6 +570,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [productsRefreshToken, setProductsRefreshToken] = useState(0);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [isCreatingProductSale, setIsCreatingProductSale] = useState(false);
+  const [showProductsFabOptions, setShowProductsFabOptions] = useState(false);
   const [productFormError, setProductFormError] = useState<string | null>(null);
   const [productSaleError, setProductSaleError] = useState<string | null>(null);
   const [isSavingProduct, setIsSavingProduct] = useState(false);
@@ -1520,6 +804,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     confirmPasswordValue.length === 0 || passwordValue === confirmPasswordValue;
   const selectedProfessionalServices = watchProfile("services") ?? [];
   const editDateOfBirthValue = watchEditUser("dateOfBirth") ?? "";
+  const profilePicWatch = watchEditUser("profilePic");
   const selectedServiceNames = servicesOptions
     .filter((service) => selectedProfessionalServices.includes(service.id))
     .map((service) => service.name);
@@ -1622,7 +907,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchRoleOptions();
     return () => controller.abort();
-  }, [accessToken]);
+  }, [accessToken, serviceCategoriesRefreshToken]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -1775,7 +1060,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchUsers();
     return () => controller.abort();
-  }, [activeTab, usersEndpoint, accessToken]);
+  }, [activeTab, usersEndpoint, accessToken, usersRefreshToken]);
 
   useEffect(() => {
     if (!feedbackMessage) {
@@ -1789,6 +1074,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   useEffect(() => {
     registerProfile("services");
   }, [registerProfile]);
+
+  useEffect(() => {
+    if (!profilePicWatch || !(profilePicWatch instanceof FileList)) {
+      setProfilePicPreview(null);
+      return;
+    }
+    const file = profilePicWatch[0];
+    if (!file) {
+      setProfilePicPreview(null);
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setProfilePicPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [profilePicWatch]);
 
   useEffect(() => {
     if (activeTab !== "users") {
@@ -2934,6 +2234,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const refreshUsersList = () => {
     setUsersEndpoint(buildUsersUrl());
+    setUsersRefreshToken((prev) => prev + 1);
   };
 
   const handleToggleProfessionalService = (serviceId: number) => {
@@ -2963,6 +2264,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const handleStartCreateService = () => {
     setIsCreatingService(true);
+    setIsCreatingServiceCategory(false);
+    setShowServicesFabOptions(false);
     resetCreateServiceForm(createServiceDefaultValues);
   };
 
@@ -2974,6 +2277,202 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductQuantityInput("1");
     setProductSearchInput("");
     setProductModalContext(null);
+  };
+
+  const handleStartCreateServiceCategory = () => {
+    setIsCreatingServiceCategory(true);
+    setIsCreatingService(false);
+    setSelectedServiceId(null);
+    setServiceCategoryForm({ name: "", icon: null });
+    setServiceCategoryError(null);
+    setShowServicesFabOptions(false);
+  };
+
+  const handleCancelCreateServiceCategory = () => {
+    setIsCreatingServiceCategory(false);
+    setServiceCategoryForm({ name: "", icon: null });
+    setServiceCategoryError(null);
+  };
+
+  const handleServiceCategoryNameChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setServiceCategoryForm((prev) => ({ ...prev, name: value }));
+  };
+
+  const handleServiceCategoryIconChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setServiceCategoryForm((prev) => ({ ...prev, icon: file }));
+  };
+
+  const handleCreateServiceCategory = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!accessToken) {
+      setServiceCategoryError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    const name = serviceCategoryForm.name.trim();
+    if (!name) {
+      setServiceCategoryError("Informe o nome da categoria.");
+      return;
+    }
+    if (!serviceCategoryForm.icon) {
+      setServiceCategoryError("Selecione um ícone para a categoria.");
+      return;
+    }
+    setServiceCategorySubmitting(true);
+    setServiceCategoryError(null);
+    try {
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("icon", serviceCategoryForm.icon);
+
+      const response = await fetch(serviceCategoriesBaseEndpoint, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível criar a categoria.");
+      }
+
+      setServiceCategoriesRefreshToken((prev) => prev + 1);
+      setIsCreatingServiceCategory(false);
+      setServiceCategoryForm({ name: "", icon: null });
+      setFeedbackMessage({
+        type: "success",
+        message: "Categoria criada com sucesso.",
+      });
+    } catch (err) {
+      setServiceCategoryError(
+        err instanceof Error ? err.message : "Erro inesperado ao criar categoria.",
+      );
+    } finally {
+      setServiceCategorySubmitting(false);
+    }
+  };
+
+  const handleToggleServicesFab = () => {
+    setShowServicesFabOptions((prev) => !prev);
+  };
+
+  const handleIntervalDateChange =
+    (field: "dateStart" | "dateFinish") => (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setProfessionalIntervalForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleIntervalHourChange =
+    (field: "hourStart" | "hourFinish") => (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setProfessionalIntervalForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+  const handleIntervalRepeatToggle = () => {
+    setProfessionalIntervalForm((prev) => ({ ...prev, repeat: !prev.repeat }));
+  };
+
+  const handleToggleIntervalWeekDay = (dayValue: number) => {
+    setProfessionalIntervalForm((prev) => {
+      const exists = prev.weekDays.includes(dayValue);
+      const nextDays = exists
+        ? prev.weekDays.filter((value) => value !== dayValue)
+        : [...prev.weekDays, dayValue];
+      return { ...prev, weekDays: nextDays };
+    });
+  };
+
+  const handleCreateProfessionalInterval = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    if (!accessToken || !userDetail) {
+      setProfessionalIntervalError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+
+    setProfessionalIntervalError(null);
+    const { dateStart, dateFinish, hourStart, hourFinish, repeat, weekDays } =
+      professionalIntervalForm;
+
+    if (!hourStart || !hourFinish) {
+      setProfessionalIntervalError("Informe o horário inicial e final.");
+      return;
+    }
+
+    if (repeat && weekDays.length === 0) {
+      setProfessionalIntervalError("Selecione ao menos um dia para repetir.");
+      return;
+    }
+
+    if (!repeat && (!dateStart || !dateFinish)) {
+      setProfessionalIntervalError("Informe a data inicial e final.");
+      return;
+    }
+
+    const normalizedHourStart = repeat && hourStart.length === 5 ? `${hourStart}:00` : hourStart;
+    const normalizedHourFinish =
+      repeat && hourFinish.length === 5 ? `${hourFinish}:00` : hourFinish;
+
+    const payload = repeat
+      ? {
+          professional: userDetail.id,
+          hour_start: normalizedHourStart,
+          hour_finish: normalizedHourFinish,
+          week_days: weekDays,
+        }
+      : {
+          professional: userDetail.id,
+          date_start: dateStart,
+          date_finish: dateFinish,
+          hour_start: hourStart,
+          hour_finish: hourFinish,
+        };
+
+    setProfessionalIntervalSubmitting(true);
+    try {
+      const response = await fetch(professionalIntervalsEndpointBase, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const detail =
+          (data && (data.detail || data.message)) ||
+          "Não foi possível salvar o intervalo.";
+        throw new Error(detail);
+      }
+
+      setProfessionalIntervalForm({
+        dateStart: "",
+        dateFinish: "",
+        hourStart: "",
+        hourFinish: "",
+        repeat: false,
+        weekDays: [],
+      });
+      setFeedbackMessage({
+        type: "success",
+        message: "Intervalo salvo com sucesso.",
+      });
+    } catch (err) {
+      setProfessionalIntervalError(
+        err instanceof Error ? err.message : "Erro inesperado ao salvar intervalo.",
+      );
+    } finally {
+      setProfessionalIntervalSubmitting(false);
+    }
   };
 
   const handleOpenServiceDetail = (serviceId: number) => {
@@ -4763,6 +4262,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     resetCreateProductForm(createProductDefaultValues);
     setProductFormError(null);
     setIsCreatingProduct(true);
+    setShowProductsFabOptions(false);
   }, [resetCreateProductForm]);
 
   const handleCancelCreateProduct = () => {
@@ -4783,6 +4283,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const todayIso = formatDateParam(new Date());
     setProductSaleDateIso(todayIso);
     setProductSaleDateDisplay(formatIsoToDisplay(todayIso));
+    setShowProductsFabOptions(false);
   }, []);
 
   const handleCancelCreateProductSale = () => {
@@ -4790,6 +4291,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSaleError(null);
     setProductSaleProductModalOpen(false);
     setProductSaleSelectedProduct(null);
+  };
+
+  const handleToggleProductsFab = () => {
+    setShowProductsFabOptions((previous) => !previous);
   };
 
   const handleProductSalePriceChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -5576,6 +5081,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         type: "success",
         message: "Usuário atualizado com sucesso.",
       });
+      refreshUsersList();
     } catch (err) {
       setFormError(
         err instanceof Error
@@ -6761,24 +6267,6 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               <p className="text-2xl font-semibold">Controle de estoque</p>
               <p className="text-xs text-white/60">{productsInventoryCount} item(ns)</p>
             </div>
-            <div className="flex flex-col gap-2 text-sm sm:flex-row">
-              <button
-                type="button"
-                onClick={handleStartCreateProductSale}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/40"
-              >
-                <DollarSign className="h-4 w-4" />
-                Adicionar venda
-              </button>
-              <button
-                type="button"
-                onClick={handleStartCreateProduct}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
-              >
-                <Plus className="h-4 w-4" />
-                Novo produto
-              </button>
-            </div>
           </div>
         </header>
 
@@ -6933,6 +6421,40 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </ul>
           )}
         </section>
+
+        <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3">
+          {showProductsFabOptions ? (
+            <>
+              <button
+                type="button"
+                onClick={handleStartCreateProduct}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                Novo produto
+              </button>
+              <button
+                type="button"
+                onClick={handleStartCreateProductSale}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg"
+              >
+                <DollarSign className="h-4 w-4" />
+                Adicionar venda
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleToggleProductsFab}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-xl transition-transform duration-200"
+          >
+            <Plus
+              className={`h-6 w-6 transition-transform duration-200 ${
+                showProductsFabOptions ? "rotate-45" : ""
+              }`}
+            />
+          </button>
+        </div>
       </div>
     );
   };
@@ -8396,7 +7918,74 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     </div>
   );
 
+  const renderCreateServiceCategoryScreen = () => (
+    <div className="flex flex-col gap-5">
+      <header className="flex items-center gap-3">
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+          onClick={handleCancelCreateServiceCategory}
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div>
+          <p className="text-sm text-white/60">Serviços</p>
+          <p className="text-2xl font-semibold">Nova categoria</p>
+          <p className="text-xs text-white/50">Adicione uma categoria para serviços</p>
+        </div>
+      </header>
+
+      <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+        <form onSubmit={handleCreateServiceCategory} className="space-y-4">
+          <label className="text-sm text-white/70">
+            Nome da categoria
+            <input
+              type="text"
+              value={serviceCategoryForm.name}
+              onChange={handleServiceCategoryNameChange}
+              className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+            />
+          </label>
+
+          <label className="text-sm text-white/70">
+            Ícone
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleServiceCategoryIconChange}
+              className="mt-1 w-full rounded-2xl border border-dashed border-white/15 bg-transparent px-4 py-3 text-sm text-white/70 outline-none file:mr-4 file:rounded-2xl file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black"
+            />
+          </label>
+
+          {serviceCategoryError ? (
+            <p className="text-sm text-red-300">{serviceCategoryError}</p>
+          ) : null}
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={serviceCategorySubmitting}
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {serviceCategorySubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Criar categoria"
+              )}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+
   const renderServicesContent = () => {
+    if (isCreatingServiceCategory) {
+      return renderCreateServiceCategoryScreen();
+    }
     if (isCreatingService) {
       return renderCreateServiceScreen();
     }
@@ -8411,17 +8000,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <p className="text-sm text-white/60">Serviços</p>
             <p className="text-2xl font-semibold">Gerencie seu catálogo</p>
           </div>
-          <button
+          {/* <button
             type="button"
             onClick={handleStartCreateService}
             className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black"
           >
             <Plus className="h-4 w-4" />
             Novo
-          </button>
+          </button> */}
         </header>
 
-        <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+        {/* <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <h2 className="text-xl font-semibold">Crie experiências memoráveis</h2>
@@ -8439,7 +8028,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               />
             </div>
           </div>
-        </section>
+        </section> */}
 
         <form onSubmit={handleServiceSearchSubmit} className="relative" role="search">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
@@ -8526,6 +8115,40 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </div>
           )}
         </section>
+
+        <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3">
+          {showServicesFabOptions ? (
+            <>
+              <button
+                type="button"
+                onClick={handleStartCreateService}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar serviço
+              </button>
+              <button
+                type="button"
+                onClick={handleStartCreateServiceCategory}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar categoria
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleToggleServicesFab}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-black shadow-xl transition-transform duration-200"
+          >
+            <Plus
+              className={`h-6 w-6 transition-transform duration-200 ${
+                showServicesFabOptions ? "rotate-45" : ""
+              }`}
+            />
+          </button>
+        </div>
       </div>
     );
   };
@@ -8554,6 +8177,22 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     const isProfessional = userDetail.role === "professional";
     const profileExists = Boolean(userDetail.professional_profile);
+    const profilePicField = registerEditUser("profilePic");
+    const handleProfilePicClick = () => {
+      if (!canEditUser) {
+        return;
+      }
+      profilePicInputRef.current?.click();
+    };
+    const profilePicSrc = profilePicPreview ?? userDetail.profile_pic;
+    const intervalWeekDays = [
+      { label: "S", value: 0, name: "Segunda" },
+      { label: "T", value: 1, name: "Terça" },
+      { label: "Q", value: 2, name: "Quarta" },
+      { label: "Q", value: 3, name: "Quinta" },
+      { label: "S", value: 4, name: "Sexta" },
+      { label: "S", value: 5, name: "Sábado" },
+    ];
 
     return (
       <div className="flex flex-col gap-5">
@@ -8619,18 +8258,52 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5">
-                {userDetail.profile_pic ? (
+              <button
+                type="button"
+                onClick={handleProfilePicClick}
+                disabled={!canEditUser}
+                className={`group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5 ${
+                  canEditUser ? "cursor-pointer" : "cursor-default"
+                }`}
+                aria-label="Alterar foto de perfil"
+              >
+                {profilePicSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={userDetail.profile_pic}
+                    src={profilePicSrc}
                     alt={`${userDetail.first_name} ${userDetail.last_name}`}
-                    className="h-full w-full object-cover"
+                    className={`h-full w-full object-cover transition ${
+                      canEditUser
+                        ? "group-hover:blur-sm group-focus-visible:blur-sm"
+                        : ""
+                    }`}
                   />
                 ) : (
-                  <UserRound className="h-8 w-8 text-white/70" />
+                  <UserRound
+                    className={`h-8 w-8 text-white/70 transition ${
+                      canEditUser
+                        ? "group-hover:blur-sm group-focus-visible:blur-sm"
+                        : ""
+                    }`}
+                  />
                 )}
-              </div>
+                {canEditUser ? (
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-3xl bg-black/40 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+                    <PenSquare className="h-5 w-5 text-white" />
+                  </span>
+                ) : null}
+              </button>
+              <input
+                type="file"
+                accept="image/*"
+                {...profilePicField}
+                ref={(element) => {
+                  profilePicField.ref(element);
+                  profilePicInputRef.current = element;
+                }}
+                disabled={!canEditUser}
+                className="hidden"
+              />
               <div className="flex flex-1 justify-between">
                 <div>
                   <p className="text-lg font-semibold">Informações do usuário</p>
@@ -8795,18 +8468,6 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 />
                 Usuário ativo
               </label>
-              <label className="text-sm text-white/70 sm:col-span-2">
-                Foto de perfil
-                <input
-                  type="file"
-                  accept="image/*"
-                  {...registerEditUser("profilePic")}
-                  disabled={!canEditUser}
-                  className={`mt-1 w-full rounded-2xl border border-dashed border-white/15 bg-transparent px-4 py-3 text-sm text-white/70 outline-none file:mr-4 file:rounded-2xl file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black ${
-                    !canEditUser ? "opacity-60" : ""
-                  }`}
-                />
-              </label>
           </form>
           {canEditUser ? (
             <div className="flex justify-end">
@@ -8859,23 +8520,6 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Perfil profissional</h2>
-              {profileExists || showProfileForm ? (
-                <button
-                  type="button"
-                  onClick={handleSaveProfessionalProfile}
-                  disabled={isSavingProfile}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/40 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSavingProfile ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    "Salvar perfil"
-                  )}
-                </button>
-              ) : null}
             </div>
 
             {profileExists || showProfileForm ? (
@@ -9007,6 +8651,23 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                       ) : null}
                     </div>
                   </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveProfessionalProfile}
+                      disabled={isSavingProfile}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {isSavingProfile ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Salvando...
+                        </>
+                      ) : (
+                        "Salvar perfil"
+                      )}
+                    </button>
+                  </div>
                 </fieldset>
               </form>
             ) : (
@@ -9024,6 +8685,105 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 </button>
               </div>
             )}
+
+            <form onSubmit={handleCreateProfessionalInterval} className="space-y-4">
+              <fieldset className="space-y-4 rounded-2xl border border-white/5 p-4">
+                <legend className="px-2 text-xs uppercase tracking-wide text-white/50">
+                  Intervalo
+                </legend>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="text-sm text-white/70">
+                    Data de início
+                    <input
+                      type="date"
+                      value={professionalIntervalForm.dateStart}
+                      onChange={handleIntervalDateChange("dateStart")}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    />
+                  </label>
+                  <label className="text-sm text-white/70">
+                    Data final
+                    <input
+                      type="date"
+                      value={professionalIntervalForm.dateFinish}
+                      onChange={handleIntervalDateChange("dateFinish")}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="text-sm text-white/70">
+                    Hora de início
+                    <input
+                      type="time"
+                      value={professionalIntervalForm.hourStart}
+                      onChange={handleIntervalHourChange("hourStart")}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    />
+                  </label>
+                  <label className="text-sm text-white/70">
+                    Hora final
+                    <input
+                      type="time"
+                      value={professionalIntervalForm.hourFinish}
+                      onChange={handleIntervalHourChange("hourFinish")}
+                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                    />
+                  </label>
+                </div>
+
+                <label className="flex items-center gap-3 text-sm text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={professionalIntervalForm.repeat}
+                    onChange={handleIntervalRepeatToggle}
+                    className="h-4 w-4 rounded border border-white/20 bg-transparent text-black"
+                  />
+                  Repetição do intervalo
+                </label>
+
+                <div className="flex flex-wrap gap-2">
+                  {intervalWeekDays.map((day) => {
+                    const isActive = professionalIntervalForm.weekDays.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => handleToggleIntervalWeekDay(day.value)}
+                        className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition ${
+                          isActive ? "bg-white text-black" : "bg-white/10 text-white/70"
+                        }`}
+                        aria-label={`Selecionar ${day.name}`}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {professionalIntervalError ? (
+                  <p className="text-sm text-red-300">{professionalIntervalError}</p>
+                ) : null}
+
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={professionalIntervalSubmitting}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {professionalIntervalSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar intervalo"
+                    )}
+                  </button>
+                </div>
+              </fieldset>
+            </form>
           </section>
         ) : null}
       </div>
