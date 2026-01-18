@@ -1,41 +1,55 @@
 "use client";
 
 import Image from "next/image";
-import { Eye, EyeOff, LogIn } from "lucide-react";
-import { FormEvent, useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { Mail } from "lucide-react";
+import { env } from "@/lib/env";
 
-export default function DashboardLoginPage() {
-  const router = useRouter();
+export default function DashboardPasswordResetPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setStatusMessage("");
     setErrorMessage("");
     setIsSubmitting(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const response = await fetch(
+        `${env.apiBaseUrl}/dashboard/auth/password-reset/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+          cache: "no-store",
+        }
+      );
 
-    console.log("Login response:", result);
+      const payload = (await response.json().catch(() => null)) as
+        | { detail?: string }
+        | null;
 
-    setIsSubmitting(false);
+      if (!response.ok) {
+        setErrorMessage(
+          payload?.detail ||
+            "Nao foi possivel solicitar a redefinicao de senha."
+        );
+        return;
+      }
 
-    if (result?.error) {
-      setErrorMessage(result.error);
-      return;
+      setStatusMessage(
+        payload?.detail ||
+          "Se o e-mail existir, enviaremos as instrucoes de redefinicao."
+      );
+    } catch {
+      setErrorMessage("Erro ao enviar a solicitacao. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    router.replace("/dashboard");
   };
 
   return (
@@ -62,9 +76,9 @@ export default function DashboardLoginPage() {
 
         <div className="w-full rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
           <header className="mb-6 text-center">
-            <h1 className="text-3xl font-semibold">Entrar</h1>
+            <h1 className="text-3xl font-semibold">Redefinir senha</h1>
             <p className="mt-2 text-sm text-white/60">
-              Acesso exclusivo para profissionais Urus.
+              Informe o e-mail do seu cadastro para receber as instrucoes.
             </p>
           </header>
 
@@ -84,29 +98,11 @@ export default function DashboardLoginPage() {
               />
             </label>
 
-            <label className="block space-y-2 text-sm">
-              <span className="text-white/70">Senha</span>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  className="w-full rounded-2xl border border-white/15 bg-black px-4 py-3 pr-12 text-base text-white placeholder-white/30 outline-none transition focus:border-white/40 focus:ring-2 focus:ring-white/20"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((previous) => !previous)}
-                  className="absolute inset-y-0 right-3 flex items-center text-white/60"
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-            </label>
+            {statusMessage ? (
+              <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+                {statusMessage}
+              </p>
+            ) : null}
 
             {errorMessage ? (
               <p className="text-sm text-red-400">{errorMessage}</p>
@@ -117,16 +113,16 @@ export default function DashboardLoginPage() {
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3 text-base font-semibold text-black transition hover:bg-white/95 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSubmitting}
             >
-              <LogIn className="h-5 w-5" />
-              {isSubmitting ? "Entrando..." : "Entrar"}
+              <Mail className="h-5 w-5" />
+              {isSubmitting ? "Enviando..." : "Enviar instrucoes"}
             </button>
           </form>
 
           <Link
-            href="/dashboard/password-reset"
-            className="mt-6 w-full text-center text-sm font-medium text-white/70 transition hover:text-white"
+            href="/dashboard/login"
+            className="mt-6 block w-full text-center text-sm font-medium text-white/70 transition hover:text-white"
           >
-            Esqueci minha senha
+            Voltar para o login
           </Link>
         </div>
       </div>

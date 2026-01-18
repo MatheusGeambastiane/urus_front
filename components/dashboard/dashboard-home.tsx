@@ -269,19 +269,6 @@ const createProductDefaultValues: CreateProductFormValues = {
   picture: undefined,
 };
 
-const bottomNavItems: {
-  key: DashboardTab;
-  label: string;
-  icon: LucideIcon;
-}[] = [
-  { key: "home", label: "Home", icon: Home },
-  { key: "agenda", label: "Agenda", icon: Calendar },
-  { key: "services", label: "Serviços", icon: Scissors },
-  { key: "products", label: "Produtos", icon: Package },
-  { key: "users", label: "Usuários", icon: Users },
-  { key: "finances", label: "Financeiro", icon: Wallet },
-];
-
 const appointmentStatusOptions: { value: AppointmentStatus; label: string }[] = [
   { value: "agendado", label: "Agendado" },
   { value: "iniciado", label: "Iniciado" },
@@ -349,6 +336,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const accessToken = session?.accessToken ?? null;
+  const userRole = session?.user?.role;
   const sessionProfilePic =
     typeof session?.user === "object"
       ? ((session.user as { profile_pic?: string | null }).profile_pic ??
@@ -357,6 +345,23 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
       : null;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const bottomNavItems = useMemo(() => {
+    const items: { key: DashboardTab; label: string; icon: LucideIcon }[] = [
+      { key: "home", label: "Home", icon: Home },
+      { key: "agenda", label: "Agenda", icon: Calendar },
+      { key: "services", label: "Serviços", icon: Scissors },
+      { key: "products", label: "Produtos", icon: Package },
+      { key: "users", label: "Usuários", icon: Users },
+    ];
+
+    if (userRole === "admin") {
+      items.push({ key: "finances", label: "Financeiro", icon: Wallet });
+    } else if (userRole === "professional") {
+      items.push({ key: "performance", label: "Desempenho", icon: Sparkles });
+    }
+
+    return items;
+  }, [userRole]);
   const navigateToTab = useCallback(
     (tab: DashboardTab) => {
       const segment = dashboardTabRoutes[tab];
@@ -3642,6 +3647,45 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     [accessToken, repasseDetailsCache],
   );
 
+  const loadRepasseAnalytics = useCallback(
+    async (detail: RepasseDetail, signal: AbortSignal) => {
+      setRepasseAnalyticsLoading(true);
+      setRepasseAnalyticsError(null);
+      try {
+        const monthFilter = detail.month?.slice(0, 7) || financeMonth;
+        const endpoint = `${professionalServiceSummaryEndpointBase}${detail.professional.id}/service-summary/`;
+        const url = new URL(endpoint);
+        url.searchParams.set("month", monthFilter);
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal,
+        });
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar as análises do profissional.");
+        }
+        const data: ProfessionalServiceSummary = await response.json();
+        setRepasseAnalyticsData(data);
+      } catch (err) {
+        if (!signal.aborted) {
+          setRepasseAnalyticsError(
+            err instanceof Error
+              ? err.message
+              : "Erro inesperado ao carregar as análises do profissional.",
+          );
+        }
+      } finally {
+        if (!signal.aborted) {
+          setRepasseAnalyticsLoading(false);
+        }
+      }
+    },
+    [accessToken, financeMonth],
+  );
+
   const fetchBillDetail = useCallback(
     async (billId: number, options?: { force?: boolean }) => {
       if (!accessToken) {
@@ -4953,15 +4997,56 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     router,
   ]);
 
+  const isFinanceTab = activeTab === "finances" || activeTab === "performance";
+  const financeLabel = activeTab === "performance" ? "Desempenho" : "Financeiro";
+
   useEffect(() => {
-    if (activeTab !== "finances") {
+    if (!userRole) {
+      return;
+    }
+    if (userRole === "professional" && activeTab === "finances") {
+      router.replace("/dashboard/desempenho");
+      return;
+    }
+    if (userRole === "admin" && activeTab === "performance") {
+      router.replace("/dashboard/financeiro");
+    }
+  }, [activeTab, router, userRole]);
+
+  useEffect(() => {
+    if (activeTab !== "performance") {
+      return;
+    }
+    if (repassesLoading) {
+      return;
+    }
+    const firstRepasse = repassesList[0];
+    if (!firstRepasse) {
+      setRepasseDetail(null);
+      setRepasseAnalyticsData(null);
+      return;
+    }
+    if (selectedRepasseId !== firstRepasse.id || !repasseDetail) {
+      void fetchRepasseDetail(firstRepasse.id);
+    }
+  }, [
+    activeTab,
+    repassesLoading,
+    repassesList,
+    selectedRepasseId,
+    repasseDetail,
+    fetchRepasseDetail,
+  ]);
+
+  useEffect(() => {
+    if (!isFinanceTab) {
       setShowFinanceFabOptions(false);
       setIsCreatingBill(false);
     }
-  }, [activeTab]);
+  }, [activeTab, isFinanceTab]);
 
   useEffect(() => {
-    if (activeTab !== "finances" || !accessToken) {
+    if (!isFinanceTab || !accessToken) {
       return;
     }
     const controller = new AbortController();
@@ -5006,7 +5091,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   }, [activeTab, accessToken, financeMonth]);
 
   useEffect(() => {
-    if (activeTab !== "finances" || !accessToken) {
+    if (!isFinanceTab || !accessToken) {
       return;
     }
     const controller = new AbortController();
@@ -5051,7 +5136,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchRepasses();
     return () => controller.abort();
-  }, [activeTab, accessToken, financeMonth]);
+  }, [activeTab, accessToken, financeMonth, isFinanceTab]);
 
   useEffect(() => {
     setSelectedRepasseId(null);
@@ -5094,48 +5179,22 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   }, [billsList, selectedBillId]);
 
   useEffect(() => {
-    if (!showRepasseAnalytics || !repasseDetail || !accessToken) {
+    if (activeTab !== "finances" || !showRepasseAnalytics || !repasseDetail || !accessToken) {
       return;
     }
     const controller = new AbortController();
-    const fetchProfessionalSummary = async () => {
-      setRepasseAnalyticsLoading(true);
-      setRepasseAnalyticsError(null);
-      try {
-        const monthFilter = repasseDetail.month?.slice(0, 7) || financeMonth;
-        const endpoint = `${professionalServiceSummaryEndpointBase}${repasseDetail.professional.id}/service-summary/`;
-        const url = new URL(endpoint);
-        url.searchParams.set("month", monthFilter);
-        const response = await fetch(url.toString(), {
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          throw new Error("Não foi possível carregar as análises do profissional.");
-        }
-        const data: ProfessionalServiceSummary = await response.json();
-        setRepasseAnalyticsData(data);
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          setRepasseAnalyticsError(
-            err instanceof Error
-              ? err.message
-              : "Erro inesperado ao carregar as análises do profissional.",
-          );
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setRepasseAnalyticsLoading(false);
-        }
-      }
-    };
-    fetchProfessionalSummary();
+    void loadRepasseAnalytics(repasseDetail, controller.signal);
     return () => controller.abort();
-  }, [showRepasseAnalytics, repasseDetail, accessToken, financeMonth]);
+  }, [activeTab, showRepasseAnalytics, repasseDetail, accessToken, loadRepasseAnalytics]);
+
+  useEffect(() => {
+    if (activeTab !== "performance" || !repasseDetail || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    void loadRepasseAnalytics(repasseDetail, controller.signal);
+    return () => controller.abort();
+  }, [activeTab, repasseDetail, accessToken, loadRepasseAnalytics]);
 
   useEffect(() => {
     if (!billDetail) {
@@ -5153,7 +5212,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   }, [billDetail]);
 
   useEffect(() => {
-    if (activeTab !== "finances" || !accessToken) {
+    if (!isFinanceTab || !accessToken) {
       return;
     }
     const controller = new AbortController();
@@ -5200,7 +5259,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchBills();
     return () => controller.abort();
-  }, [activeTab, accessToken, financeMonth]);
+  }, [activeTab, accessToken, financeMonth, isFinanceTab]);
 
   const handleCreateProduct = handleSubmitCreateProduct(async (values) => {
     setProductFormError(null);
@@ -5363,10 +5422,6 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setCreateAppointmentError("Sessão expirada. Faça login novamente.");
       return;
     }
-    if (!selectedClient) {
-      setCreateAppointmentError("Selecione um cliente.");
-      return;
-    }
     if (selectedAppointmentServices.length === 0) {
       setCreateAppointmentError("Escolha pelo menos um serviço.");
       return;
@@ -5413,14 +5468,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }
     setIsSavingAppointment(true);
     try {
-      const basePayload = {
-        date_time: dateTimeIso,
-        client: selectedClient.id,
-        discount: normalizedDiscount,
-        payment_type: selectedPaymentType,
-        status: selectedAppointmentStatus,
-        observations: appointmentObservations || null,
-      };
+    const basePayload = {
+      date_time: dateTimeIso,
+      client: selectedClient?.id ?? null,
+      discount: normalizedDiscount,
+      payment_type: selectedPaymentType,
+      status: selectedAppointmentStatus,
+      observations: appointmentObservations || null,
+    };
       let payload: Record<string, unknown> = basePayload;
 
       if (hasMultipleProfessionals) {
@@ -8179,7 +8234,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <ChevronLeft className="h-5 w-5" />
           </button>
           <div className="flex-1 text-center">
-            <p className="text-sm text-white/60">Financeiro</p>
+            <p className="text-sm text-white/60">{financeLabel}</p>
             <p className="text-2xl font-semibold">Cadastrar conta</p>
           </div>
           <button
@@ -10857,7 +10912,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       <div className="flex flex-col gap-5 pb-24">
         <header className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-white/60">Financeiro</p>
+            <p className="text-sm text-white/60">{financeLabel}</p>
             <p className="text-2xl font-semibold">{monthLabel}</p>
           </div>
           <button
@@ -11124,6 +11179,318 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     );
   };
 
+  const renderPerformanceContent = () => {
+    const monthLabel = getMonthLabel(financeMonth);
+    const detail = repasseDetail;
+    const analytics = repasseAnalyticsData;
+    const professionalName = analytics?.professional.name ?? detail?.professional.name ?? "";
+    const totals = analytics?.totals;
+    const serviceRevenue = totals?.service_revenue ?? "0";
+    const salesRevenue = totals?.sales_revenue ?? "0";
+    const overallRevenue = totals?.overall_revenue ?? "0";
+    const appointmentsCount = totals?.appointments_count ?? 0;
+    const servicesPerformed = totals?.services_performed ?? 0;
+    const servicesBreakdown = analytics?.services_breakdown ?? [];
+    const categoriesBreakdown = analytics?.categories_breakdown ?? [];
+    const totalServicesFromBreakdown = servicesBreakdown.reduce(
+      (accumulator, item) => accumulator + item.total,
+      0,
+    );
+    const monthLabelAnalytics = analytics?.period?.month ?? detail?.month?.slice(0, 7) ?? financeMonth;
+
+    return (
+      <div className="flex flex-col gap-5 pb-24">
+        <header className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-white/60">Desempenho</p>
+            <p className="text-2xl font-semibold">{monthLabel}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleOpenFinanceMonthModal}
+            className="inline-flex items-center justify-center rounded-2xl border border-white/10 p-2 text-white/80"
+            aria-label="Selecionar mês"
+          >
+            <Calendar className="h-5 w-5" />
+          </button>
+        </header>
+
+        {repassesError ? (
+          <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {repassesError}
+          </p>
+        ) : null}
+
+        {repasseDetailError && !detail ? (
+          <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {repasseDetailError}
+          </p>
+        ) : null}
+
+        {repassesLoading && !detail ? (
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-white/5 bg-[#0b0b0b] p-6 text-white/70">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p className="mt-2 text-sm">Carregando desempenho...</p>
+          </div>
+        ) : null}
+
+        {!repassesLoading && !detail && !repasseDetailError && !repassesError ? (
+          <p className="rounded-2xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">
+            Nenhum repasse encontrado para o período.
+          </p>
+        ) : null}
+
+        {repasseAnalyticsError ? (
+          <p className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {repasseAnalyticsError}
+          </p>
+        ) : null}
+
+        {repasseAnalyticsLoading && !analytics ? (
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-white/10 px-4 py-10 text-white/70">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <p className="mt-2 text-sm">Carregando análises...</p>
+          </div>
+        ) : analytics ? (
+          <>
+            <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card text-white">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-white/50">Visão do profissional</p>
+                <p className="text-lg font-semibold">{professionalName}</p>
+                <p className="text-sm text-white/60">Período: {monthLabelAnalytics}</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <p className="text-xs text-white/60">Total a receber</p>
+                  <p className="mt-1 text-2xl font-semibold">{formatCurrency(overallRevenue)}</p>
+                  <p className="text-xs text-white/60">Serviços: {formatCurrency(serviceRevenue)}</p>
+                  <p className="text-xs text-white/60">Vendas: {formatCurrency(salesRevenue)}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <p className="text-xs text-white/60">Serviços x Atendimentos</p>
+                  <p className="mt-1 text-2xl font-semibold">
+                    {appointmentsCount} / {servicesPerformed}
+                  </p>
+                  <p className="text-xs text-white/60">Serviços realizados / Atendimentos</p>
+                </div>
+              </div>
+            </section>
+
+            <fieldset className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+              <legend className="px-2 text-xs uppercase tracking-wide text-white/50">
+                Serviços realizados
+              </legend>
+              <div className="flex items-center justify-between text-sm text-white/70">
+                <p>Total do período</p>
+                <span className="font-semibold text-white">
+                  {totalServicesFromBreakdown} serviços
+                </span>
+              </div>
+              {servicesBreakdown.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/60">
+                  Nenhum serviço encontrado para o período.
+                </p>
+              ) : (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={servicesBreakdown}>
+                      <XAxis dataKey="service_name" tick={{ fill: "#A1A1AA", fontSize: 12 }} />
+                      <YAxis tick={{ fill: "#A1A1AA", fontSize: 12 }} />
+                      <Tooltip
+                        formatter={(value: number) => `${value} serviços`}
+                        contentStyle={{
+                          backgroundColor: "#111",
+                          borderRadius: 12,
+                          border: "1px solid #333",
+                        }}
+                      />
+                      <Bar dataKey="total" radius={[8, 8, 0, 0]}>
+                        {servicesBreakdown.map((item, index) => (
+                          <Cell
+                            key={`service-bar-${item.service_id}`}
+                            fill={pieChartColors[index % pieChartColors.length]}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </fieldset>
+
+            <fieldset className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+              <legend className="px-2 text-xs uppercase tracking-wide text-white/50">
+                Distribuição por categoria
+              </legend>
+              {categoriesBreakdown.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/60">
+                  Nenhuma categoria encontrada.
+                </p>
+              ) : (
+                <div className="flex flex-col items-center gap-6">
+                  <div className="h-56 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoriesBreakdown}
+                          dataKey="total"
+                          nameKey="category_name"
+                          innerRadius={60}
+                          outerRadius={90}
+                          paddingAngle={4}
+                        >
+                          {categoriesBreakdown.map((item, index) => (
+                            <Cell
+                              key={`category-pie-${item.category_id}`}
+                              fill={pieChartColors[index % pieChartColors.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number, _name, payload) =>
+                            `${payload?.payload?.category_name ?? ""}: ${value} serviços`
+                          }
+                          contentStyle={{
+                            backgroundColor: "#111",
+                            borderRadius: 12,
+                            border: "1px solid #333",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-full space-y-3 text-sm text-white/80">
+                    {categoriesBreakdown.map((item, index) => (
+                      <div
+                        key={`category-legend-${item.category_id}`}
+                        className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: pieChartColors[index % pieChartColors.length] }}
+                          />
+                          <div>
+                            <p className="font-semibold text-white">{item.category_name}</p>
+                            <p className="text-xs text-white/60">{item.total} serviços</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </fieldset>
+          </>
+        ) : detail ? (
+          <p className="rounded-2xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">
+            Nenhuma análise disponível para o período selecionado.
+          </p>
+        ) : null}
+
+        {detail ? (
+          <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card text-white">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Mês de referência</p>
+                <p className="mt-1 text-lg font-semibold">{formatMonthReference(detail.month)}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                <p className="text-xs uppercase tracking-wide text-white/60">Nota fiscal</p>
+                {detail.invoice ? (
+                  <a
+                    href={detail.invoice}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-white underline-offset-4 hover:underline"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Ver nota fiscal
+                  </a>
+                ) : (
+                  <div className="mt-2 space-y-2 text-sm text-white/60">
+                    <p>Sem nota fiscal cadastrada para esse repasse.</p>
+                    <button
+                      type="button"
+                      onClick={handleOpenRepasseInvoiceModal}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-white/30 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/60"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Adicionar nota fiscal
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <fieldset className="space-y-3 rounded-2xl border border-white/10 bg-black/40 p-4">
+              <legend className="px-2 text-xs uppercase tracking-wide text-white/50">Transações</legend>
+              <p className="text-sm text-white/70">Pagamentos relacionados a este repasse.</p>
+              {repasseDetailLoading ? (
+                <div className="flex items-center justify-center py-6 text-white/70">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : detail.transactions.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/60">
+                  Nenhuma transação registrada para este repasse.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {detail.transactions.map((transaction) => {
+                    const transactionDate = transaction.date_of_transaction
+                      ? new Date(transaction.date_of_transaction).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                      : "--/--/----";
+                    const paymentLabel =
+                      getPaymentTypeLabel(transaction.transaction_payment as PaymentType) ||
+                      capitalizeFirstLetter(transaction.transaction_payment);
+                    return (
+                      <li
+                        key={transaction.id}
+                        className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/80"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              {transaction.type === "payment"
+                                ? "Pagamento"
+                                : capitalizeFirstLetter(transaction.type)}
+                            </p>
+                            <p className="text-xs text-white/60">{transactionDate}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-semibold text-white">
+                              {formatCurrency(transaction.price ?? "0")}
+                            </p>
+                            <p className="text-xs text-white/60">{paymentLabel}</p>
+                          </div>
+                        </div>
+                        {transaction.payment_proof ? (
+                          <a
+                            href={transaction.payment_proof}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-white/80 underline-offset-2 hover:underline"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Ver comprovante
+                          </a>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </fieldset>
+          </section>
+        ) : null}
+      </div>
+    );
+  };
+
   const renderContentByTab = () => {
     switch (activeTab) {
       case "home":
@@ -11138,6 +11505,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         return renderProductsContent();
       case "finances":
         return renderFinancesContent();
+      case "performance":
+        return renderPerformanceContent();
       default:
         return renderHomeContent();
     }
@@ -12174,7 +12543,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm text-white/60">Financeiro</p>
+                <p className="text-sm text-white/60">{financeLabel}</p>
                 <h2 className="text-xl font-semibold">Selecionar mês</h2>
               </div>
               <button
