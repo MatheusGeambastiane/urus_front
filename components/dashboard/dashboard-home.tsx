@@ -616,6 +616,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [productSaleDetailLoading, setProductSaleDetailLoading] = useState(false);
   const [productSaleDetailError, setProductSaleDetailError] = useState<string | null>(null);
   const [productSaleDetailSubmitting, setProductSaleDetailSubmitting] = useState(false);
+  const [canEditProductSale, setCanEditProductSale] = useState(false);
   const [productSaleDetailForm, setProductSaleDetailForm] = useState({
     price: "",
     dateOfTransaction: "",
@@ -1816,14 +1817,20 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (!response.ok) {
           throw new Error("Não foi possível carregar a venda.");
         }
-        const data = await response.formData();
+        const data = await response.json();
+        const dateOfTransaction =
+          typeof data?.date_of_transaction === "string"
+            ? data.date_of_transaction.split("T")[0]
+            : typeof data?.date === "string"
+              ? data.date
+              : "";
         setProductSaleDetailForm({
-          price: String(data.get("price") ?? ""),
-          dateOfTransaction: String(data.get("date_of_transaction") ?? ""),
-          transactionPayment: String(data.get("transaction_payment") ?? ""),
-          quantity: String(data.get("quantity") ?? ""),
-          userId: String(data.get("user") ?? ""),
-          productId: String(data.get("product") ?? ""),
+          price: typeof data?.price === "string" ? data.price : String(data?.price ?? ""),
+          dateOfTransaction,
+          transactionPayment: String(data?.transaction_payment ?? data?.payment ?? ""),
+          quantity: String(data?.quantity ?? ""),
+          userId: data?.user ? String(data.user) : data?.user_id ? String(data.user_id) : "",
+          productId: data?.product ? String(data.product) : "",
         });
       } catch (err) {
         if (!controller.signal.aborted) {
@@ -4943,16 +4950,24 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const handleOpenProductSaleDetail = (saleId: number | null | undefined) => {
-    if (!saleId) {
+    const parsedId = Number(saleId);
+    if (!Number.isFinite(parsedId) || parsedId <= 0) {
       return;
     }
-    setSelectedProductSaleId(saleId);
+    setSelectedProductSaleId(parsedId);
     setProductSaleDetailError(null);
+    setCanEditProductSale(false);
+    setIsViewingProductSales(true);
   };
 
   const handleCloseProductSaleDetail = () => {
     setSelectedProductSaleId(null);
     setProductSaleDetailError(null);
+    setCanEditProductSale(false);
+  };
+
+  const handleToggleProductSaleEdit = () => {
+    setCanEditProductSale((previous) => !previous);
   };
 
   const handleProductSaleDetailInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -4993,6 +5008,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSaleDetailError(null);
     try {
       const formData = new FormData();
+      formData.append("type", "sell");
       formData.append("price", productSaleDetailForm.price);
       if (productSaleDetailForm.dateOfTransaction) {
         formData.append("date_of_transaction", productSaleDetailForm.dateOfTransaction);
@@ -7293,129 +7309,168 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </ul>
           )}
         </section>
+      </div>
+    );
+  };
 
-        {selectedProductSaleId ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
-            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-white/60">Venda</p>
-                  <h2 className="text-xl font-semibold">Editar venda</h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCloseProductSaleDetail}
-                  className="rounded-full border border-white/10 p-2 text-white/70"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+  const renderProductSaleDetailScreen = () => {
+    return (
+      <div className="flex flex-col gap-5">
+        <header className="flex items-center justify-between">
+          <button
+            type="button"
+            className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+            onClick={handleCloseProductSaleDetail}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1 text-center">
+            <p className="text-sm text-white/60">Produtos</p>
+            <p className="text-2xl font-semibold">Venda</p>
+          </div>
+        </header>
 
-              {productSaleDetailLoading ? (
-                <div className="flex items-center justify-center py-6 text-white/70">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                </div>
-              ) : (
-                <form onSubmit={handleSubmitProductSaleDetail} className="space-y-4">
-                  <label className="text-sm text-white/70">
-                    Preço
-                    <input
-                      type="text"
-                      name="price"
-                      value={productSaleDetailForm.price}
-                      onChange={handleProductSaleDetailInputChange}
-                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
-                    />
-                  </label>
-                  <label className="text-sm text-white/70">
-                    Data da venda
-                    <input
-                      type="date"
-                      name="dateOfTransaction"
-                      value={productSaleDetailForm.dateOfTransaction}
-                      onChange={handleProductSaleDetailInputChange}
-                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
-                    />
-                  </label>
-                  <label className="text-sm text-white/70">
-                    Forma de pagamento
-                    <select
-                      value={productSaleDetailForm.transactionPayment}
-                      onChange={handleProductSaleDetailPaymentChange}
-                      className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
-                    >
-                      <option value="">Selecione</option>
-                      {productSalePaymentOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-sm text-white/70">
-                    Quantidade
-                    <input
-                      type="number"
-                      min={1}
-                      name="quantity"
-                      value={productSaleDetailForm.quantity}
-                      onChange={handleProductSaleDetailInputChange}
-                      className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
-                    />
-                  </label>
-                  <label className="text-sm text-white/70">
-                    Usuário
-                    <select
-                      value={productSaleDetailForm.userId}
-                      onChange={handleProductSaleDetailUserChange}
-                      className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
-                    >
-                      <option value="">Sem usuário</option>
-                      {productSalesProfessionals.map((professional) => (
-                        <option key={professional.userId} value={professional.userId}>
-                          {professional.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {productSaleDetailError ? (
-                    <p className="text-sm text-red-300">{productSaleDetailError}</p>
-                  ) : null}
-
-                  <div className="flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCloseProductSaleDetail}
-                      className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={productSaleDetailSubmitting}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      {productSaleDetailSubmitting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Salvando...
-                        </>
-                      ) : (
-                        "Salvar"
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
+        {productSaleDetailLoading ? (
+          <div className="flex items-center justify-center py-10 text-white/70">
+            <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : null}
+
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-lg font-semibold">Informações da venda</p>
+              <p className="text-xs text-white/60">
+                {canEditProductSale ? "Modo de edição habilitado" : "Visualização"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleProductSaleEdit}
+              className="rounded-2xl p-2 text-white/80 transition hover:border-white/40"
+              aria-label="Editar venda"
+            >
+              <PenSquare className="h-4 w-4" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmitProductSaleDetail} className="space-y-4">
+            <label className="text-sm text-white/70">
+              Preço
+              <input
+                type="text"
+                name="price"
+                value={productSaleDetailForm.price}
+                onChange={handleProductSaleDetailInputChange}
+                disabled={!canEditProductSale}
+                className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${
+                  !canEditProductSale ? "border-white/10 opacity-60" : "border-white/10"
+                }`}
+              />
+            </label>
+            <label className="text-sm text-white/70">
+              Data da venda
+              <input
+                type="date"
+                name="dateOfTransaction"
+                value={productSaleDetailForm.dateOfTransaction}
+                onChange={handleProductSaleDetailInputChange}
+                disabled={!canEditProductSale}
+                className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${
+                  !canEditProductSale ? "border-white/10 opacity-60" : "border-white/10"
+                }`}
+              />
+            </label>
+            <label className="text-sm text-white/70">
+              Forma de pagamento
+              <select
+                value={productSaleDetailForm.transactionPayment}
+                onChange={handleProductSaleDetailPaymentChange}
+                disabled={!canEditProductSale}
+                className={`mt-1 w-full rounded-2xl border bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40 ${
+                  !canEditProductSale ? "border-white/10 opacity-60" : "border-white/10"
+                }`}
+              >
+                <option value="">Selecione</option>
+                {productSalePaymentOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm text-white/70">
+              Quantidade
+              <input
+                type="number"
+                min={1}
+                name="quantity"
+                value={productSaleDetailForm.quantity}
+                onChange={handleProductSaleDetailInputChange}
+                disabled={!canEditProductSale}
+                className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${
+                  !canEditProductSale ? "border-white/10 opacity-60" : "border-white/10"
+                }`}
+              />
+            </label>
+            <label className="text-sm text-white/70">
+              Usuário
+              <select
+                value={productSaleDetailForm.userId}
+                onChange={handleProductSaleDetailUserChange}
+                disabled={!canEditProductSale}
+                className={`mt-1 w-full rounded-2xl border bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40 ${
+                  !canEditProductSale ? "border-white/10 opacity-60" : "border-white/10"
+                }`}
+              >
+                <option value="">Sem usuário</option>
+                {productSalesProfessionals.map((professional) => (
+                  <option key={professional.userId} value={professional.userId}>
+                    {professional.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {productSaleDetailError ? (
+              <p className="text-sm text-red-300">{productSaleDetailError}</p>
+            ) : null}
+
+            {canEditProductSale ? (
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCanEditProductSale(false)}
+                  className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={productSaleDetailSubmitting}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {productSaleDetailSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    "Salvar"
+                  )}
+                </button>
+              </div>
+            ) : null}
+          </form>
+        </section>
       </div>
     );
   };
 
   const renderProductsContent = () => {
+    if (selectedProductSaleId) {
+      return renderProductSaleDetailScreen();
+    }
     if (isViewingProductSales) {
       return renderProductSalesListScreen();
     }
