@@ -61,6 +61,7 @@ import {
   Repeat,
   Shuffle,
   Wrench,
+  RefreshCw,
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
@@ -132,6 +133,7 @@ import {
 import {
   financeSummaryEndpoint,
   repassesEndpoint,
+  repassesRecalculateEndpointBase,
   billsEndpointBase,
   professionalServiceSummaryEndpointBase,
 } from "@/src/features/finances/services/endpoints";
@@ -400,6 +402,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const profilePicInputRef = useRef<HTMLInputElement | null>(null);
   const productPicInputRef = useRef<HTMLInputElement | null>(null);
   const servicesDropdownRef = useRef<HTMLDivElement>(null);
+  const servicePricePrefillRef = useRef(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
@@ -636,7 +639,13 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [productSaleDateDisplay, setProductSaleDateDisplay] = useState(() =>
     formatIsoToDisplay(formatDateParam(new Date())),
   );
-  const [productSaleUserIdInput, setProductSaleUserIdInput] = useState("");
+  const [productSaleSeller, setProductSaleSeller] = useState<ServiceOption | null>(null);
+  const [showProductSaleSellerModal, setShowProductSaleSellerModal] = useState(false);
+  const [productSaleSellerSearchInput, setProductSaleSellerSearchInput] = useState("");
+  const [productSaleSellerSearchTerm, setProductSaleSellerSearchTerm] = useState("");
+  const [productSaleSellerResults, setProductSaleSellerResults] = useState<ServiceOption[]>([]);
+  const [productSaleSellerLoading, setProductSaleSellerLoading] = useState(false);
+  const [productSaleSellerError, setProductSaleSellerError] = useState<string | null>(null);
   const [productSaleProductModalOpen, setProductSaleProductModalOpen] = useState(false);
   const [productSaleProducts, setProductSaleProducts] = useState<ProductItem[]>([]);
   const [productSaleProductsLoading, setProductSaleProductsLoading] = useState(false);
@@ -667,6 +676,8 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [repassesList, setRepassesList] = useState<RepasseItem[]>([]);
   const [repassesLoading, setRepassesLoading] = useState(false);
   const [repassesError, setRepassesError] = useState<string | null>(null);
+  const [repassesRecalculating, setRepassesRecalculating] = useState(false);
+  const [repassesRefreshToken, setRepassesRefreshToken] = useState(0);
   const [selectedRepasseId, setSelectedRepasseId] = useState<number | null>(null);
   const [repasseDetail, setRepasseDetail] = useState<RepasseDetail | null>(null);
   const [repasseDetailLoading, setRepasseDetailLoading] = useState(false);
@@ -769,6 +780,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
     Boolean(repasseDetail) && Math.abs(repassePaymentValueNumeric - repassePaymentTotals.remaining) > 0.009;
 
   const resetAppointmentForm = useCallback(() => {
+    servicePricePrefillRef.current = false;
     setAppointmentDateInput(formatDateParam(selectedDate));
     setAppointmentTimeInput("09:00");
     setSelectedAppointmentStatus("agendado");
@@ -1327,11 +1339,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       return;
     }
     const total = selectedAppointmentServices.reduce((sum, service) => {
-      const value = Number(service.price ?? 0);
+      const assignmentPrice = serviceAssignments[service.id]?.price;
+      const rawPrice = assignmentPrice ?? service.price ?? "0";
+      const value = parseCurrencyInput(rawPrice);
       return sum + (Number.isNaN(value) ? 0 : value);
     }, 0);
     setPriceInput(total.toFixed(2));
-  }, [selectedAppointmentServices, priceManuallyEdited]);
+  }, [selectedAppointmentServices, serviceAssignments, priceManuallyEdited]);
 
   useEffect(() => {
     if (!showClientPickerModal || !accessToken) {
@@ -1429,6 +1443,82 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   }, [showServicesPickerModal, servicesPickerSearchTerm, accessToken]);
 
   useEffect(() => {
+    if (!isCreatingAppointment || !editingAppointmentId || !accessToken) {
+      return;
+    }
+    if (servicePricePrefillRef.current) {
+      return;
+    }
+    if (selectedAppointmentServices.length === 0) {
+      servicePricePrefillRef.current = true;
+      return;
+    }
+    const needsPriceLookup = selectedAppointmentServices.some((service) => {
+      const assignmentPrice = serviceAssignments[service.id]?.price;
+      const rawPrice = assignmentPrice ?? service.price ?? "0";
+      return parseCurrencyInput(rawPrice) <= 0;
+    });
+    if (!needsPriceLookup) {
+      servicePricePrefillRef.current = true;
+      return;
+    }
+    const controller = new AbortController();
+    const fetchServicePrices = async () => {
+      try {
+        const response = await fetch(servicesSimpleListEndpoint, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os serviços.");
+        }
+
+        const data: ServiceSimpleOption[] = await response.json();
+        const priceMap = new Map(
+          (Array.isArray(data) ? data : []).map((service) => [service.id, service.price]),
+        );
+        setSelectedAppointmentServices((prev) =>
+          prev.map((service) => ({
+            ...service,
+            price: service.price && parseCurrencyInput(service.price) > 0
+              ? service.price
+              : priceMap.get(service.id) ?? service.price ?? "0",
+          })),
+        );
+        setServiceAssignments((prev) => {
+          const updated: Record<number, ServiceAssignment> = { ...prev };
+          Object.entries(updated).forEach(([key, assignment]) => {
+            const serviceId = Number(key);
+            const fallbackPrice = priceMap.get(serviceId);
+            if (parseCurrencyInput(assignment.price) <= 0 && fallbackPrice) {
+              updated[serviceId] = { ...assignment, price: fallbackPrice };
+            }
+          });
+          return updated;
+        });
+      } catch {
+        /* noop */
+      } finally {
+        servicePricePrefillRef.current = true;
+      }
+    };
+
+    fetchServicePrices();
+    return () => controller.abort();
+  }, [
+    isCreatingAppointment,
+    editingAppointmentId,
+    accessToken,
+    selectedAppointmentServices,
+    serviceAssignments,
+  ]);
+
+  useEffect(() => {
     if (!showProfessionalPickerModal || !accessToken) {
       return;
     }
@@ -1477,6 +1567,61 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     fetchProfessionalsForPicker();
     return () => controller.abort();
   }, [showProfessionalPickerModal, professionalSearchTerm, accessToken]);
+
+  useEffect(() => {
+    if (!showProductSaleSellerModal || !accessToken) {
+      return;
+    }
+    const controller = new AbortController();
+    const fetchSellers = async () => {
+      setProductSaleSellerLoading(true);
+      setProductSaleSellerError(null);
+      try {
+        const url = new URL(professionalProfilesSimpleListEndpoint);
+        if (productSaleSellerSearchTerm) {
+          url.searchParams.set("search", productSaleSellerSearchTerm);
+        }
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar vendedores.");
+        }
+
+        const data: ProfessionalSimple[] = await response.json();
+        const mapped = Array.isArray(data)
+          ? data
+              .map((item) => ({
+                id: item.user_id ?? item.id,
+                name: item.user_name,
+              }))
+              .filter((item) => Number.isFinite(item.id))
+          : [];
+        setProductSaleSellerResults(mapped);
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setProductSaleSellerError(
+            err instanceof Error
+              ? err.message
+              : "Erro inesperado ao buscar vendedores.",
+          );
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setProductSaleSellerLoading(false);
+        }
+      }
+    };
+
+    fetchSellers();
+    return () => controller.abort();
+  }, [showProductSaleSellerModal, productSaleSellerSearchTerm, accessToken]);
 
   useEffect(() => {
     if (!saleModalOpen || !accessToken) {
@@ -2306,10 +2451,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const appointmentServicesSubtotal = useMemo(() => {
     return selectedAppointmentServices.reduce((sum, service) => {
-      const value = Number(service.price ?? 0);
+      const assignmentPrice = serviceAssignments[service.id]?.price;
+      const rawPrice = assignmentPrice ?? service.price ?? "0";
+      const value = parseCurrencyInput(rawPrice);
       return sum + (Number.isNaN(value) ? 0 : value);
     }, 0);
-  }, [selectedAppointmentServices]);
+  }, [selectedAppointmentServices, serviceAssignments]);
 
   const filledAppointmentProfessionals = useMemo(() => {
     return appointmentProfessionals.filter((slot) => slot.professional !== null);
@@ -2339,21 +2486,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     if (selectedAppointmentServices.length === 0) {
       return 0;
     }
-    if (hasMultipleProfessionals) {
-      return selectedAppointmentServices.reduce((sum, service) => {
-        const assignment = serviceAssignments[service.id];
-        const rawPrice = assignment?.price ?? service.price ?? "0";
-        const value = parseCurrencyInput(rawPrice);
-        return sum + (Number.isNaN(value) ? 0 : value);
-      }, 0);
-    }
-    return appointmentPriceValue;
-  }, [
-    selectedAppointmentServices,
-    serviceAssignments,
-    hasMultipleProfessionals,
-    appointmentPriceValue,
-  ]);
+    return selectedAppointmentServices.reduce((sum, service) => {
+      const assignment = serviceAssignments[service.id];
+      const rawPrice = assignment?.price ?? service.price ?? "0";
+      const value = parseCurrencyInput(rawPrice);
+      return sum + (Number.isNaN(value) ? 0 : value);
+    }, 0);
+  }, [selectedAppointmentServices, serviceAssignments]);
 
   const servicesDiscountAmount = useMemo(() => {
     return (servicesGrossTotal * normalizedDiscount) / 100;
@@ -3320,10 +3459,32 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProfessionalSearchTerm(professionalSearchInput.trim());
   };
 
+  const handleProductSaleSellerSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setProductSaleSellerSearchTerm(productSaleSellerSearchInput.trim());
+  };
+
   const handleSelectClient = (client: UserItem) => {
     setSelectedClient(client);
     setShowClientPickerModal(false);
     setCreateAppointmentError(null);
+  };
+
+  const handleOpenProductSaleSellerModal = () => {
+    setShowProductSaleSellerModal(true);
+    setProductSaleSellerError(null);
+  };
+
+  const handleCloseProductSaleSellerModal = () => {
+    setShowProductSaleSellerModal(false);
+    setProductSaleSellerSearchInput("");
+    setProductSaleSellerSearchTerm("");
+  };
+
+  const handleSelectProductSaleSeller = (seller: ServiceOption) => {
+    setProductSaleSeller(seller);
+    setShowProductSaleSellerModal(false);
+    setProductSaleError(null);
   };
 
   const handleOpenClientRegistrationModal = () => {
@@ -4287,6 +4448,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const prefillAppointmentFormFromDetail = (detail: AppointmentItem) => {
+    servicePricePrefillRef.current = false;
     const detailDate = new Date(detail.date_time);
     setAppointmentDateInput(formatDateParam(detailDate));
     setAppointmentTimeInput(formatTimeInputValue(detailDate));
@@ -4300,7 +4462,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setSelectedPaymentType(null);
     }
     setPriceInput(detail.price_paid ?? "");
-    setPriceManuallyEdited(true);
+    setPriceManuallyEdited(false);
     setDiscountInput(detail.discount !== null && detail.discount !== undefined ? String(detail.discount) : "0");
     setAppointmentObservations(detail.observations ?? "");
     setCreateAppointmentError(null);
@@ -4330,11 +4492,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       priceMap.set(entry.service, entry.price_paid ?? "0");
     });
 
-    const servicesForForm: ServiceSimpleOption[] = detail.services.map((service) => ({
-      id: service.id,
-      name: service.name,
-      price: priceMap.get(service.id) ?? "0",
-    }));
+    const servicesForForm: ServiceSimpleOption[] = detail.services.map((service) => {
+      const servicePrice = (service as AppointmentService & { price?: string }).price;
+      return {
+        id: service.id,
+        name: service.name,
+        price: servicePrice ?? priceMap.get(service.id) ?? "0",
+      };
+    });
 
     setSelectedAppointmentServices(servicesForForm);
     setServicesPickerTempSelection(servicesForForm);
@@ -4357,10 +4522,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     } else {
       const defaultSlotId =
         slots.find((slot) => slot.professional)?.id ?? slots[0]?.id ?? null;
+      const servicePriceById = new Map(
+        servicesForForm.map((service) => [service.id, service.price]),
+      );
       detail.services.forEach((service) => {
         assignments[service.id] = {
           professionalSlotId: defaultSlotId,
-          price: priceMap.get(service.id) ?? "0",
+          price: servicePriceById.get(service.id) ?? "0",
         };
       });
     }
@@ -4732,7 +4900,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSalePriceInput("");
     setProductSaleQuantityInput("1");
     setProductSalePayment(null);
-    setProductSaleUserIdInput("");
+    setProductSaleSeller(null);
+    setShowProductSaleSellerModal(false);
+    setProductSaleSellerSearchInput("");
+    setProductSaleSellerSearchTerm("");
+    setProductSaleSellerResults([]);
     setProductSaleProductModalOpen(false);
     const todayIso = formatDateParam(new Date());
     setProductSaleDateIso(todayIso);
@@ -4746,6 +4918,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSaleError(null);
     setProductSaleProductModalOpen(false);
     setProductSaleSelectedProduct(null);
+    setShowProductSaleSellerModal(false);
   };
 
   const handleOpenProductSalesList = () => {
@@ -4890,6 +5063,56 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const handleOpenProductSaleModal = () => {
     setProductSaleProductModalOpen(true);
+  };
+
+  const refreshRepassesList = () => {
+    setRepassesRefreshToken((prev) => prev + 1);
+  };
+
+  const handleRecalculateRepasses = async () => {
+    if (!accessToken) {
+      setRepassesError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    const professionalIds = Array.from(
+      new Set(repassesList.map((repasse) => repasse.professional.id).filter(Boolean)),
+    );
+    if (professionalIds.length === 0) {
+      return;
+    }
+    setRepassesRecalculating(true);
+    setRepassesError(null);
+    try {
+      await Promise.all(
+        professionalIds.map(async (professionalId) => {
+          const url = new URL(repassesRecalculateEndpointBase);
+          url.searchParams.set("month", financeMonth);
+          url.searchParams.set("professional_profile_id", String(professionalId));
+          const response = await fetch(url.toString(), {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+          if (!response.ok) {
+            throw new Error("Não foi possível recalcular os repasses.");
+          }
+        }),
+      );
+      setFeedbackMessage({
+        type: "success",
+        message: "Repasses atualizados com sucesso.",
+      });
+      refreshRepassesList();
+    } catch (err) {
+      setRepassesError(
+        err instanceof Error ? err.message : "Erro inesperado ao recalcular repasses.",
+      );
+    } finally {
+      setRepassesRecalculating(false);
+    }
   };
 
   const handleCloseProductSaleModal = () => {
@@ -5136,7 +5359,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchRepasses();
     return () => controller.abort();
-  }, [activeTab, accessToken, financeMonth, isFinanceTab]);
+  }, [activeTab, accessToken, financeMonth, isFinanceTab, repassesRefreshToken]);
 
   useEffect(() => {
     setSelectedRepasseId(null);
@@ -5350,8 +5573,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setProductSaleError("Escolha a forma de pagamento.");
       return;
     }
-    if (!productSaleUserIdInput.trim()) {
-      setProductSaleError("Informe o identificador do cliente.");
+    if (!productSaleSeller) {
+      setProductSaleError("Selecione o vendedor.");
       return;
     }
     const priceValue = parseCurrencyInput(productSalePriceInput);
@@ -5373,7 +5596,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     formData.append("date_of_transaction", saleDateIso);
     formData.append("transaction_payment", productSalePayment);
     formData.append("quantity", quantityValue.toString());
-    formData.append("user", productSaleUserIdInput.trim());
+    formData.append("user", String(productSaleSeller.id));
     formData.append("product", productSaleSelectedProduct.id.toString());
 
     setProductSaleSubmitting(true);
@@ -6889,16 +7112,27 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               />
             </label>
 
-            <label className="text-sm text-white/70">
-              Cliente (ID)
-              <input
-                type="text"
-                value={productSaleUserIdInput}
-                onChange={(event) => setProductSaleUserIdInput(event.target.value)}
-                placeholder="Informe o identificador do cliente"
-                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
-              />
-            </label>
+            <div>
+              <p className="text-sm text-white/70">Vendedor</p>
+              <button
+                type="button"
+                onClick={handleOpenProductSaleSellerModal}
+                className="mt-1 flex w-full items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+                    <UserRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {productSaleSeller?.name ?? "Selecionar"}
+                    </p>
+                    <p className="text-xs text-white/60">Escolha o vendedor</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-white/50" />
+              </button>
+            </div>
           </section>
 
           {productSaleError ? (
@@ -7531,7 +7765,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <p className="font-semibold">{service.name}</p>
-                        <p className="text-xs text-white/60">{formatCurrency(service.price)}</p>
+                        <p className="text-xs text-white/60">
+                          {formatCurrency(assignment?.price ?? service.price ?? "0")}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -10983,6 +11219,20 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
         <fieldset className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
           <legend className="px-2 text-xs uppercase tracking-wide text-white/50">Repasses</legend>
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={handleRecalculateRepasses}
+              disabled={repassesRecalculating || repassesLoading || repassesList.length === 0}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label="Atualizar"
+              title="Atualizar"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${repassesRecalculating ? "animate-spin" : ""}`}
+              />
+            </button>
+          </div>
           {repassesLoading ? (
             <div className="flex items-center justify-center py-6 text-white/70">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -11855,6 +12105,75 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                           className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-white/5"
                         >
                           <span className="font-semibold">{professional.name}</span>
+                          {isSelected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showProductSaleSellerModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Vendedores</p>
+                <h2 className="text-xl font-semibold">Selecionar vendedor</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseProductSaleSellerModal}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <form
+              onSubmit={handleProductSaleSellerSearchSubmit}
+              className="relative"
+              role="search"
+            >
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+              <input
+                type="search"
+                value={productSaleSellerSearchInput}
+                onChange={(event) => setProductSaleSellerSearchInput(event.target.value)}
+                placeholder="Buscar vendedor"
+                className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-24 text-sm outline-none focus:border-white/40"
+              />
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black"
+              >
+                Buscar
+              </button>
+            </form>
+            <div className="mt-4 max-h-80 overflow-y-auto rounded-2xl border border-white/10">
+              {productSaleSellerLoading ? (
+                <div className="flex items-center justify-center py-6 text-white/70">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : productSaleSellerError ? (
+                <p className="px-4 py-3 text-sm text-red-300">{productSaleSellerError}</p>
+              ) : productSaleSellerResults.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-white/60">Nenhum vendedor encontrado.</p>
+              ) : (
+                <ul className="divide-y divide-white/5 text-sm text-white/80">
+                  {productSaleSellerResults.map((seller) => {
+                    const isSelected = productSaleSeller?.id === seller.id;
+                    return (
+                      <li key={seller.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectProductSaleSeller(seller)}
+                          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-white/5"
+                        >
+                          <span className="font-semibold">{seller.name}</span>
                           {isSelected ? <Check className="h-4 w-4 text-emerald-300" /> : null}
                         </button>
                       </li>
