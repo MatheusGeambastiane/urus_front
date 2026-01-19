@@ -11328,7 +11328,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
-                      <p className="text-xs text-white/60">Total a receber</p>
+                      <p className="text-xs text-white/60">Total a gerado</p>
                       <p className="mt-1 text-2xl font-semibold">{formatCurrency(overallRevenue)}</p>
                       <p className="text-xs text-white/60">Serviços: {formatCurrency(serviceRevenue)}</p>
                       <p className="text-xs text-white/60">Vendas: {formatCurrency(salesRevenue)}</p>
