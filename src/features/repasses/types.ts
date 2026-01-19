@@ -7,6 +7,7 @@ export type RepasseItem = {
   };
   value_service: string;
   value_product: string;
+  allowence?: string | null;
   is_paid: boolean;
   invoice: string | null;
   month: string;
@@ -40,6 +41,7 @@ export type RepasseDetail = {
   };
   value_service: string;
   value_product: string;
+  allowence?: string | null;
   is_paid: boolean;
   transactions: RepasseTransaction[];
   invoice: string | null;

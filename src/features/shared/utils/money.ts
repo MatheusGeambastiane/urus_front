@@ -13,7 +13,14 @@ export const parseCurrencyInput = (value: string) => {
   if (!value) {
     return 0;
   }
-  const normalized = value.replace(/[^\d,.-]/g, "").replace(",", ".");
+  const cleaned = value.replace(/[^\d,.-]/g, "");
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  const normalized = hasComma && hasDot
+    ? cleaned.replace(/\./g, "").replace(",", ".")
+    : hasComma
+      ? cleaned.replace(",", ".")
+      : cleaned;
   const parsed = Number(normalized);
   return Number.isNaN(parsed) ? 0 : parsed;
 };

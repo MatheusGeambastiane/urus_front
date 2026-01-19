@@ -62,6 +62,7 @@ import {
   Shuffle,
   Wrench,
   RefreshCw,
+  Save,
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
@@ -717,6 +718,10 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [repasseDetailLoading, setRepasseDetailLoading] = useState(false);
   const [repasseDetailError, setRepasseDetailError] = useState<string | null>(null);
   const [repasseDetailsCache, setRepasseDetailsCache] = useState<Record<number, RepasseDetail>>({});
+  const [repasseAllowenceInput, setRepasseAllowenceInput] = useState("");
+  const [repasseAllowenceEditing, setRepasseAllowenceEditing] = useState(false);
+  const [repasseAllowenceSaving, setRepasseAllowenceSaving] = useState(false);
+  const [repasseAllowenceError, setRepasseAllowenceError] = useState<string | null>(null);
   const [showRepassePaymentModal, setShowRepassePaymentModal] = useState(false);
   const [repassePaymentForm, setRepassePaymentForm] = useState<{
     price: string;
@@ -812,6 +817,14 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   );
   const repassePaymentOutOfBounds =
     Boolean(repasseDetail) && Math.abs(repassePaymentValueNumeric - repassePaymentTotals.remaining) > 0.009;
+
+  useEffect(() => {
+    if (!repasseDetail || repasseAllowenceEditing) {
+      return;
+    }
+    setRepasseAllowenceInput(formatMoneyFromDecimalString(repasseDetail.allowence ?? "0"));
+    setRepasseAllowenceError(null);
+  }, [repasseAllowenceEditing, repasseDetail]);
 
   const resetAppointmentForm = useCallback(() => {
     servicePricePrefillRef.current = false;
@@ -4048,12 +4061,99 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const handleSelectRepasse = (repasseId: number) => {
     setShowBillDetail(false);
     setShowRepasseDetail(true);
+    setRepasseAllowenceEditing(false);
+    setRepasseAllowenceError(null);
     void fetchRepasseDetail(repasseId);
   };
 
   const handleCloseRepasseDetail = () => {
     setShowRepasseDetail(false);
     setShowRepasseAnalytics(false);
+    setRepasseAllowenceEditing(false);
+    setRepasseAllowenceError(null);
+  };
+
+  const handleRepasseAllowenceInputChange = (value: string) => {
+    const maskedValue = formatMoneyInputValue(value);
+    setRepasseAllowenceInput(maskedValue);
+  };
+
+  const handleEditRepasseAllowence = () => {
+    if (!repasseDetail) {
+      setRepasseAllowenceError("Selecione um repasse para editar a ajuda de custo.");
+      return;
+    }
+    setRepasseAllowenceEditing(true);
+    setRepasseAllowenceError(null);
+  };
+
+  const handleSaveRepasseAllowence = async () => {
+    if (!repasseDetail) {
+      setRepasseAllowenceError("Selecione um repasse para editar a ajuda de custo.");
+      return;
+    }
+    if (!accessToken) {
+      setRepasseAllowenceError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    const numericValue = parseCurrencyInput(repasseAllowenceInput);
+    if (numericValue < 0) {
+      setRepasseAllowenceError("Informe um valor válido.");
+      return;
+    }
+    setRepasseAllowenceSaving(true);
+    setRepasseAllowenceError(null);
+    try {
+      const response = await fetch(`${repassesEndpoint}${repasseDetail.id}/`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ allowence: numericValue.toFixed(2) }),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível atualizar a ajuda de custo.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data: RepasseDetail = await response.json();
+      setRepasseAllowenceEditing(false);
+      setRepasseAllowenceInput(formatMoneyFromDecimalString(data.allowence ?? "0"));
+      setRepasseDetail(data);
+      setRepasseDetailsCache((previous) => ({
+        ...previous,
+        [data.id]: data,
+      }));
+      setRepassesList((previous) =>
+        previous.map((item) =>
+          item.id === data.id
+            ? {
+                ...item,
+                allowence: data.allowence ?? item.allowence,
+              }
+            : item,
+        ),
+      );
+      await fetchRepasseDetail(data.id, { force: true });
+    } catch (err) {
+      setRepasseAllowenceError(
+        err instanceof Error ? err.message : "Erro inesperado ao atualizar a ajuda de custo.",
+      );
+    } finally {
+      setRepasseAllowenceSaving(false);
+    }
   };
 
   const handleOpenRepassePaymentModal = () => {
@@ -11407,15 +11507,57 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 {(() => {
                   const serviceValue = parseCurrencyInput(detail.value_service ?? "0");
                   const productValue = parseCurrencyInput(detail.value_product ?? "0");
-                  const totalValue = serviceValue + productValue;
+                  const allowenceValue = parseCurrencyInput(detail.allowence ?? "0");
+                  const totalValue = serviceValue + productValue + allowenceValue;
                   return (
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
                       <p className="text-xs uppercase tracking-wide text-white/60">Valor total</p>
                       <p className="mt-1 text-2xl font-semibold">{formatCurrency(totalValue.toFixed(2))}</p>
                       <p className="mt-2 text-xs text-white/60">
                         Serviços: {formatCurrency(serviceValue.toFixed(2))} • Produtos:{" "}
-                        {formatCurrency(productValue.toFixed(2))}
+                        {formatCurrency(productValue.toFixed(2))} • Ajuda de custo:{" "}
+                        {formatCurrency(allowenceValue.toFixed(2))}
                       </p>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="text-xs uppercase tracking-wide text-white/60">Ajuda de custo</p>
+                          {repasseAllowenceEditing ? (
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={repasseAllowenceInput}
+                              onChange={(event) => handleRepasseAllowenceInputChange(event.target.value)}
+                              className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+                            />
+                          ) : (
+                            <p className="mt-1 text-sm font-semibold text-white">
+                              {formatCurrency(allowenceValue.toFixed(2))}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={
+                            repasseAllowenceEditing ? handleSaveRepasseAllowence : handleEditRepasseAllowence
+                          }
+                          disabled={repasseAllowenceSaving}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 text-white/80 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={
+                            repasseAllowenceEditing ? "Salvar ajuda de custo" : "Editar ajuda de custo"
+                          }
+                        >
+                          {repasseAllowenceSaving ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : repasseAllowenceEditing ? (
+                            <Save className="h-4 w-4" />
+                          ) : (
+                            <PenSquare className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                      {repasseAllowenceError ? (
+                        <p className="mt-2 text-xs text-red-300">{repasseAllowenceError}</p>
+                      ) : null}
                     </div>
                   );
                 })()}
@@ -11984,7 +12126,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 {repassesList.map((repasse) => {
                   const serviceValue = parseCurrencyInput(repasse.value_service ?? "0");
                   const productValue = parseCurrencyInput(repasse.value_product ?? "0");
-                  const totalValue = serviceValue + productValue;
+                  const allowenceValue = parseCurrencyInput(repasse.allowence ?? "0");
+                  const totalValue = serviceValue + productValue + allowenceValue;
                   const isSelected = repasse.id === selectedRepasseId;
                   return (
                     <li
@@ -12010,7 +12153,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                           <p className="text-base font-semibold text-white">{repasse.professional.name}</p>
                           <p className="text-xs text-white/60">
                             Serviços: {formatCurrency(serviceValue.toFixed(2))} • Produtos:{" "}
-                            {formatCurrency(productValue.toFixed(2))}
+                            {formatCurrency(productValue.toFixed(2))} • Ajuda de custo:{" "}
+                            {formatCurrency(allowenceValue.toFixed(2))}
                           </p>
                         </div>
                         <p className="text-lg font-semibold text-white">
@@ -12170,8 +12314,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const totals = analytics?.totals;
     const repassServiceValue = totals?.repass_value_service ?? detail?.value_service ?? "0";
     const repassProductValue = totals?.repass_value_product ?? detail?.value_product ?? "0";
+    const repassAllowenceValue = detail?.allowence ?? "0";
     const repassTotalValue = (
-      parseCurrencyInput(repassServiceValue) + parseCurrencyInput(repassProductValue)
+      parseCurrencyInput(repassServiceValue) +
+      parseCurrencyInput(repassProductValue) +
+      parseCurrencyInput(repassAllowenceValue)
     ).toFixed(2);
     const appointmentsCount = totals?.appointments_count ?? 0;
     const servicesPerformed = totals?.services_performed ?? 0;
@@ -12255,6 +12402,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </p>
                   <p className="text-xs text-white/60">
                     Produtos: {formatCurrency(repassProductValue)}
+                  </p>
+                  <p className="text-xs text-white/60">
+                    Ajuda de custo: {formatCurrency(repassAllowenceValue)}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
