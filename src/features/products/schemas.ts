@@ -3,7 +3,17 @@ import { z } from "zod";
 export const createProductSchema = z.object({
   name: z.string().min(1, "Informe o nome do produto."),
   pricePaid: z.string().min(1, "Informe o preço de custo."),
-  priceToSell: z.string().min(1, "Informe o preço de venda."),
+  priceToSell: z.string().optional(),
+  commission: z
+    .string()
+    .optional()
+    .refine((value) => {
+      if (value === undefined || value === "") {
+        return true;
+      }
+      const numeric = Number(value);
+      return !Number.isNaN(numeric) && numeric >= 0 && numeric <= 100;
+    }, "Informe uma comissão entre 0 e 100."),
   quantity: z
     .string()
     .min(1, "Informe a quantidade.")
@@ -25,6 +35,23 @@ export const createProductSchema = z.object({
           value.length <= 1),
       "Envie apenas um arquivo.",
     ),
+}).superRefine((data, ctx) => {
+  if (data.useType !== "interno") {
+    if (!data.priceToSell || data.priceToSell.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe o preço de venda.",
+        path: ["priceToSell"],
+      });
+    }
+    if (!data.commission || data.commission.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe a comissão.",
+        path: ["commission"],
+      });
+    }
+  }
 });
 
 export type CreateProductFormValues = z.infer<typeof createProductSchema>;

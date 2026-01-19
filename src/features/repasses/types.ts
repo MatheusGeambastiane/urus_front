@@ -64,6 +64,8 @@ export type ProfessionalServiceSummary = {
     service_revenue: string;
     sales_revenue: string;
     overall_revenue: string;
+    repass_value_service?: string;
+    repass_value_product?: string;
     appointments_count: number;
     services_performed: number;
   };

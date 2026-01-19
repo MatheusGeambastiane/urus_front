@@ -48,4 +48,5 @@ export type AddedSaleItem = {
   price: string;
   quantity: number;
   paymentType: PaymentType;
+  userId?: number | null;
 };
