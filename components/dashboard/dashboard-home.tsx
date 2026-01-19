@@ -286,7 +286,7 @@ const productUseFilterOptions = [
 const productTypeFilterOptions = [
   { label: "Todos", value: null },
   { label: "Insumo", value: "insumo" },
-  { label: "Produto capilar", value: "produto_capilar" },
+  { label: "Produto capilar", value: "produtos_capilares" },
   { label: "Bens", value: "bens" },
   { label: "Alimento", value: "alimento" },
   { label: "Bebida", value: "bebida" },
@@ -310,7 +310,7 @@ const productUseOptions = [
 
 const productTypeOptionsForm = [
   { value: "insumo", label: "Insumo" },
-  { value: "produto_capilar", label: "Produto capilar" },
+  { value: "produtos_capilares", label: "Produto capilar" },
   { value: "bens", label: "Bens" },
   { value: "alimento", label: "Alimento" },
   { value: "bebida", label: "Bebida" },
