@@ -6433,14 +6433,16 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const topServicesData = dailySummary?.top_services ?? [];
     const last7DaysItems = last7DaysData?.last_7_days ?? [];
     const topDayInMonth = last7DaysData?.top_day_in_month ?? null;
+    const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
     const last7DaysChartData = last7DaysItems.map((item) => {
-      const date = new Date(item.date);
-      const label = Number.isNaN(date.getTime())
+      const dayIndex = Number(item.day);
+      const fallbackDate = new Date(item.date);
+      const fallbackLabel = Number.isNaN(fallbackDate.getTime())
         ? item.date
-        : date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+        : fallbackDate.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
       return {
         ...item,
-        label,
+        label: dayLabels[dayIndex] ?? fallbackLabel,
       };
     });
     const topDayLabel = topDayInMonth?.date
