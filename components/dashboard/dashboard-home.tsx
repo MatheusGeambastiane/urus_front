@@ -339,7 +339,10 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const accessToken = session?.accessToken ?? null;
+  const [accessToken, setAccessToken] = useState<string | null>(
+    session?.accessToken ?? null,
+  );
+  const refreshToken = session?.refreshToken ?? null;
   const userRole = session?.user?.role;
   const canManageProducts = userRole === "admin" || userRole === "staff";
   const sessionProfilePic =
@@ -348,6 +351,71 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
         (session.user as { image?: string | null }).image ??
         null)
       : null;
+
+  useEffect(() => {
+    setAccessToken(session?.accessToken ?? null);
+  }, [session?.accessToken]);
+
+  const refreshAccessToken = useCallback(async () => {
+    if (!refreshToken) {
+      return null;
+    }
+    try {
+      const response = await globalThis.fetch(
+        `${env.apiBaseUrl}/dashboard/auth/refresh/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh: refreshToken }),
+        },
+      );
+      if (!response.ok) {
+        return null;
+      }
+      const data = (await response.json()) as { access?: string };
+      if (!data?.access) {
+        return null;
+      }
+      setAccessToken(data.access);
+      return data.access;
+    } catch {
+      return null;
+    }
+  }, [refreshToken]);
+
+  const fetchWithAuth = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await globalThis.fetch(input, init);
+      if (response.ok) {
+        return response;
+      }
+
+      const headers = init?.headers ? new Headers(init.headers) : null;
+      if (!headers?.has("Authorization")) {
+        return response;
+      }
+
+      let payload: { code?: string } | null = null;
+      try {
+        payload = (await response.clone().json()) as { code?: string };
+      } catch {
+        payload = null;
+      }
+
+      if (payload?.code !== "token_not_valid") {
+        return response;
+      }
+
+      const newAccessToken = await refreshAccessToken();
+      if (!newAccessToken) {
+        return response;
+      }
+
+      headers.set("Authorization", `Bearer ${newAccessToken}`);
+      return globalThis.fetch(input, { ...init, headers });
+    },
+    [refreshAccessToken],
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const bottomNavItems = useMemo(() => {
@@ -995,7 +1063,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     const fetchRoleOptions = async () => {
       try {
-        const response = await fetch(roleChoicesEndpoint, {
+        const response = await fetchWithAuth(roleChoicesEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1034,7 +1102,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     const fetchServiceCategories = async () => {
       try {
-        const response = await fetch(serviceCategoriesEndpoint, {
+        const response = await fetchWithAuth(serviceCategoriesEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1075,7 +1143,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setLast7DaysLoading(true);
       setLast7DaysError(null);
       try {
-        const response = await fetch(appointmentsLast7DaysEndpoint, {
+        const response = await fetchWithAuth(appointmentsLast7DaysEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1147,7 +1215,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             url.searchParams.set("category_id", String(selectedServiceCategory));
           }
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1206,7 +1274,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setUsersLoading(true);
       setUsersError(null);
       try {
-        const response = await fetch(usersEndpoint, {
+        const response = await fetchWithAuth(usersEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1342,7 +1410,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     const fetchProfessionals = async () => {
       try {
-        const response = await fetch(professionalProfilesSimpleListEndpoint, {
+        const response = await fetchWithAuth(professionalProfilesSimpleListEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1408,7 +1476,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (clientSearchTerm) {
           url.searchParams.set("search", clientSearchTerm);
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1455,7 +1523,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (servicesPickerSearchTerm) {
           url.searchParams.set("search", servicesPickerSearchTerm);
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1512,7 +1580,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const controller = new AbortController();
     const fetchServicePrices = async () => {
       try {
-        const response = await fetch(servicesSimpleListEndpoint, {
+        const response = await fetchWithAuth(servicesSimpleListEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1578,7 +1646,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (professionalSearchTerm) {
           url.searchParams.set("search", professionalSearchTerm);
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1628,7 +1696,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (productSaleSellerSearchTerm) {
           url.searchParams.set("search", productSaleSellerSearchTerm);
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1681,7 +1749,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       try {
         const url = new URL(productsEndpointBase);
         url.searchParams.set("use_type", "venda");
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1720,7 +1788,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const controller = new AbortController();
     const fetchSaleProfessionals = async () => {
       try {
-        const response = await fetch(professionalProfilesSimpleListEndpoint, {
+        const response = await fetchWithAuth(professionalProfilesSimpleListEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1765,7 +1833,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       try {
         const url = new URL(productsEndpointBase);
         url.searchParams.set("use_type", "venda");
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1810,7 +1878,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (productSalesSearchTerm) {
           url.searchParams.set("search", productSalesSearchTerm);
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1849,7 +1917,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setProductSaleDetailLoading(true);
       setProductSaleDetailError(null);
       try {
-        const response = await fetch(
+        const response = await fetchWithAuth(
           `${transactionsSellListEndpoint}${selectedProductSaleId}/`,
           {
             credentials: "include",
@@ -1927,7 +1995,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setProductDetailLoading(true);
       setProductDetailError(null);
       try {
-        const response = await fetch(`${productsEndpointBase}${selectedProductId}/`, {
+        const response = await fetchWithAuth(`${productsEndpointBase}${selectedProductId}/`, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -1975,7 +2043,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const controller = new AbortController();
     const fetchProductSaleProfessionals = async () => {
       try {
-        const response = await fetch(professionalProfilesSimpleListEndpoint, {
+        const response = await fetchWithAuth(professionalProfilesSimpleListEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2025,7 +2093,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (activeSummaryMonth) {
           url.searchParams.set("month", activeSummaryMonth);
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2083,7 +2151,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         }
         url.searchParams.set("page_size", productsPageSize.toString());
         url.searchParams.set("page", productsPage.toString());
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2180,7 +2248,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setUserDetailLoading(true);
       setUserDetailError(null);
       try {
-        const response = await fetch(`${usersEndpointBase}${selectedUserId}/`, {
+        const response = await fetchWithAuth(`${usersEndpointBase}${selectedUserId}/`, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2272,7 +2340,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setServicesLoading(true);
       setServicesError(null);
       try {
-        const response = await fetch(servicesSimpleListEndpoint, {
+        const response = await fetchWithAuth(servicesSimpleListEndpoint, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2323,7 +2391,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (productSearchInput) {
           url.searchParams.set("search", productSearchInput);
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2372,7 +2440,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setClientHistoryLoading(true);
       setClientHistoryError(null);
       try {
-        const response = await fetch(
+        const response = await fetchWithAuth(
           `${env.apiBaseUrl}/dashboard/appointments/summary/${selectedUserId}/`,
           {
             credentials: "include",
@@ -2419,7 +2487,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setServiceDetailLoading(true);
       setServiceDetailError(null);
       try {
-        const response = await fetch(`${servicesEndpointBase}${selectedServiceId}/`, {
+        const response = await fetchWithAuth(`${servicesEndpointBase}${selectedServiceId}/`, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2493,7 +2561,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         if (filterCategoryId) {
           url.searchParams.set("service_category_id", filterCategoryId);
         }
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2551,7 +2619,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setAppointmentDetailLoading(true);
       setAppointmentDetailError(null);
       try {
-        const response = await fetch(`${appointmentsEndpointBase}${selectedAppointmentId}/`, {
+        const response = await fetchWithAuth(`${appointmentsEndpointBase}${selectedAppointmentId}/`, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -2944,7 +3012,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       formData.append("name", name);
       formData.append("icon", serviceCategoryForm.icon);
 
-      const response = await fetch(serviceCategoriesBaseEndpoint, {
+      const response = await fetchWithAuth(serviceCategoriesBaseEndpoint, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -3013,7 +3081,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setPasswordResetSubmitting(true);
     setPasswordResetError(null);
     try {
-      const response = await fetch(`${env.apiBaseUrl}/dashboard/auth/password-change/`, {
+      const response = await fetchWithAuth(`${env.apiBaseUrl}/dashboard/auth/password-change/`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -3124,7 +3192,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     setProfessionalIntervalSubmitting(true);
     try {
-      const response = await fetch(professionalIntervalsEndpointBase, {
+      const response = await fetchWithAuth(professionalIntervalsEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -3249,7 +3317,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     setIsSavingUser(true);
     try {
-      const response = await fetch(usersEndpointBase, {
+      const response = await fetchWithAuth(usersEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -3306,7 +3374,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     setIsSavingService(true);
     try {
-      const response = await fetch(servicesEndpointBase, {
+      const response = await fetchWithAuth(servicesEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -3358,7 +3426,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     setIsUpdatingService(true);
     try {
-      const response = await fetch(`${servicesEndpointBase}${serviceDetail.id}/`, {
+      const response = await fetchWithAuth(`${servicesEndpointBase}${serviceDetail.id}/`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -3416,7 +3484,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }
     setProductUsageDeletingId(usageId);
     try {
-      const response = await fetch(`${productUsagesEndpointBase}${usageId}/`, {
+      const response = await fetchWithAuth(`${productUsagesEndpointBase}${usageId}/`, {
         method: "DELETE",
         credentials: "include",
         headers: {
@@ -3470,7 +3538,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       }
       setIsAddingProductUsage(true);
       try {
-        const response = await fetch(productUsagesEndpointBase, {
+        const response = await fetchWithAuth(productUsagesEndpointBase, {
           method: "POST",
           credentials: "include",
           headers: {
@@ -3681,7 +3749,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     setClientRegistrationSubmitting(true);
     try {
-      const response = await fetch(clientsEndpointBase, {
+      const response = await fetchWithAuth(clientsEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -3845,7 +3913,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         date_of_payment: createBillForm.date_of_payment,
       };
 
-      const response = await fetch(billsEndpointBase, {
+      const response = await fetchWithAuth(billsEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -3911,7 +3979,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       }
       setRepasseDetailLoading(true);
       try {
-        const response = await fetch(`${repassesEndpoint}${repasseId}/`, {
+        const response = await fetchWithAuth(`${repassesEndpoint}${repasseId}/`, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -3955,10 +4023,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setRepasseAnalyticsError(null);
       try {
         const monthFilter = detail.month?.slice(0, 7) || financeMonth;
-        const endpoint = `${professionalServiceSummaryEndpointBase}${detail.professional.id}/service-summary/`;
+        const endpoint =
+          userRole === "professional"
+            ? `${professionalServiceSummaryEndpointBase}me/service-summary/`
+            : `${professionalServiceSummaryEndpointBase}${detail.professional.id}/service-summary/`;
         const url = new URL(endpoint);
         url.searchParams.set("month", monthFilter);
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -3985,7 +4056,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         }
       }
     },
-    [accessToken, financeMonth],
+    [accessToken, financeMonth, userRole],
   );
 
   const fetchBillDetail = useCallback(
@@ -4006,7 +4077,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       }
       setBillDetailLoading(true);
       try {
-        const response = await fetch(`${billsEndpointBase}${billId}/`, {
+        const response = await fetchWithAuth(`${billsEndpointBase}${billId}/`, {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -4104,7 +4175,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setRepasseAllowenceSaving(true);
     setRepasseAllowenceError(null);
     try {
-      const response = await fetch(`${repassesEndpoint}${repasseDetail.id}/`, {
+      const response = await fetchWithAuth(`${repassesEndpoint}${repasseDetail.id}/`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -4237,7 +4308,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         date_of_payment: billEditForm.date_of_payment,
         is_paid: billEditForm.is_paid,
       };
-      const response = await fetch(`${billsEndpointBase}${billDetail.id}/`, {
+      const response = await fetchWithAuth(`${billsEndpointBase}${billDetail.id}/`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -4345,7 +4416,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         formData.append("payment_proof", billPaymentForm.paymentProof);
       }
 
-      const response = await fetch(transactionsEndpointBase, {
+      const response = await fetchWithAuth(transactionsEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -4428,7 +4499,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     try {
       const formData = new FormData();
       formData.append("invoice", repasseInvoiceFile);
-      const response = await fetch(`${repassesEndpoint}${repasseDetail.id}/`, {
+      const response = await fetchWithAuth(`${repassesEndpoint}${repasseDetail.id}/`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -4516,7 +4587,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         formData.append("payment_proof", repassePaymentForm.paymentProof);
       }
 
-      const response = await fetch(transactionsEndpointBase, {
+      const response = await fetchWithAuth(transactionsEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -4604,7 +4675,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setAppointmentDetailError(null);
     setAppointmentStatusUpdating(true);
     try {
-      const response = await fetch(`${appointmentsEndpointBase}${selectedAppointmentId}/`, {
+      const response = await fetchWithAuth(`${appointmentsEndpointBase}${selectedAppointmentId}/`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -5160,7 +5231,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         formData.append("picture_of_product", productDetailPicture[0]);
       }
 
-      const response = await fetch(`${productsEndpointBase}${selectedProductId}/`, {
+      const response = await fetchWithAuth(`${productsEndpointBase}${selectedProductId}/`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -5337,7 +5408,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         formData.append("product", productSaleDetailForm.productId);
       }
 
-      const response = await fetch(
+      const response = await fetchWithAuth(
         `${transactionsSellListEndpoint}${selectedProductSaleId}/`,
         {
           method: "PATCH",
@@ -5419,7 +5490,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           const url = new URL(repassesRecalculateEndpointBase);
           url.searchParams.set("month", financeMonth);
           url.searchParams.set("professional_profile_id", String(professionalId));
-          const response = await fetch(url.toString(), {
+          const response = await fetchWithAuth(url.toString(), {
             method: "POST",
             credentials: "include",
             headers: {
@@ -5616,7 +5687,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       try {
         const url = new URL(financeSummaryEndpoint);
         url.searchParams.set("month", financeMonth);
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -5661,7 +5732,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       try {
         const url = new URL(repassesEndpoint);
         url.searchParams.set("month", financeMonth);
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -5782,7 +5853,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       try {
         const url = new URL(billsEndpointBase);
         url.searchParams.set("month", financeMonth);
-        const response = await fetch(url.toString(), {
+        const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
             Accept: "application/json",
@@ -5875,7 +5946,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     setIsSavingProduct(true);
     try {
-      const response = await fetch(productsEndpointBase, {
+      const response = await fetchWithAuth(productsEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -5955,7 +6026,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     setProductSaleSubmitting(true);
     try {
-      const response = await fetch(transactionsEndpointBase, {
+      const response = await fetchWithAuth(transactionsEndpointBase, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -6103,7 +6174,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       const endpoint = isEditingExistingAppointment
         ? `${appointmentsEndpointBase}${editingAppointmentId}/`
         : appointmentsEndpointBase;
-      const response = await fetch(endpoint, {
+      const response = await fetchWithAuth(endpoint, {
         method: isEditingExistingAppointment ? "PATCH" : "POST",
         credentials: "include",
         headers: {
@@ -6219,7 +6290,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     setIsUpdatingUser(true);
     try {
-      const response = await fetch(`${usersEndpointBase}${userDetail.id}/`, {
+      const response = await fetchWithAuth(`${usersEndpointBase}${userDetail.id}/`, {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -6295,7 +6366,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           : professionalProfilesEndpointBase;
         const method = hasProfile ? "PATCH" : "POST";
 
-        const response = await fetch(endpoint, {
+        const response = await fetchWithAuth(endpoint, {
           method,
           credentials: "include",
           headers: {
