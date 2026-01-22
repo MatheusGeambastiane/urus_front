@@ -8,6 +8,7 @@ type ApiUser = {
   last_name: string;
   email: string;
   role: string;
+  profile_pic?: string | null;
 };
 
 type LoginResponse = {
@@ -62,6 +63,7 @@ export const authOptions: NextAuthOptions = {
           firstName: payload.user.first_name,
           lastName: payload.user.last_name,
           role: payload.user.role,
+          profile_pic: payload.user.profile_pic ?? null,
           accessToken: payload.access,
           refreshToken: payload.refresh,
         };
@@ -80,6 +82,7 @@ export const authOptions: NextAuthOptions = {
           lastName: user.lastName,
           role: user.role,
           name: user.name,
+          profile_pic: user.profile_pic ?? null,
         };
       }
       return token;

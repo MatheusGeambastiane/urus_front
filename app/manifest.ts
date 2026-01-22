@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Urus - Backoffice",
-    short_name: "Urus",
+    short_name: "Urus - Backoffice",
     description: "Sistema de gerenciamento da barbearia Urus",
     start_url: "/",
     display: "standalone",

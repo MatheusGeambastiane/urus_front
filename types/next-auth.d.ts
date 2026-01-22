@@ -6,6 +6,7 @@ type AppUser = {
   firstName: string;
   lastName: string;
   role: string;
+  profile_pic?: string | null;
   name?: string | null;
 };
 
