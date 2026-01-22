@@ -26,6 +26,25 @@ export type AppointmentProfessionalService = {
   price_paid: string;
 };
 
+export type AppointmentSell = {
+  id: number;
+  type: string;
+  price: string;
+  date_of_transaction: string;
+  transaction_payment: string;
+  money_resource: string | null;
+  payment_proof: string | null;
+  product: number | null;
+  product_name?: string | null;
+  quantity: number;
+  user: number | null;
+  user_name?: string | null;
+  appointment: number | null;
+  bill: number | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type AppointmentItem = {
   id: number;
   date_time: string;
@@ -40,6 +59,7 @@ export type AppointmentItem = {
   professional_name: string | null;
   client_name: string | null;
   professional_services?: AppointmentProfessionalService[];
+  sells?: AppointmentSell[];
   created_at?: string;
   updated_at?: string;
 };

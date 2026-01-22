@@ -43,6 +43,7 @@ export type ProductSalesResponse = {
 };
 
 export type AddedSaleItem = {
+  saleId?: number;
   productId: number;
   productName: string;
   price: string;

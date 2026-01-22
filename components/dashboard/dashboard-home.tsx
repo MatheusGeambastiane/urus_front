@@ -320,6 +320,12 @@ const productTypeOptionsForm = [
   { value: "bebida", label: "Bebida" },
 ];
 
+const moneyResourceOptions = [
+  { value: "matheus", label: "Matheus" },
+  { value: "leilane", label: "Leilane" },
+  { value: "barbearia", label: "Barbearia" },
+] as const;
+
 const summaryFilterMonthOptions = [
   { value: "01", label: "Janeiro" },
   { value: "02", label: "Fevereiro" },
@@ -576,6 +582,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [appointmentDetailError, setAppointmentDetailError] = useState<string | null>(null);
   const [appointmentDetailRefreshToken, setAppointmentDetailRefreshToken] = useState(0);
   const [appointmentStatusUpdating, setAppointmentStatusUpdating] = useState(false);
+  const appointmentsDateListRef = useRef<HTMLDivElement>(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [startDateFilter, setStartDateFilter] = useState<string | null>(null);
   const [endDateFilter, setEndDateFilter] = useState<string | null>(null);
@@ -665,6 +672,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [salePaymentSelect, setSalePaymentSelect] = useState<PaymentType | "">("");
   const [isAddingSaleProduct, setIsAddingSaleProduct] = useState(false);
   const [addedSales, setAddedSales] = useState<AddedSaleItem[]>([]);
+  const [saleEditingIndex, setSaleEditingIndex] = useState<number | null>(null);
   const [editingAppointmentId, setEditingAppointmentId] = useState<number | null>(null);
   const [productsInventory, setProductsInventory] = useState<ProductItem[]>([]);
   const [productsInventoryCount, setProductsInventoryCount] = useState(0);
@@ -703,6 +711,10 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [isCreatingProductSale, setIsCreatingProductSale] = useState(false);
   const [showProductsFabOptions, setShowProductsFabOptions] = useState(false);
   const [isViewingProductSales, setIsViewingProductSales] = useState(false);
+  const [selectedResourceCount, setSelectedResourceCount] = useState<{
+    label: string;
+    count: number;
+  } | null>(null);
   const [productSalesData, setProductSalesData] = useState<ProductSalesResponse | null>(null);
   const [productSalesLoading, setProductSalesLoading] = useState(false);
   const [productSalesError, setProductSalesError] = useState<string | null>(null);
@@ -799,10 +811,12 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
     price: string;
     transactionPayment: PaymentType;
     paymentProof: File | null;
+    moneyResource: (typeof moneyResourceOptions)[number]["value"];
   }>({
     price: "",
     transactionPayment: "pix",
     paymentProof: null,
+    moneyResource: "barbearia",
   });
   const [repassePaymentError, setRepassePaymentError] = useState<string | null>(null);
   const [repassePaymentSubmitting, setRepassePaymentSubmitting] = useState(false);
@@ -837,6 +851,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
     price: "",
     transactionPayment: "pix" as PaymentType,
     paymentProof: null as File | null,
+    moneyResource: "barbearia" as (typeof moneyResourceOptions)[number]["value"],
   });
   const [billPaymentError, setBillPaymentError] = useState<string | null>(null);
   const [billPaymentSubmitting, setBillPaymentSubmitting] = useState(false);
@@ -923,6 +938,8 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
     setShowProfessionalPickerModal(false);
     setServicesPickerTempSelection([]);
     setEditingAppointmentId(null);
+    setSaleEditingIndex(null);
+    setSaleProfessionalId(null);
   }, [selectedDate]);
 
   const {
@@ -2771,7 +2788,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const datePickerValue = convertDisplayDateToIso(dateOfBirthValue) ?? "";
   const appointmentsDateOptions = useMemo(() => {
     const options = [] as { date: Date; label: string; key: string }[];
-    for (let offset = -2; offset <= 2; offset += 1) {
+    for (let offset = -20; offset <= 20; offset += 1) {
       const date = new Date(selectedDate);
       date.setDate(date.getDate() + offset);
       options.push({
@@ -2781,6 +2798,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       });
     }
     return options;
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const list = appointmentsDateListRef.current;
+    if (!list) {
+      return;
+    }
+    const key = formatDateParam(selectedDate);
+    const target = list.querySelector<HTMLButtonElement>(`[data-date="${key}"]`);
+    if (!target) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    });
   }, [selectedDate]);
 
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -4251,6 +4283,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       price: "",
       transactionPayment: "pix",
       paymentProof: null,
+      moneyResource: "barbearia",
     });
     setRepassePaymentError(null);
     setShowRepassePaymentModal(true);
@@ -4368,6 +4401,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       price: "",
       transactionPayment: "pix",
       paymentProof: null,
+      moneyResource: "barbearia",
     });
     setBillPaymentError(null);
     setShowBillPaymentModal(true);
@@ -4390,6 +4424,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setBillPaymentForm((previous) => ({
       ...previous,
       transactionPayment: value,
+    }));
+  };
+
+  const handleBillMoneyResourceSelect = (
+    value: (typeof moneyResourceOptions)[number]["value"],
+  ) => {
+    setBillPaymentForm((previous) => ({
+      ...previous,
+      moneyResource: value,
     }));
   };
 
@@ -4423,6 +4466,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       formData.append("price", priceValue.toFixed(2));
       formData.append("date_of_transaction", formatDateParam(new Date()));
       formData.append("transaction_payment", billPaymentForm.transactionPayment);
+      formData.append("money_resource", billPaymentForm.moneyResource);
       formData.append("bill", String(billDetail.id));
       if (billPaymentForm.paymentProof) {
         formData.append("payment_proof", billPaymentForm.paymentProof);
@@ -4459,6 +4503,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         price: "",
         transactionPayment: "pix",
         paymentProof: null,
+        moneyResource: "barbearia",
       });
       await fetchBillDetail(billDetail.id, { force: true });
     } catch (err) {
@@ -4562,6 +4607,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }));
   };
 
+  const handleRepasseMoneyResourceSelect = (
+    value: (typeof moneyResourceOptions)[number]["value"],
+  ) => {
+    setRepassePaymentForm((previous) => ({
+      ...previous,
+      moneyResource: value,
+    }));
+  };
+
   const handleRepassePaymentProofChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     setRepassePaymentForm((previous) => ({
@@ -4592,6 +4646,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       formData.append("price", priceValue.toFixed(2));
       formData.append("date_of_transaction", formatDateParam(new Date()));
       formData.append("transaction_payment", repassePaymentForm.transactionPayment);
+      formData.append("money_resource", repassePaymentForm.moneyResource);
       const professionalUserId =
         repasseDetail.professional.user_id ?? repasseDetail.professional.id;
       formData.append("user", String(professionalUserId));
@@ -4630,6 +4685,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         price: "",
         transactionPayment: "pix",
         paymentProof: null,
+        moneyResource: "barbearia",
       });
       await fetchRepasseDetail(repasseDetail.id, { force: true });
     } catch (err) {
@@ -4844,6 +4900,30 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       });
     }
     setServiceAssignments(assignments);
+    const sells = Array.isArray(detail.sells) ? detail.sells : [];
+    if (sells.length > 0) {
+      setAddedSales(
+        sells.map((sale) => {
+          const payment = sale.transaction_payment;
+          const normalizedPayment: PaymentType =
+            payment === "credit" || payment === "debit" || payment === "pix" || payment === "dinheiro"
+              ? payment
+              : "pix";
+          return {
+            saleId: sale.id,
+            productId: sale.product ?? 0,
+            productName: sale.product_name ?? `Produto #${sale.product ?? "-"}`,
+            price: sale.price ?? "0",
+            quantity: sale.quantity ?? 1,
+            paymentType: normalizedPayment,
+            userId: sale.user ?? null,
+          };
+        }),
+      );
+    } else {
+      setAddedSales([]);
+    }
+    setSaleEditingIndex(null);
   };
 
   const handleStartAppointmentEdit = () => {
@@ -5039,12 +5119,29 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const handleOpenSaleModal = () => {
+    setSaleEditingIndex(null);
+    setSelectedSaleProductId(null);
+    setSaleQuantityInput("1");
+    setSalePriceInput("");
+    setSalePaymentSelect("");
+    setSaleProfessionalId(null);
+    setSaleModalOpen(true);
+  };
+
+  const handleOpenSaleModalForEdit = (sale: AddedSaleItem, index: number) => {
+    setSaleEditingIndex(index);
+    setSelectedSaleProductId(sale.productId);
+    setSaleQuantityInput(String(sale.quantity));
+    setSalePriceInput(sale.price);
+    setSalePaymentSelect(sale.paymentType);
+    setSaleProfessionalId(sale.userId ?? null);
     setSaleModalOpen(true);
   };
 
   const handleCloseSaleModal = () => {
     setSaleModalOpen(false);
     setSaleProfessionalId(null);
+    setSaleEditingIndex(null);
   };
 
   const handleSelectSaleProduct = (productId: number) => {
@@ -5089,22 +5186,34 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setIsAddingSaleProduct(true);
     try {
       const pickedProduct = saleProductsList.find((item) => item.id === selectedSaleProductId);
-      setAddedSales((previous) => [
-        ...previous,
-        {
-          productId: selectedSaleProductId,
-          productName: pickedProduct?.name ?? `Produto #${selectedSaleProductId}`,
-          price: priceValue.toFixed(2),
-          quantity: quantityValue,
-          paymentType: salePaymentSelect,
-          userId: saleProfessionalId,
-        },
-      ]);
+      const fallbackName =
+        saleEditingIndex !== null ? addedSales[saleEditingIndex]?.productName : null;
+      const nextItem: AddedSaleItem = {
+        saleId: saleEditingIndex !== null ? addedSales[saleEditingIndex]?.saleId : undefined,
+        productId: selectedSaleProductId,
+        productName: pickedProduct?.name ?? fallbackName ?? `Produto #${selectedSaleProductId}`,
+        price: priceValue.toFixed(2),
+        quantity: quantityValue,
+        paymentType: salePaymentSelect,
+        userId: saleProfessionalId,
+      };
+      setAddedSales((previous) => {
+        if (saleEditingIndex === null) {
+          return [...previous, nextItem];
+        }
+        const updated = [...previous];
+        updated[saleEditingIndex] = nextItem;
+        return updated;
+      });
       setFeedbackMessage({
         type: "success",
-        message: "Produto vendido adicionado ao agendamento.",
+        message:
+          saleEditingIndex === null
+            ? "Produto vendido adicionado ao agendamento."
+            : "Venda atualizada com sucesso.",
       });
       setSaleModalOpen(false);
+      setSaleEditingIndex(null);
     } catch (err) {
       setCreateAppointmentError(
         err instanceof Error ? err.message : "Erro inesperado ao adicionar a venda.",
@@ -6137,9 +6246,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       observations: appointmentObservations || null,
     };
       const sellsPayload =
-        !isEditingExistingAppointment && addedSales.length > 0
+        addedSales.length > 0
           ? {
               sells: addedSales.map((sale) => ({
+                ...(sale.saleId ? { id: sale.saleId } : {}),
                 product: sale.productId,
                 quantity: sale.quantity,
                 price: sale.price,
@@ -8927,9 +9037,19 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                       {sale.quantity} un • {getPaymentTypeLabel(sale.paymentType)}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-white">
-                    {formatCurrency(sale.price)}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm font-semibold text-white">
+                      {formatCurrency(sale.price)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenSaleModalForEdit(sale, index)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+                      aria-label="Editar venda"
+                    >
+                      <PenSquare className="h-4 w-4" />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -9351,6 +9471,65 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               )}
             </section>
 
+            <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white/60">Vendas</p>
+                  <p className="text-lg font-semibold">Produtos vinculados</p>
+                </div>
+                <span className="text-xs text-white/60">
+                  {detail.sells?.length ?? 0} item(ns)
+                </span>
+              </div>
+              {detail.sells && detail.sells.length > 0 ? (
+                <ul className="space-y-2">
+                  {detail.sells.map((sale) => {
+                    const saleDate = sale.date_of_transaction
+                      ? new Date(sale.date_of_transaction).toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                      : "--/--/----";
+                    const paymentLabel =
+                      getPaymentTypeLabel(sale.transaction_payment as PaymentType) ||
+                      capitalizeFirstLetter(sale.transaction_payment);
+                    return (
+                      <li
+                        key={`appointment-sell-${sale.id}`}
+                        className="space-y-2 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/80"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-semibold">{sale.product_name ?? "Produto"}</p>
+                            <p className="text-xs text-white/60">
+                              {sale.quantity} un • {paymentLabel}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-white">
+                              {formatCurrency(sale.price ?? "0")}
+                            </p>
+                            <p className="text-xs text-white/60">{saleDate}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+                          <span>Vendedor: {sale.user_name ?? "Não informado"}</span>
+                          {sale.money_resource ? (
+                            <span>Origem: {capitalizeFirstLetter(sale.money_resource)}</span>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/60">
+                  Nenhuma venda vinculada.
+                </p>
+              )}
+            </section>
+
             <section className="space-y-2 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
               <p className="text-sm text-white/60">Observações</p>
               <p className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/80">
@@ -9548,13 +9727,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </article>
         </section>
 
-        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
+        <div
+          ref={appointmentsDateListRef}
+          className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 snap-x snap-mandatory"
+        >
           {appointmentsDateOptions.map((option) => (
             <button
               type="button"
               key={option.key}
+              data-date={option.key}
               onClick={() => handleSelectDate(option.date)}
-              className={`rounded-full px-5 py-2 text-sm font-medium ${
+              className={`snap-center rounded-full px-5 py-2 text-sm font-medium ${
                 formatDateParam(selectedDate) === option.key
                   ? "bg-white text-black"
                   : "bg-white/10 text-white/70"
@@ -11323,6 +11506,19 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         raw: entry.transaction_payment,
         value: entry.total,
       })) ?? [];
+    const paymentResourceData =
+      financeSummary?.payment_transactions_by_resource?.map((entry, index) => {
+        const label = entry.money_resource
+          ? capitalizeFirstLetter(entry.money_resource)
+          : "Sem origem";
+        return {
+          key: entry.money_resource ?? `resource-${index}`,
+          label,
+          total: Number(entry.total ?? 0),
+          count: Number(entry.count ?? 0),
+          color: pieChartColors[index % pieChartColors.length],
+        };
+      }) ?? [];
   const cards = [
     {
       label: "Receitas",
@@ -11353,6 +11549,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       iconClass: "text-white",
     },
   ];
+  const averageAppointmentsPerDayValue = Number(
+    financeSummary?.appointments_average_per_day ?? 0,
+  );
+  const averageAppointmentsPerDay = Number.isFinite(averageAppointmentsPerDayValue)
+    ? averageAppointmentsPerDayValue
+    : 0;
+  const appointmentTicketAverage = financeSummary?.appointments_ticket_average ?? "0";
+  const monthlyTicketAverage = financeSummary?.appointments_sell_ticket_average ?? "0";
 
     if (showRepasseDetail) {
       const detail = repasseDetail;
@@ -12007,6 +12211,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                                 {formatCurrency(transaction.price ?? "0")}
                               </p>
                               <p className="text-xs text-white/60">{paymentLabel}</p>
+                              {transaction.money_resource ? (
+                                <p className="text-xs text-white/60">
+                                  Origem: {capitalizeFirstLetter(transaction.money_resource)}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                           {transaction.payment_proof ? (
@@ -12166,6 +12375,33 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </article>
                 );
               })}
+            </section>
+
+            <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card text-white">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-white/50">Médias</p>
+                <p className="text-lg font-semibold">Indicadores médios</p>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <p className="text-xs text-white/60">Ticket médio mensal: Atendimentos</p>
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {formatCurrency(appointmentTicketAverage)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <p className="text-xs text-white/60">Ticket médio mensal: Atendimentos e Vendas</p>
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {formatCurrency(monthlyTicketAverage)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+                  <p className="text-xs text-white/60">Média de atendimento por dia</p>
+                  <p className="mt-1 text-lg font-semibold text-white">
+                    {averageAppointmentsPerDay.toFixed(2).replace(".", ",")}
+                  </p>
+                </div>
+              </div>
             </section>
 
             <section className="space-y-4">
@@ -12357,6 +12593,84 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </>
           )}
         </fieldset>
+
+        <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-white/50">Origem dos recursos</p>
+              <p className="text-lg font-semibold">Distribuição por origem</p>
+            </div>
+          </div>
+          {paymentResourceData.length === 0 ? (
+            <p className="mt-4 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-white/60">
+              Nenhuma transação encontrada para o período.
+            </p>
+          ) : (
+            <>
+              <div className="mt-4 h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={paymentResourceData}>
+                    <XAxis dataKey="label" tick={{ fill: "#A1A1AA", fontSize: 12 }} />
+                    <YAxis tick={{ fill: "#A1A1AA", fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value: number, _name, payload) => {
+                        const count = payload?.payload?.count ?? 0;
+                        return `${formatCurrency(Number(value).toFixed(2))} • ${count} transações`;
+                      }}
+                      contentStyle={{
+                        backgroundColor: "#111",
+                        borderRadius: 12,
+                        border: "1px solid #333",
+                      }}
+                    />
+                    <Bar
+                      dataKey="total"
+                      radius={[8, 8, 0, 0]}
+                      onClick={(data) => {
+                        const payload = (data as { payload?: { label?: string; count?: number } })
+                          ?.payload;
+                        if (payload?.label) {
+                          setSelectedResourceCount({
+                            label: payload.label,
+                            count: payload.count ?? 0,
+                          });
+                        }
+                      }}
+                    >
+                      {paymentResourceData.map((entry) => (
+                        <Cell key={`resource-bar-${entry.key}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              {selectedResourceCount ? (
+                <p className="mt-2 text-xs text-white/60">
+                  {selectedResourceCount.label}: {selectedResourceCount.count} transações
+                </p>
+              ) : null}
+              <div className="mt-4 space-y-2 text-sm text-white/80">
+                {paymentResourceData.map((entry) => (
+                  <div
+                    key={`resource-legend-${entry.key}`}
+                    className="flex items-center justify-between rounded-2xl border border-white/10 px-3 py-2"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: entry.color }}
+                      />
+                      <p>{entry.label}</p>
+                    </div>
+                    <span className="font-semibold text-white">
+                      {formatCurrency(entry.total.toFixed(2))} | {entry.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
 
         <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3">
           {showFinanceFabOptions ? (
@@ -12691,7 +13005,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                             <p className="text-lg font-semibold text-white">
                               {formatCurrency(transaction.price ?? "0")}
                             </p>
-                            <p className="text-xs text-white/60">{paymentLabel}</p>
+                              <p className="text-xs text-white/60">{paymentLabel}</p>
+                              {transaction.money_resource ? (
+                                <p className="text-xs text-white/60">
+                                  Origem: {capitalizeFirstLetter(transaction.money_resource)}
+                                </p>
+                              ) : null}
                           </div>
                         </div>
                         {transaction.payment_proof ? (
@@ -13280,6 +13599,24 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 </div>
               </div>
               <label className="block text-white/80">
+                Origem do recurso
+                <select
+                  value={repassePaymentForm.moneyResource}
+                  onChange={(event) =>
+                    handleRepasseMoneyResourceSelect(
+                      event.target.value as (typeof moneyResourceOptions)[number]["value"],
+                    )
+                  }
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
+                >
+                  {moneyResourceOptions.map((option) => (
+                    <option key={`repasse-money-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-white/80">
                 Comprovante de pagamento
                 <input
                   type="file"
@@ -13458,6 +13795,24 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   })}
                 </div>
               </div>
+              <label className="block text-white/80">
+                Origem do recurso
+                <select
+                  value={billPaymentForm.moneyResource}
+                  onChange={(event) =>
+                    handleBillMoneyResourceSelect(
+                      event.target.value as (typeof moneyResourceOptions)[number]["value"],
+                    )
+                  }
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
+                >
+                  {moneyResourceOptions.map((option) => (
+                    <option key={`bill-money-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="block text-white/80">
                 Comprovante de pagamento
                 <input

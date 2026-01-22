@@ -21,6 +21,7 @@ export type RepasseTransaction = {
   price: string;
   date_of_transaction: string;
   transaction_payment: string;
+  money_resource?: string | null;
   payment_proof: string | null;
   product: number | null;
   quantity: number;
