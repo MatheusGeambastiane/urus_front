@@ -755,6 +755,8 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [productSaleProducts, setProductSaleProducts] = useState<ProductItem[]>([]);
   const [productSaleProductsLoading, setProductSaleProductsLoading] = useState(false);
   const [productSaleProductsError, setProductSaleProductsError] = useState<string | null>(null);
+  const [productSaleProductsSearchInput, setProductSaleProductsSearchInput] = useState("");
+  const [productSaleProductsSearchTerm, setProductSaleProductsSearchTerm] = useState("");
   const [dailySummary, setDailySummary] = useState<DailySummaryResponse | null>(null);
   const [dailySummaryLoading, setDailySummaryLoading] = useState(false);
   const [dailySummaryError, setDailySummaryError] = useState<string | null>(null);
@@ -1839,6 +1841,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       try {
         const url = new URL(productsEndpointBase);
         url.searchParams.set("use_type", "venda");
+        url.searchParams.set("page_size", "100");
+        if (productSaleProductsSearchTerm) {
+          url.searchParams.set("search", productSaleProductsSearchTerm);
+        }
         const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
@@ -1869,7 +1875,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchSalePickerProducts();
     return () => controller.abort();
-  }, [productSaleProductModalOpen, accessToken]);
+  }, [productSaleProductModalOpen, accessToken, productSaleProductsSearchTerm]);
 
   useEffect(() => {
     if (!isViewingProductSales || !accessToken) {
@@ -13680,6 +13686,23 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 <X className="h-4 w-4" />
               </button>
             </div>
+            <label className="block text-white/70">
+              Buscar produto
+              <div className="mt-1 flex items-center gap-2 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm focus-within:border-white/40">
+                <Search className="h-4 w-4 text-white/40" />
+                <input
+                  type="text"
+                  value={productSaleProductsSearchInput}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setProductSaleProductsSearchInput(value);
+                    setProductSaleProductsSearchTerm(value.trim());
+                  }}
+                  placeholder="Digite para buscar"
+                  className="w-full bg-transparent text-sm text-white/90 outline-none placeholder:text-white/40"
+                />
+              </div>
+            </label>
             {productSaleProductsLoading ? (
               <div className="flex items-center justify-center py-6 text-white/70">
                 <Loader2 className="h-5 w-5 animate-spin" />
