@@ -653,6 +653,8 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [saleProductsList, setSaleProductsList] = useState<ProductItem[]>([]);
   const [saleProductsLoading, setSaleProductsLoading] = useState(false);
   const [saleProductsError, setSaleProductsError] = useState<string | null>(null);
+  const [saleProductsSearchInput, setSaleProductsSearchInput] = useState("");
+  const [saleProductsSearchTerm, setSaleProductsSearchTerm] = useState("");
   const [saleProfessionalsList, setSaleProfessionalsList] = useState<
     { userId: number; name: string }[]
   >([]);
@@ -1749,6 +1751,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       try {
         const url = new URL(productsEndpointBase);
         url.searchParams.set("use_type", "venda");
+        url.searchParams.set("page_size", "100");
+        if (saleProductsSearchTerm) {
+          url.searchParams.set("search", saleProductsSearchTerm);
+        }
         const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
@@ -1779,7 +1785,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchSaleProducts();
     return () => controller.abort();
-  }, [saleModalOpen, accessToken]);
+  }, [saleModalOpen, accessToken, saleProductsSearchTerm]);
 
   useEffect(() => {
     if (!saleModalOpen || !accessToken) {
@@ -12870,7 +12876,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               <input
                 type="search"
                 value={clientSearchInput}
-                onChange={(event) => setClientSearchInput(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setClientSearchInput(value);
+                  setClientSearchTerm(value.trim());
+                }}
                 placeholder="Buscar cliente por nome"
                 className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-24 text-sm outline-none focus:border-white/40"
               />
@@ -13511,6 +13521,23 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </div>
 
             <div className="space-y-3">
+              <label className="block text-white/70">
+                Buscar produto
+                <div className="mt-1 flex items-center gap-2 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm focus-within:border-white/40">
+                  <Search className="h-4 w-4 text-white/40" />
+                  <input
+                    type="text"
+                    value={saleProductsSearchInput}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setSaleProductsSearchInput(value);
+                      setSaleProductsSearchTerm(value.trim());
+                    }}
+                    placeholder="Digite para buscar"
+                    className="w-full bg-transparent text-sm text-white/90 outline-none placeholder:text-white/40"
+                  />
+                </div>
+              </label>
               {saleProductsLoading ? (
                 <div className="flex items-center justify-center py-6 text-white/70">
                   <Loader2 className="h-5 w-5 animate-spin" />
