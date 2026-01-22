@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
+import { PwaRegister } from "@/components/providers/pwa-register";
 
 export const metadata: Metadata = {
   title: "Urus - Backoffice",
   description: "Sistema de gerenciamento da barbearia Urus",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({
@@ -16,6 +18,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <AuthSessionProvider>{children}</AuthSessionProvider>
+        <PwaRegister />
       </body>
     </html>
   );
