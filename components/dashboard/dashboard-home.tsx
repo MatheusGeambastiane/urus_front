@@ -208,6 +208,22 @@ type DashboardHomeProps = {
   activeTab: DashboardTab;
 };
 
+const buildSalesFingerprint = (sales: AddedSaleItem[]) => {
+  return sales
+    .map((sale) => ({
+      saleId: sale.saleId ?? null,
+      productId: sale.productId,
+      quantity: sale.quantity,
+      price: sale.price,
+      paymentType: sale.paymentType,
+      userId: sale.userId ?? null,
+    }))
+    .sort((a, b) => {
+      const aKey = `${a.saleId ?? "n"}-${a.productId}-${a.quantity}-${a.price}-${a.paymentType}-${a.userId ?? "n"}`;
+      const bKey = `${b.saleId ?? "n"}-${b.productId}-${b.quantity}-${b.price}-${b.paymentType}-${b.userId ?? "n"}`;
+      return aKey.localeCompare(bKey);
+    });
+};
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
@@ -584,6 +600,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [appointmentDetailRefreshToken, setAppointmentDetailRefreshToken] = useState(0);
   const [appointmentStatusUpdating, setAppointmentStatusUpdating] = useState(false);
   const [showAppointmentCancelModal, setShowAppointmentCancelModal] = useState(false);
+  const originalSalesSnapshotRef = useRef<AddedSaleItem[]>([]);
   const appointmentsDateListRef = useRef<HTMLDivElement>(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [startDateFilter, setStartDateFilter] = useState<string | null>(null);
@@ -675,6 +692,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [isAddingSaleProduct, setIsAddingSaleProduct] = useState(false);
   const [addedSales, setAddedSales] = useState<AddedSaleItem[]>([]);
   const [saleEditingIndex, setSaleEditingIndex] = useState<number | null>(null);
+  const [saleDeletingId, setSaleDeletingId] = useState<number | null>(null);
   const [editingAppointmentId, setEditingAppointmentId] = useState<number | null>(null);
   const [productsInventory, setProductsInventory] = useState<ProductItem[]>([]);
   const [productsInventoryCount, setProductsInventoryCount] = useState(0);
@@ -931,6 +949,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
     setAppointmentObservations("");
     setCreateAppointmentError(null);
     setAddedSales([]);
+    originalSalesSnapshotRef.current = [];
     setSaleModalOpen(false);
     setSelectedSaleProductId(null);
     setSaleQuantityInput("1");
@@ -3725,6 +3744,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setCreateAppointmentError(null);
   };
 
+  const handleClearSelectedClient = () => {
+    setSelectedClient(null);
+  };
+
   const handleOpenProductSaleSellerModal = () => {
     setShowProductSaleSellerModal(true);
     setProductSaleSellerError(null);
@@ -4920,26 +4943,27 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setServiceAssignments(assignments);
     const sells = Array.isArray(detail.sells) ? detail.sells : [];
     if (sells.length > 0) {
-      setAddedSales(
-        sells.map((sale) => {
-          const payment = sale.transaction_payment;
-          const normalizedPayment: PaymentType =
-            payment === "credit" || payment === "debit" || payment === "pix" || payment === "dinheiro"
-              ? payment
-              : "pix";
-          return {
-            saleId: sale.id,
-            productId: sale.product ?? 0,
-            productName: sale.product_name ?? `Produto #${sale.product ?? "-"}`,
-            price: sale.price ?? "0",
-            quantity: sale.quantity ?? 1,
-            paymentType: normalizedPayment,
-            userId: sale.user ?? null,
-          };
-        }),
-      );
+      const mappedSales = sells.map((sale) => {
+        const payment = sale.transaction_payment;
+        const normalizedPayment: PaymentType =
+          payment === "credit" || payment === "debit" || payment === "pix" || payment === "dinheiro"
+            ? payment
+            : "pix";
+        return {
+          saleId: sale.id,
+          productId: sale.product ?? 0,
+          productName: sale.product_name ?? `Produto #${sale.product ?? "-"}`,
+          price: sale.price ?? "0",
+          quantity: sale.quantity ?? 1,
+          paymentType: normalizedPayment,
+          userId: sale.user ?? null,
+        };
+      });
+      setAddedSales(mappedSales);
+      originalSalesSnapshotRef.current = mappedSales;
     } else {
       setAddedSales([]);
+      originalSalesSnapshotRef.current = [];
     }
     setSaleEditingIndex(null);
   };
@@ -5089,6 +5113,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setCreateAppointmentError(null);
   };
 
+  const handleClearProfessionalSelection = (slotId: string) => {
+    setAppointmentProfessionals((previous) =>
+      previous.map((slot) => (slot.id === slotId ? { ...slot, professional: null } : slot)),
+    );
+  };
+
   const handleSelectPaymentOption = (payment: PaymentType) => {
     setSelectedPaymentType(payment);
     setShowPaymentTypeModal(false);
@@ -5154,6 +5184,56 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setSalePaymentSelect(sale.paymentType);
     setSaleProfessionalId(sale.userId ?? null);
     setSaleModalOpen(true);
+  };
+
+  const handleDeleteAddedSale = async (sale: AddedSaleItem, index: number) => {
+    if (!sale.saleId) {
+      setAddedSales((previous) => previous.filter((_, currentIndex) => currentIndex !== index));
+      return;
+    }
+    if (!accessToken) {
+      setCreateAppointmentError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    if (saleDeletingId) {
+      return;
+    }
+    setSaleDeletingId(sale.saleId);
+    try {
+      const response = await fetchWithAuth(`${transactionsSellListEndpoint}${sale.saleId}/`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Não foi possível excluir a venda.";
+        try {
+          const data = await response.json();
+          if (data?.detail) {
+            errorMessage = data.detail;
+          }
+        } catch {
+          /* noop */
+        }
+        throw new Error(errorMessage);
+      }
+
+      setAddedSales((previous) => previous.filter((_, currentIndex) => currentIndex !== index));
+      setFeedbackMessage({
+        type: "success",
+        message: "Venda removida do agendamento.",
+      });
+    } catch (err) {
+      setCreateAppointmentError(
+        err instanceof Error ? err.message : "Erro inesperado ao excluir a venda.",
+      );
+    } finally {
+      setSaleDeletingId(null);
+    }
   };
 
   const handleCloseSaleModal = () => {
@@ -6255,16 +6335,20 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }
     setIsSavingAppointment(true);
     try {
-    const basePayload = {
-      date_time: dateTimeIso,
-      client: selectedClient?.id ?? null,
-      discount: normalizedDiscount,
-      payment_type: selectedPaymentType,
-      status: selectedAppointmentStatus,
-      observations: appointmentObservations || null,
-    };
+      const basePayload = {
+        date_time: dateTimeIso,
+        client: selectedClient?.id ?? null,
+        discount: normalizedDiscount,
+        payment_type: selectedPaymentType,
+        status: selectedAppointmentStatus,
+        observations: appointmentObservations || null,
+      };
+      const shouldIncludeSells =
+        !isEditingExistingAppointment ||
+        JSON.stringify(buildSalesFingerprint(addedSales)) !==
+          JSON.stringify(buildSalesFingerprint(originalSalesSnapshotRef.current));
       const sellsPayload =
-        addedSales.length > 0
+        shouldIncludeSells && addedSales.length > 0
           ? {
               sells: addedSales.map((sale) => ({
                 ...(sale.saleId ? { id: sale.saleId } : {}),
@@ -8889,24 +8973,35 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               Registrar cliente
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowClientPickerModal(true)}
-            className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
-                <UserRound className="h-5 w-5" />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowClientPickerModal(true)}
+              className="flex flex-1 items-center justify-between rounded-2xl border border-white/10 px-4 py-3 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+                  <UserRound className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{clientName}</p>
+                  <p className="text-xs text-white/60">
+                    {selectedClient?.email ?? "Buscar cliente pelo nome"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-semibold">{clientName}</p>
-                <p className="text-xs text-white/60">
-                  {selectedClient?.email ?? "Buscar cliente pelo nome"}
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-white/50" />
-          </button>
+              <ChevronRight className="h-4 w-4 text-white/50" />
+            </button>
+            <button
+              type="button"
+              onClick={handleClearSelectedClient}
+              disabled={!selectedClient}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 text-white/60 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Remover cliente"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         </section>
 
         <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
@@ -8943,6 +9038,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-white/50" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleClearProfessionalSelection(slot.id)}
+                    disabled={!slot.professional}
+                    className="rounded-full border border-white/10 p-2 text-white/60 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Limpar profissional"
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </button>
                   {index > 0 ? (
                     <button
@@ -9066,6 +9170,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                       aria-label="Editar venda"
                     >
                       <PenSquare className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAddedSale(sale, index)}
+                      disabled={saleDeletingId !== null && saleDeletingId === sale.saleId}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label="Excluir venda"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </li>
