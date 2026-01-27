@@ -745,6 +745,8 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [productSaleDetailLoading, setProductSaleDetailLoading] = useState(false);
   const [productSaleDetailError, setProductSaleDetailError] = useState<string | null>(null);
   const [productSaleDetailSubmitting, setProductSaleDetailSubmitting] = useState(false);
+  const [productSaleDeleting, setProductSaleDeleting] = useState(false);
+  const [showProductSaleDeleteModal, setShowProductSaleDeleteModal] = useState(false);
   const [canEditProductSale, setCanEditProductSale] = useState(false);
   const [productSaleDetailPaymentRaw, setProductSaleDetailPaymentRaw] = useState("");
   const [productSaleDetailAppointmentInfo, setProductSaleDetailAppointmentInfo] = useState<{
@@ -5569,10 +5571,68 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setCanEditProductSale(false);
     setProductSaleDetailPaymentRaw("");
     setProductSaleDetailAppointmentInfo(null);
+    setShowProductSaleDeleteModal(false);
   };
 
   const handleToggleProductSaleEdit = () => {
     setCanEditProductSale((previous) => !previous);
+  };
+
+  const handleOpenProductSaleDeleteModal = () => {
+    if (!selectedProductSaleId) {
+      return;
+    }
+    setShowProductSaleDeleteModal(true);
+  };
+
+  const handleCloseProductSaleDeleteModal = () => {
+    if (productSaleDeleting) {
+      return;
+    }
+    setShowProductSaleDeleteModal(false);
+  };
+
+  const handleConfirmProductSaleDelete = async () => {
+    if (!accessToken || !selectedProductSaleId) {
+      setProductSaleDetailError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+    setProductSaleDeleting(true);
+    setProductSaleDetailError(null);
+    try {
+      const response = await fetchWithAuth(
+        `${transactionsSellListEndpoint}${selectedProductSaleId}/`,
+        {
+          method: "DELETE",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const detail =
+          (data && (data.detail || data.message)) ||
+          "Não foi possível excluir a venda.";
+        throw new Error(detail);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Venda excluída com sucesso.",
+      });
+      setProductSalesRefreshToken((prev) => prev + 1);
+      handleCloseProductSaleDetail();
+    } catch (err) {
+      setProductSaleDetailError(
+        err instanceof Error ? err.message : "Erro inesperado ao excluir venda.",
+      );
+    } finally {
+      setProductSaleDeleting(false);
+    }
   };
 
   const handleProductSaleDetailInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -8063,14 +8123,24 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 {canEditProductSale ? "Modo de edição habilitado" : "Visualização"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleToggleProductSaleEdit}
-              className="rounded-2xl p-2 text-white/80 transition hover:border-white/40"
-              aria-label="Editar venda"
-            >
-              <PenSquare className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleToggleProductSaleEdit}
+                className="rounded-2xl p-2 text-white/80 transition hover:border-white/40"
+                aria-label="Editar venda"
+              >
+                <PenSquare className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenProductSaleDeleteModal}
+                className="rounded-2xl p-2 text-red-400 transition hover:text-red-300"
+                aria-label="Excluir venda"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70 sm:grid-cols-2">
@@ -13997,6 +14067,56 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </span>
                 ) : (
                   "Adicionar pagamento"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showProductSaleDeleteModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Vendas</p>
+                <h2 className="text-xl font-semibold">Excluir venda</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseProductSaleDeleteModal}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+                aria-label="Fechar modal de exclusão de venda"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-2 text-sm text-white/80">
+              <p>Tem certeza que deseja excluir esta venda?</p>
+              <p className="text-xs text-white/50">Essa ação não pode ser desfeita.</p>
+            </div>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleCloseProductSaleDeleteModal}
+                disabled={productSaleDeleting}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmProductSaleDelete}
+                disabled={productSaleDeleting}
+                className="flex-1 rounded-2xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {productSaleDeleting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Excluindo...
+                  </span>
+                ) : (
+                  "Sim, excluir"
                 )}
               </button>
             </div>
