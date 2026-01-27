@@ -275,6 +275,7 @@ const createProductDefaultValues: CreateProductFormValues = {
 
 const appointmentStatusOptions: { value: AppointmentStatus; label: string }[] = [
   { value: "agendado", label: "Agendado" },
+  { value: "cancelado", label: "Cancelado" },
   { value: "iniciado", label: "Iniciado" },
   { value: "realizado", label: "Realizado" },
 ];
@@ -582,6 +583,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [appointmentDetailError, setAppointmentDetailError] = useState<string | null>(null);
   const [appointmentDetailRefreshToken, setAppointmentDetailRefreshToken] = useState(0);
   const [appointmentStatusUpdating, setAppointmentStatusUpdating] = useState(false);
+  const [showAppointmentCancelModal, setShowAppointmentCancelModal] = useState(false);
   const appointmentsDateListRef = useRef<HTMLDivElement>(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [startDateFilter, setStartDateFilter] = useState<string | null>(null);
@@ -4780,6 +4782,22 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     } finally {
       setAppointmentStatusUpdating(false);
     }
+  };
+
+  const handleOpenAppointmentCancelModal = () => {
+    if (appointmentStatusUpdating || appointmentDetailLoading) {
+      return;
+    }
+    setShowAppointmentCancelModal(true);
+  };
+
+  const handleCloseAppointmentCancelModal = () => {
+    setShowAppointmentCancelModal(false);
+  };
+
+  const handleConfirmAppointmentCancel = async () => {
+    await handleUpdateAppointmentStatus("cancelado");
+    setShowAppointmentCancelModal(false);
   };
 
   const buildSlotsFromDetail = (detail: AppointmentItem) => {
@@ -9395,7 +9413,16 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                     <button
                       type="button"
                       key={option.value}
-                      onClick={() => handleUpdateAppointmentStatus(option.value)}
+                      onClick={() => {
+                        if (option.value === "cancelado") {
+                          if (statusValue === "cancelado") {
+                            return;
+                          }
+                          handleOpenAppointmentCancelModal();
+                          return;
+                        }
+                        handleUpdateAppointmentStatus(option.value);
+                      }}
                       disabled={appointmentStatusUpdating || appointmentDetailLoading}
                       className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
                         isActive ? "bg-white text-black" : "bg-white/10 text-white/70"
@@ -14300,6 +14327,49 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 className="flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black"
               >
                 Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showAppointmentCancelModal ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white/60">Agendamento</p>
+                <h2 className="text-xl font-semibold">Confirmar cancelamento</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseAppointmentCancelModal}
+                className="rounded-full border border-white/10 p-2 text-white/70"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2 text-sm text-white/80">
+              <p>Deseja cancelar este agendamento?</p>
+              <p className="text-xs text-white/50">Essa ação altera o status para cancelado.</p>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleCloseAppointmentCancelModal}
+                className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAppointmentCancel}
+                disabled={appointmentStatusUpdating || appointmentDetailLoading}
+                className="rounded-2xl bg-red-500 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Confirmar cancelamento
               </button>
             </div>
           </div>

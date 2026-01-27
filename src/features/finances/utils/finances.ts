@@ -85,6 +85,9 @@ export const priceStatusColor = (status: string) => {
   if (normalized === "iniciado" || normalized === "started") {
     return "text-sky-400";
   }
+  if (normalized === "cancelado" || normalized === "cancelled") {
+    return "text-rose-400";
+  }
   return "text-amber-300";
 };
 

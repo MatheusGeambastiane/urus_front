@@ -10,7 +10,7 @@ export type ServiceAssignment = {
   price: string;
 };
 
-export type AppointmentStatus = "realizado" | "agendado" | "iniciado";
+export type AppointmentStatus = "realizado" | "agendado" | "cancelado" | "iniciado";
 
 export type AppointmentService = {
   id: number;
