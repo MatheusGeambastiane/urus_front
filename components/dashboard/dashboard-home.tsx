@@ -652,6 +652,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
     phone: "",
     dateOfBirth: "",
   });
+  const [showClientEmailSuggestions, setShowClientEmailSuggestions] = useState(false);
   const [clientRegistrationSubmitting, setClientRegistrationSubmitting] = useState(false);
   const [clientRegistrationError, setClientRegistrationError] = useState<string | null>(null);
   const [showServicesPickerModal, setShowServicesPickerModal] = useState(false);
@@ -3788,6 +3789,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       ...previous,
       [name]: value,
     }));
+    if (name === "email") {
+      setShowClientEmailSuggestions(Boolean(value.trim()));
+    }
+  };
+
+  const handleSelectClientEmailSuggestion = (email: string) => {
+    setClientRegistrationForm((previous) => ({
+      ...previous,
+      email,
+    }));
+    setShowClientEmailSuggestions(false);
   };
 
   const handleSubmitClientRegistration = async (event: FormEvent<HTMLFormElement>) => {
@@ -3804,7 +3816,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const trimmedPhone = clientRegistrationForm.phone.trim();
     const birthDate = clientRegistrationForm.dateOfBirth;
 
-    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedCpf || !trimmedPhone) {
+    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedPhone) {
       setClientRegistrationError("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -3813,7 +3825,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       first_name: trimmedFirstName,
       last_name: trimmedLastName,
       email: trimmedEmail,
-      cpf: trimmedCpf,
+      cpf: trimmedCpf || null,
       phone: trimmedPhone,
       date_of_birth: birthDate || null,
     };
@@ -9422,17 +9434,50 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 </label>
                 <label className="block text-sm text-white/70">
                   Email
-                  <input
-                    type="email"
-                    name="email"
-                    value={clientRegistrationForm.email}
-                    onChange={handleClientRegistrationInputChange}
-                    className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
-                    placeholder="joao.silva@example.com"
-                  />
+                  <div className="relative mt-1">
+                    <input
+                      type="email"
+                      name="email"
+                      value={clientRegistrationForm.email}
+                      onChange={handleClientRegistrationInputChange}
+                      onFocus={() => setShowClientEmailSuggestions(true)}
+                      onBlur={() => {
+                        setTimeout(() => setShowClientEmailSuggestions(false), 100);
+                      }}
+                      className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                      placeholder="joao.silva@example.com"
+                    />
+                    {(() => {
+                      const email = clientRegistrationForm.email.trim();
+                      const [local] = email.split("@");
+                      if (!showClientEmailSuggestions || !local || email.includes(" ")) {
+                        return null;
+                      }
+                      const suggestions = ["gmail.com", "outlook.com", "hotmail.com"].map(
+                        (domain) => `${local}@${domain}`,
+                      );
+                      return (
+                        <div className="absolute left-0 right-0 z-50 mt-2 rounded-2xl border border-white/10 bg-[#0b0b0b] p-1 shadow-card">
+                          {suggestions.map((suggestion) => (
+                            <button
+                              key={suggestion}
+                              type="button"
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                handleSelectClientEmailSuggestion(suggestion);
+                              }}
+                              className="w-full rounded-xl px-3 py-2 text-left text-sm text-white/80 transition hover:bg-white/10"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </label>
                 <label className="block text-sm text-white/70">
-                  CPF
+                  CPF (opcional)
                   <input
                     type="text"
                     name="cpf"
