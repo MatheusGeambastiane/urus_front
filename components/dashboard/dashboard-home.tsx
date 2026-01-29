@@ -675,7 +675,9 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [professionalPickerError, setProfessionalPickerError] = useState<string | null>(null);
   const [showPaymentTypeModal, setShowPaymentTypeModal] = useState(false);
   const [appointmentDateInput, setAppointmentDateInput] = useState(formatDateParam(new Date()));
-  const [appointmentTimeInput, setAppointmentTimeInput] = useState("09:00");
+  const [appointmentTimeInput, setAppointmentTimeInput] = useState(() =>
+    formatTimeInputValue(new Date()),
+  );
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [saleProductsList, setSaleProductsList] = useState<ProductItem[]>([]);
   const [saleProductsLoading, setSaleProductsLoading] = useState(false);
@@ -939,7 +941,7 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const resetAppointmentForm = useCallback(() => {
     servicePricePrefillRef.current = false;
     setAppointmentDateInput(formatDateParam(selectedDate));
-    setAppointmentTimeInput("09:00");
+    setAppointmentTimeInput(formatTimeInputValue(new Date()));
     setSelectedAppointmentStatus("agendado");
     setSelectedClient(null);
     setAppointmentProfessionals([createProfessionalSlot()]);
@@ -6464,6 +6466,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           professional: professional?.id ?? 0,
           services: selectedAppointmentServices.map((service) => service.id),
           price_paid: appointmentPriceValue.toFixed(2),
+        };
+      }
+
+      if (!isEditingExistingAppointment) {
+        payload = {
+          ...payload,
+          appointment_origin: "presencial",
         };
       }
 
