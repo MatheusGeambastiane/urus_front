@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { PwaRegister } from "@/components/providers/pwa-register";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "Urus - Backoffice",
@@ -19,6 +20,7 @@ export default function RootLayout({
       <body className="antialiased">
         <AuthSessionProvider>{children}</AuthSessionProvider>
         <PwaRegister />
+        <SpeedInsights />
       </body>
     </html>
   );
