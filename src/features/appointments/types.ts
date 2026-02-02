@@ -62,6 +62,7 @@ export type AppointmentItem = {
   sells?: AppointmentSell[];
   created_at?: string;
   updated_at?: string;
+  appointment_origin?: string | null;
 };
 
 export type AppointmentsResponse = {

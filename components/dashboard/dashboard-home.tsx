@@ -66,6 +66,7 @@ import {
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
+import { createTokenRefreshService } from "@/src/features/shared/utils/auth";
 import {
   formatDisplayDate,
   convertDisplayDateToIso,
@@ -379,65 +380,14 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
     setAccessToken(session?.accessToken ?? null);
   }, [session?.accessToken]);
 
-  const refreshAccessToken = useCallback(async () => {
-    if (!refreshToken) {
-      return null;
-    }
-    try {
-      const response = await globalThis.fetch(
-        `${env.apiBaseUrl}/dashboard/auth/refresh/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh: refreshToken }),
-        },
-      );
-      if (!response.ok) {
-        return null;
-      }
-      const data = (await response.json()) as { access?: string };
-      if (!data?.access) {
-        return null;
-      }
-      setAccessToken(data.access);
-      return data.access;
-    } catch {
-      return null;
-    }
-  }, [refreshToken]);
-
-  const fetchWithAuth = useCallback(
-    async (input: RequestInfo | URL, init?: RequestInit) => {
-      const response = await globalThis.fetch(input, init);
-      if (response.ok) {
-        return response;
-      }
-
-      const headers = init?.headers ? new Headers(init.headers) : null;
-      if (!headers?.has("Authorization")) {
-        return response;
-      }
-
-      let payload: { code?: string } | null = null;
-      try {
-        payload = (await response.clone().json()) as { code?: string };
-      } catch {
-        payload = null;
-      }
-
-      if (payload?.code !== "token_not_valid") {
-        return response;
-      }
-
-      const newAccessToken = await refreshAccessToken();
-      if (!newAccessToken) {
-        return response;
-      }
-
-      headers.set("Authorization", `Bearer ${newAccessToken}`);
-      return globalThis.fetch(input, { ...init, headers });
-    },
-    [refreshAccessToken],
+  const { fetchWithAuth } = useMemo(
+    () =>
+      createTokenRefreshService({
+        apiBaseUrl: env.apiBaseUrl,
+        refreshToken,
+        onAccessToken: (token) => setAccessToken(token),
+      }),
+    [refreshToken, setAccessToken],
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -9587,6 +9537,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           minute: "2-digit",
         })
       : "Não informado";
+    const appointmentOriginLabel = detail?.appointment_origin
+      ? detail.appointment_origin === "schedule_system"
+        ? "Sistema cliente"
+        : detail.appointment_origin === "presencial"
+          ? "Presencial"
+          : capitalizeFirstLetter(detail.appointment_origin)
+      : "Não informado";
     const paymentLabel = getPaymentTypeLabel(detail?.payment_type as PaymentType);
     const statusValue = detail?.status as AppointmentStatus | undefined;
 
@@ -9809,6 +9766,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               </p>
               <p className="mt-1">
                 Atualizado em: <span className="font-semibold text-white">{updatedAtLabel}</span>
+              </p>
+              <p className="mt-1">
+                Origem do agendamento:{" "}
+                <span className="font-semibold text-white">{appointmentOriginLabel}</span>
               </p>
             </section>
           </>
