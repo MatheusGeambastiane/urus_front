@@ -63,6 +63,7 @@ import {
   Wrench,
   RefreshCw,
   Save,
+  Mail,
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
@@ -460,6 +461,9 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [showPasswordResetConfirm, setShowPasswordResetConfirm] = useState(false);
   const [passwordResetError, setPasswordResetError] = useState<string | null>(null);
   const [passwordResetSubmitting, setPasswordResetSubmitting] = useState(false);
+  const [showReviewEmailModal, setShowReviewEmailModal] = useState(false);
+  const [reviewEmailError, setReviewEmailError] = useState<string | null>(null);
+  const [reviewEmailSubmitting, setReviewEmailSubmitting] = useState(false);
   const [professionalIntervalForm, setProfessionalIntervalForm] = useState({
     dateStart: "",
     dateFinish: "",
@@ -3081,6 +3085,61 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const handlePasswordResetInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setPasswordResetForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleOpenReviewEmailModal = () => {
+    setReviewEmailError(null);
+    setShowReviewEmailModal(true);
+  };
+
+  const handleCloseReviewEmailModal = () => {
+    setShowReviewEmailModal(false);
+    setReviewEmailError(null);
+  };
+
+  const handleSubmitReviewEmail = async () => {
+    if (!accessToken || !userDetail) {
+      setReviewEmailError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+
+    setReviewEmailSubmitting(true);
+    setReviewEmailError(null);
+    try {
+      const response = await fetchWithAuth(
+        `${usersEndpointBase}${userDetail.id}/send-appointment-review-email/`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        const detail =
+          (data && (data.detail || data.message)) ||
+          "Não foi possível enviar o email de avaliação.";
+        throw new Error(detail);
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Email de avaliação enviado com sucesso.",
+      });
+      handleCloseReviewEmailModal();
+    } catch (err) {
+      setReviewEmailError(
+        err instanceof Error
+          ? err.message
+          : "Erro inesperado ao enviar o email de avaliação.",
+      );
+    } finally {
+      setReviewEmailSubmitting(false);
+    }
   };
 
   const handleSubmitPasswordReset = async (event: FormEvent<HTMLFormElement>) => {
@@ -10871,14 +10930,24 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                     {canEditUser ? "Modo de edição habilitado" : "Visualização"}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleToggleEditUser}
-                  className="rounded-2xl  p-2 text-white/80 transition hover:border-white/40"
-                  aria-label="Editar usuário"
-                >
-                  <PenSquare className="h-4 w-4" />
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleEditUser}
+                    className="rounded-2xl p-2 text-white/80 transition hover:border-white/40"
+                    aria-label="Editar usuário"
+                  >
+                    <PenSquare className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenReviewEmailModal}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/10 px-3 py-2 text-xs font-semibold text-white/80 transition hover:border-white/40"
+                  >
+                    <Mail className="h-4 w-4" />
+                    Enviar email de avaliação
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -11452,6 +11521,57 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        ) : null}
+
+        {showReviewEmailModal ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+            <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white/60">Usuário</p>
+                  <h2 className="text-xl font-semibold">Enviar email de avaliação</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseReviewEmailModal}
+                  className="rounded-full border border-white/10 p-2 text-white/70"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-4 text-sm text-white/80">
+                <p>Enviar email de avaliação para o usuário?</p>
+                {reviewEmailError ? (
+                  <p className="text-sm text-red-300">{reviewEmailError}</p>
+                ) : null}
+              </div>
+              <div className="mt-5 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCloseReviewEmailModal}
+                  disabled={reviewEmailSubmitting}
+                  className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80 disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmitReviewEmail}
+                  disabled={reviewEmailSubmitting}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {reviewEmailSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    "Enviar"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
