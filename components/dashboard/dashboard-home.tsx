@@ -3284,15 +3284,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const normalizedHourFinish =
       repeat && hourFinish.length === 5 ? `${hourFinish}:00` : hourFinish;
 
+    const professionalProfileId = userDetail.professional_profile?.id ?? null;
+    if (!professionalProfileId) {
+      setProfessionalIntervalError("Perfil profissional não encontrado para este usuário.");
+      return;
+    }
+
     const payload = repeat
       ? {
-          professional: userDetail.id,
+          professional: professionalProfileId,
           hour_start: normalizedHourStart,
           hour_finish: normalizedHourFinish,
           week_days: weekDays,
         }
       : {
-          professional: userDetail.id,
+          professional: professionalProfileId,
           date_start: dateStart,
           date_finish: dateFinish,
           hour_start: hourStart,
