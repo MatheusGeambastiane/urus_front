@@ -72,6 +72,12 @@ export type AppointmentsResponse = {
   results: AppointmentItem[];
   completed_total_price: string;
   completed_total_count: number;
+  day_restriction: {
+    id: number;
+    start_datetime: string;
+    finish_datetime: string;
+    is_all_day: boolean;
+  } | null;
 };
 
 export type Last7DaysItem = {
