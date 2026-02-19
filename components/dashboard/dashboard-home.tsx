@@ -7101,6 +7101,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const topServicesData = dailySummary?.top_services ?? [];
     const last7DaysItems = last7DaysData?.last_7_days ?? [];
     const topDayInMonth = last7DaysData?.top_day_in_month ?? null;
+    const topBestFinanceDay = last7DaysData?.top_best_finance_day ?? null;
     const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
     const last7DaysChartData = last7DaysItems.map((item) => {
       const dayIndex = Number(item.day);
@@ -7119,6 +7120,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           month: "short",
         })
       : "--";
+    const topBestFinanceDayLabel = topBestFinanceDay?.date
+      ? new Date(topBestFinanceDay.date).toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "short",
+        })
+      : "--";
+    const topBestFinanceDayTotal = formatCurrency(topBestFinanceDay?.total ?? "0");
     const quickActions = [
       {
         key: "create-appointment" as QuickActionKey,
@@ -7279,6 +7287,29 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <p className="mt-3 text-sm text-white/60">Sem dados no período.</p>
           )}
         </section>
+
+        {userRole === "admin" ? (
+          <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+            <p className="text-sm text-white/60">Dia de maior faturamento</p>
+            {last7DaysLoading ? (
+              <p className="mt-4 text-sm text-white/60">Carregando...</p>
+            ) : last7DaysError ? (
+              <p className="mt-4 text-sm text-red-300">{last7DaysError}</p>
+            ) : topBestFinanceDay ? (
+              <div className="mt-3 flex items-center justify-between">
+                <div>
+                  <p className="text-xl font-semibold">{topBestFinanceDayLabel}</p>
+                  <p className="text-sm text-white/60">Maior faturamento no mês</p>
+                </div>
+                <span className="rounded-2xl bg-white/10 px-4 py-2 text-lg font-semibold text-white">
+                  {topBestFinanceDayTotal}
+                </span>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-white/60">Sem dados no período.</p>
+            )}
+          </section>
+        ) : null}
 
         <section className="mt-5 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
           <div className="flex items-center justify-between">

@@ -97,4 +97,9 @@ export type Last7DaysItem = {
 export type Last7DaysResponse = {
   last_7_days: Last7DaysItem[];
   top_day_in_month: Last7DaysItem | null;
+  top_best_finance_day?: {
+    day: number;
+    date: string;
+    total: string;
+  } | null;
 };
