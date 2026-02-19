@@ -72,6 +72,14 @@ export type AppointmentsResponse = {
   results: AppointmentItem[];
   completed_total_price: string;
   completed_total_count: number;
+  total?: number;
+  total_scheduled?: string;
+  scheduled_status_total?: number;
+  scheduled_by_professional?: Array<{
+    id: number;
+    name: string;
+    total: number;
+  }>;
   day_restriction: {
     id: number;
     start_datetime: string;

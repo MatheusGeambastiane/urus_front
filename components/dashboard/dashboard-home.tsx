@@ -555,7 +555,12 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [appointmentsSummary, setAppointmentsSummary] = useState({
     completed_total_price: "0",
     completed_total_count: 0,
+    total: 0,
+    total_scheduled: "0",
+    scheduled_status_total: 0,
+    scheduled_by_professional: [] as AppointmentsResponse["scheduled_by_professional"],
   });
+  const [showAppointmentsSummaryDetails, setShowAppointmentsSummaryDetails] = useState(false);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<number | null>(null);
@@ -2618,6 +2623,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         setAppointmentsSummary({
           completed_total_price: data.completed_total_price ?? "0",
           completed_total_count: data.completed_total_count ?? 0,
+          total: data.total ?? data.count ?? 0,
+          total_scheduled: data.total_scheduled ?? "0",
+          scheduled_status_total: data.scheduled_status_total ?? 0,
+          scheduled_by_professional: data.scheduled_by_professional ?? [],
         });
       } catch (err) {
         if (!controller.signal.aborted) {
@@ -10269,6 +10278,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       return renderAppointmentDetailScreen();
     }
     const summaryValue = formatCurrency(appointmentsSummary.completed_total_price ?? "0");
+    const totalAppointments = appointmentsSummary.total ?? appointmentsCount;
+    const scheduledByProfessional = appointmentsSummary.scheduled_by_professional ?? [];
     const isAllDayRestriction = dayRestriction?.is_all_day === true;
     const dayRestrictionStartTime = dayRestriction
       ? new Date(dayRestriction.start_datetime).toLocaleTimeString("pt-BR", {
@@ -10305,11 +10316,76 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <p className="mt-2 text-3xl font-semibold">{summaryValue}</p>
           </article>
           <article className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-4">
-            <p className="text-sm text-white/60">Serviços concluídos</p>
+            <p className="text-sm text-white/60">Serviços</p>
+            <p className="mt-2 text-xs text-white/60">Concluídos / agendados</p>
             <p className="mt-2 text-3xl font-semibold">
-              {appointmentsSummary.completed_total_count ?? 0}
+              {appointmentsSummary.completed_total_count ?? 0} / {totalAppointments}
             </p>
           </article>
+        </section>
+
+        <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-white/60">Serviços</p>
+              <p className="text-lg font-semibold">Resumo do período</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAppointmentsSummaryDetails((prev) => !prev)}
+              className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:text-white"
+            >
+              {showAppointmentsSummaryDetails ? "Ocultar detalhes" : "Ver detalhes"}
+            </button>
+          </div>
+
+          {showAppointmentsSummaryDetails ? (
+            <div className="mt-4 space-y-4 text-sm text-white/70">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/5 bg-black/30 p-3">
+                  <p className="text-xs text-white/60">Total realizado</p>
+                  <p className="mt-1 text-base font-semibold text-white">
+                    {formatCurrency(appointmentsSummary.completed_total_price ?? "0")}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/5 bg-black/30 p-3">
+                  <p className="text-xs text-white/60">Total previsto</p>
+                  <p className="mt-1 text-base font-semibold text-white">
+                    {formatCurrency(appointmentsSummary.total_scheduled ?? "0")}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/5 bg-black/30 p-3">
+                  <p className="text-xs text-white/60">Total pendente</p>
+                  <p className="mt-1 text-base font-semibold text-white">
+                    {appointmentsSummary.scheduled_status_total ?? 0}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+                  Atendimentos por profissional
+                </p>
+                {scheduledByProfessional.length === 0 ? (
+                  <p className="mt-2 rounded-2xl border border-white/5 bg-black/30 px-3 py-2 text-sm text-white/60">
+                    Nenhum profissional encontrado.
+                  </p>
+                ) : (
+                  <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {scheduledByProfessional.map((item) => (
+                      <li
+                        key={item.id}
+                        className="flex items-center justify-between rounded-2xl border border-white/5 bg-black/30 px-3 py-2"
+                      >
+                        <span className="text-sm text-white/80">{item.name}</span>
+                        <span className="text-sm font-semibold text-white">{item.total}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <div
