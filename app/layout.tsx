@@ -8,7 +8,6 @@ export const metadata: Metadata = {
   title: "Urus - Backoffice",
   description: "Sistema de gerenciamento da barbearia Urus",
   manifest: "/manifest.webmanifest",
-  themeColor: "#050505",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -21,6 +20,10 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
+};
+
+export const viewport = {
+  themeColor: "#050505",
 };
 
 export default function RootLayout({
