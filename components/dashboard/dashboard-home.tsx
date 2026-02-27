@@ -371,6 +371,62 @@ const buildDateTimeWithTimezoneOffset = (date: string, time: string) => {
   return `${date}T${normalizedTime}${DASHBOARD_TIMEZONE_OFFSET}`;
 };
 
+const parseIsoDate = (iso: string) => {
+  const [year, month, day] = iso.split("-").map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+  return new Date(year, month - 1, day);
+};
+
+const isSameDay = (left: Date | null, right: Date | null) => {
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.getDate() === right.getDate() &&
+    left.getMonth() === right.getMonth() &&
+    left.getFullYear() === right.getFullYear()
+  );
+};
+
+const isDateInRange = (date: Date, start: Date | null, end: Date | null) => {
+  if (!start || !end) {
+    return false;
+  }
+  const time = date.getTime();
+  return time >= start.getTime() && time <= end.getTime();
+};
+
+const addMonths = (date: Date, offset: number) => {
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
+};
+
+const buildCalendarDays = (monthDate: Date) => {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const startWeekday = firstDay.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPreviousMonth = new Date(year, month, 0).getDate();
+  const totalCells = 42;
+  return Array.from({ length: totalCells }, (_, index) => {
+    const dayOffset = index - startWeekday + 1;
+    if (dayOffset <= 0) {
+      const date = new Date(year, month - 1, daysInPreviousMonth + dayOffset);
+      return { date, inMonth: false };
+    }
+    if (dayOffset > daysInMonth) {
+      const date = new Date(year, month + 1, dayOffset - daysInMonth);
+      return { date, inMonth: false };
+    }
+    return { date: new Date(year, month, dayOffset), inMonth: true };
+  });
+};
+
+const getSummaryMonthLabel = (date: Date) =>
+  summaryFilterMonthOptions[date.getMonth()]?.label ?? "";
+
 export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -788,12 +844,22 @@ export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {
   const [last7DaysLoading, setLast7DaysLoading] = useState(false);
   const [last7DaysError, setLast7DaysError] = useState<string | null>(null);
   const [showSummaryFilters, setShowSummaryFilters] = useState(false);
-  const [summaryFilterMode, setSummaryFilterMode] = useState<"day" | "month">("day");
+  const [summaryFilterMode, setSummaryFilterMode] = useState<"day" | "month" | "range">(
+    "day",
+  );
   const [summaryDayInput, setSummaryDayInput] = useState("");
   const [summaryMonthYear, setSummaryMonthYear] = useState("");
   const [summaryMonthValue, setSummaryMonthValue] = useState("");
+  const [summaryRangeStart, setSummaryRangeStart] = useState<Date | null>(null);
+  const [summaryRangeEnd, setSummaryRangeEnd] = useState<Date | null>(null);
+  const [summaryRangeMonth, setSummaryRangeMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [activeSummaryDay, setActiveSummaryDay] = useState<string | null>(null);
   const [activeSummaryMonth, setActiveSummaryMonth] = useState<string | null>(null);
+  const [activeSummaryRangeStart, setActiveSummaryRangeStart] = useState<string | null>(null);
+  const [activeSummaryRangeEnd, setActiveSummaryRangeEnd] = useState<string | null>(null);
   const [summaryFilterError, setSummaryFilterError] = useState<string | null>(null);
   const [financeMonth, setFinanceMonth] = useState(formatMonthParam(new Date()));
   const [showFinanceMonthModal, setShowFinanceMonthModal] = useState(false);
@@ -2129,11 +2195,16 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setDailySummaryError(null);
       try {
         const url = new URL(`${env.apiBaseUrl}/dashboard/summary/daily/`);
-        if (activeSummaryDay) {
-          url.searchParams.set("day", activeSummaryDay);
-        }
-        if (activeSummaryMonth) {
-          url.searchParams.set("month", activeSummaryMonth);
+        if (activeSummaryRangeStart && activeSummaryRangeEnd) {
+          url.searchParams.set("start_date", activeSummaryRangeStart);
+          url.searchParams.set("end_date", activeSummaryRangeEnd);
+        } else {
+          if (activeSummaryDay) {
+            url.searchParams.set("day", activeSummaryDay);
+          }
+          if (activeSummaryMonth) {
+            url.searchParams.set("month", activeSummaryMonth);
+          }
         }
         const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
@@ -2163,7 +2234,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchDailySummary();
     return () => controller.abort();
-  }, [activeTab, accessToken, activeSummaryDay, activeSummaryMonth]);
+  }, [
+    activeTab,
+    accessToken,
+    activeSummaryDay,
+    activeSummaryMonth,
+    activeSummaryRangeStart,
+    activeSummaryRangeEnd,
+  ]);
 
   useEffect(() => {
     if (activeTab !== "products" || !accessToken) {
@@ -6131,11 +6209,53 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setSummaryMonthYear("");
       setSummaryMonthValue("");
     }
+    if (activeSummaryRangeStart && activeSummaryRangeEnd) {
+      const startDate = parseIsoDate(activeSummaryRangeStart);
+      const endDate = parseIsoDate(activeSummaryRangeEnd);
+      if (startDate && endDate) {
+        setSummaryFilterMode("range");
+        setSummaryRangeStart(startDate);
+        setSummaryRangeEnd(endDate);
+        setSummaryRangeMonth(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
+      }
+    } else {
+      setSummaryRangeStart(null);
+      setSummaryRangeEnd(null);
+    }
     setShowSummaryFilters(true);
   };
 
   const handleCloseSummaryFilters = () => {
     setShowSummaryFilters(false);
+  };
+
+  const handleSelectSummaryRangeDate = (date: Date) => {
+    setSummaryFilterError(null);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (selected.getTime() > today.getTime()) {
+      return;
+    }
+    if (!summaryRangeStart || (summaryRangeStart && summaryRangeEnd)) {
+      setSummaryRangeStart(selected);
+      setSummaryRangeEnd(null);
+      return;
+    }
+    if (selected.getTime() < summaryRangeStart.getTime()) {
+      setSummaryRangeStart(selected);
+      setSummaryRangeEnd(null);
+      return;
+    }
+    setSummaryRangeEnd(selected);
+  };
+
+  const handleSummaryRangePrevMonth = () => {
+    setSummaryRangeMonth((current) => addMonths(current, -1));
+  };
+
+  const handleSummaryRangeNextMonth = () => {
+    setSummaryRangeMonth((current) => addMonths(current, 1));
   };
 
   const handleApplySummaryFilters = () => {
@@ -6148,6 +6268,20 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       }
       setActiveSummaryDay(isoValue);
       setActiveSummaryMonth(null);
+      setActiveSummaryRangeStart(null);
+      setActiveSummaryRangeEnd(null);
+      setShowSummaryFilters(false);
+      return;
+    }
+    if (summaryFilterMode === "range") {
+      if (!summaryRangeStart || !summaryRangeEnd) {
+        setSummaryFilterError("Selecione a data inicial e a data final.");
+        return;
+      }
+      setActiveSummaryRangeStart(formatDateParam(summaryRangeStart));
+      setActiveSummaryRangeEnd(formatDateParam(summaryRangeEnd));
+      setActiveSummaryDay(null);
+      setActiveSummaryMonth(null);
       setShowSummaryFilters(false);
       return;
     }
@@ -6157,15 +6291,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }
     setActiveSummaryMonth(`${summaryMonthYear}-${summaryMonthValue}`);
     setActiveSummaryDay(null);
+    setActiveSummaryRangeStart(null);
+    setActiveSummaryRangeEnd(null);
     setShowSummaryFilters(false);
   };
 
   const handleClearSummaryFilters = () => {
     setActiveSummaryDay(null);
     setActiveSummaryMonth(null);
+    setActiveSummaryRangeStart(null);
+    setActiveSummaryRangeEnd(null);
     setSummaryDayInput("");
     setSummaryMonthYear("");
     setSummaryMonthValue("");
+    setSummaryRangeStart(null);
+    setSummaryRangeEnd(null);
     setSummaryFilterError(null);
   };
 
@@ -7186,12 +7326,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               Filtros
             </button>
           </div>
-          {activeSummaryDay || activeSummaryMonth ? (
+          {activeSummaryDay || activeSummaryMonth || activeSummaryRangeStart ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/60">
               <span>
                 {activeSummaryDay
                   ? `Filtrando por dia: ${formatIsoToDisplay(activeSummaryDay)}`
-                  : `Filtrando por mês: ${activeSummaryMonth}`}
+                  : activeSummaryMonth
+                    ? `Filtrando por mês: ${activeSummaryMonth}`
+                    : activeSummaryRangeStart && activeSummaryRangeEnd
+                      ? `Filtrando por período: ${formatIsoToDisplay(
+                          activeSummaryRangeStart,
+                        )} até ${formatIsoToDisplay(activeSummaryRangeEnd)}`
+                      : ""}
               </span>
               <button
                 type="button"
@@ -14994,6 +15140,15 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               >
                 Por mês
               </button>
+              <button
+                type="button"
+                onClick={() => setSummaryFilterMode("range")}
+                className={`flex-1 rounded-2xl px-3 py-2 ${
+                  summaryFilterMode === "range" ? "bg-white text-black" : "bg-white/10 text-white/70"
+                }`}
+              >
+                Por range
+              </button>
             </div>
 
             {summaryFilterMode === "day" ? (
@@ -15007,7 +15162,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base outline-none focus:border-white/40"
                 />
               </label>
-            ) : (
+            ) : summaryFilterMode === "month" ? (
               <div className="space-y-3">
                 <button
                   type="button"
@@ -15047,6 +15202,84 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                       ))}
                     </select>
                   </label>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/70">
+                  <p>
+                    {summaryRangeStart && summaryRangeEnd
+                      ? `De ${formatIsoToDisplay(formatDateParam(summaryRangeStart))} até ${formatIsoToDisplay(
+                          formatDateParam(summaryRangeEnd),
+                        )}`
+                      : summaryRangeStart
+                        ? `Selecionando início: ${formatIsoToDisplay(
+                            formatDateParam(summaryRangeStart),
+                          )}`
+                        : "Selecione a data inicial e a data final"}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-white/80">
+                  <button
+                    type="button"
+                    onClick={handleSummaryRangePrevMonth}
+                    className="rounded-full border border-white/10 p-2 text-white/70 hover:text-white"
+                    aria-label="Mês anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <span>{getSummaryMonthLabel(summaryRangeMonth)}</span>
+                    <span>{summaryRangeMonth.getFullYear()}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSummaryRangeNextMonth}
+                    className="rounded-full border border-white/10 p-2 text-white/70 hover:text-white"
+                    aria-label="Próximo mês"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-xs font-semibold text-white/60">
+                    {getSummaryMonthLabel(summaryRangeMonth)} {summaryRangeMonth.getFullYear()}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-white/40">
+                    {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label) => (
+                      <span key={`${summaryRangeMonth.getMonth()}-${label}`}>{label}</span>
+                    ))}
+                  </div>
+                  <div className="mt-2 grid grid-cols-7 gap-1">
+                    {buildCalendarDays(summaryRangeMonth).map(({ date, inMonth }) => {
+                      const isStart = isSameDay(date, summaryRangeStart);
+                      const isEnd = isSameDay(date, summaryRangeEnd);
+                      const isInRange = isDateInRange(date, summaryRangeStart, summaryRangeEnd);
+                      const baseText = inMonth ? "text-white/80" : "text-white/30";
+                      const rangeStyle = isInRange ? "bg-white/10 text-white" : baseText;
+                      const selectedStyle = isStart || isEnd ? "bg-white text-black" : rangeStyle;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                      const isFuture = normalized.getTime() > today.getTime();
+                      const disabledStyle = isFuture ? "cursor-not-allowed text-white/20" : "";
+                      return (
+                        <button
+                          key={date.toISOString()}
+                          type="button"
+                          onClick={() => handleSelectSummaryRangeDate(date)}
+                          disabled={isFuture}
+                          className={`flex h-9 w-full items-center justify-center rounded-xl text-xs transition ${
+                            isFuture ? disabledStyle : selectedStyle
+                          } ${isStart || isEnd ? "font-semibold" : ""}`}
+                        >
+                          {date.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
