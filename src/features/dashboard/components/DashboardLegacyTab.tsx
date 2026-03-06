@@ -136,6 +136,7 @@ import {
 } from "@/src/features/products/services/endpoints";
 import {
   financeSummaryEndpoint,
+  financeMonthlyReportEndpoint,
   repassesEndpoint,
   repassesRecalculateEndpointBase,
   billsEndpointBase,
@@ -542,7 +543,12 @@ export function DashboardLegacyTab({ firstName, activeTab }: DashboardHomeProps)
   const [professionalIntervalError, setProfessionalIntervalError] = useState<string | null>(null);
   const [professionalIntervalSubmitting, setProfessionalIntervalSubmitting] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<
-    { type: "success" | "error"; message: string } | null
+    {
+      type: "success" | "error";
+      message: string;
+      actionLabel?: string;
+      actionUrl?: string;
+    } | null
   >(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
@@ -863,6 +869,7 @@ export function DashboardLegacyTab({ firstName, activeTab }: DashboardHomeProps)
   const [summaryFilterError, setSummaryFilterError] = useState<string | null>(null);
   const [financeMonth, setFinanceMonth] = useState(formatMonthParam(new Date()));
   const [showFinanceMonthModal, setShowFinanceMonthModal] = useState(false);
+  const [isGeneratingMonthlyReport, setIsGeneratingMonthlyReport] = useState(false);
   const [financeMonthYearInput, setFinanceMonthYearInput] = useState(new Date().getFullYear().toString());
   const [financeMonthValueInput, setFinanceMonthValueInput] = useState(
     (new Date().getMonth() + 1).toString().padStart(2, "0"),
@@ -1413,7 +1420,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       return;
     }
 
-    const timeout = setTimeout(() => setFeedbackMessage(null), 4000);
+    const timeout = setTimeout(
+      () => setFeedbackMessage(null),
+      feedbackMessage.actionUrl ? 10000 : 4000,
+    );
     return () => clearTimeout(timeout);
   }, [feedbackMessage]);
 
@@ -5235,9 +5245,16 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     if (detail.status) {
       setSelectedAppointmentStatus(detail.status as AppointmentStatus);
     }
-    const paymentType = detail.payment_type;
-    if (paymentType === "credit" || paymentType === "debit" || paymentType === "pix" || paymentType === "dinheiro") {
-      setSelectedPaymentType(paymentType);
+    const rawPaymentType = detail.payment_type;
+    const normalizedPaymentType =
+      rawPaymentType === "dinheiro" ? "money" : rawPaymentType;
+    if (
+      normalizedPaymentType === "credit" ||
+      normalizedPaymentType === "debit" ||
+      normalizedPaymentType === "pix" ||
+      normalizedPaymentType === "money"
+    ) {
+      setSelectedPaymentType(normalizedPaymentType);
     } else {
       setSelectedPaymentType(null);
     }
@@ -5318,9 +5335,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       const mappedSales = sells.map((sale) => {
         const payment = sale.transaction_payment;
         const normalizedPayment: PaymentType =
-          payment === "credit" || payment === "debit" || payment === "pix" || payment === "dinheiro"
+          payment === "credit" || payment === "debit" || payment === "pix" || payment === "money"
             ? payment
-            : "pix";
+            : payment === "dinheiro"
+              ? "money"
+              : "pix";
         return {
           saleId: sale.id,
           productId: sale.product ?? 0,
@@ -6116,6 +6135,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSaleProductModalOpen(true);
   };
 
+  const handleOpenFeedbackAction = () => {
+    if (!feedbackMessage?.actionUrl) {
+      return;
+    }
+    window.open(feedbackMessage.actionUrl, "_blank", "noopener,noreferrer");
+    setFeedbackMessage(null);
+  };
+
   const refreshRepassesList = () => {
     setRepassesRefreshToken((prev) => prev + 1);
   };
@@ -6166,6 +6193,53 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }
   };
 
+  const handleGenerateMonthlyReport = async () => {
+    if (!accessToken || isGeneratingMonthlyReport) {
+      return;
+    }
+
+    setIsGeneratingMonthlyReport(true);
+    try {
+      const url = new URL(financeMonthlyReportEndpoint);
+      url.searchParams.set("month", financeMonth);
+
+      const response = await fetchWithAuth(url.toString(), {
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível gerar o relatório mensal.");
+      }
+
+      const data = (await response.json()) as {
+        file?: { url?: string | null };
+      };
+      const reportUrl = typeof data?.file?.url === "string" ? data.file.url : "";
+      if (!reportUrl) {
+        throw new Error("Relatório gerado sem URL de acesso.");
+      }
+
+      setFeedbackMessage({
+        type: "success",
+        message: "Acesse o relatório",
+        actionLabel: "Acesse o relatório",
+        actionUrl: reportUrl,
+      });
+      setShowFinanceFabOptions(false);
+    } catch (err) {
+      setFeedbackMessage({
+        type: "error",
+        message: err instanceof Error ? err.message : "Erro inesperado ao gerar relatório.",
+      });
+    } finally {
+      setIsGeneratingMonthlyReport(false);
+    }
+  };
+
   const handleCloseProductSaleModal = () => {
     setProductSaleProductModalOpen(false);
   };
@@ -6197,6 +6271,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     if (activeSummaryDay) {
       setSummaryFilterMode("day");
       setSummaryDayInput(formatIsoToDisplay(activeSummaryDay));
+      const activeDayDate = parseIsoDate(activeSummaryDay);
+      if (activeDayDate) {
+        setSummaryRangeMonth(new Date(activeDayDate.getFullYear(), activeDayDate.getMonth(), 1));
+      }
     } else {
       setSummaryDayInput("");
     }
@@ -6248,6 +6326,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       return;
     }
     setSummaryRangeEnd(selected);
+  };
+
+  const handleSelectSummaryDayDate = (date: Date) => {
+    setSummaryFilterError(null);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (selected.getTime() > today.getTime()) {
+      return;
+    }
+    setSummaryDayInput(formatIsoToDisplay(formatDateParam(selected)));
   };
 
   const handleSummaryRangePrevMonth = () => {
@@ -11442,7 +11531,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 : "border-red-500/30 bg-red-500/10 text-red-100"
             }`}
           >
-            {feedbackMessage.message}
+            <div className="flex items-center justify-between gap-3">
+              <span>{feedbackMessage.message}</span>
+              {feedbackMessage.actionUrl ? (
+                <button
+                  type="button"
+                  onClick={handleOpenFeedbackAction}
+                  className="rounded-xl border border-current/40 px-3 py-1 text-xs font-semibold"
+                >
+                  {feedbackMessage.actionLabel ?? "Acessar"}
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : null}
 
@@ -12218,7 +12318,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               : "border-red-500/30 bg-red-500/10 text-red-100"
           }`}
         >
-          {feedbackMessage.message}
+          <div className="flex items-center justify-between gap-3">
+            <span>{feedbackMessage.message}</span>
+            {feedbackMessage.actionUrl ? (
+              <button
+                type="button"
+                onClick={handleOpenFeedbackAction}
+                className="rounded-xl border border-current/40 px-3 py-1 text-xs font-semibold"
+              >
+                {feedbackMessage.actionLabel ?? "Acessar"}
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -13622,6 +13733,19 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3">
           {showFinanceFabOptions ? (
             <>
+              <button
+                type="button"
+                onClick={handleGenerateMonthlyReport}
+                disabled={isGeneratingMonthlyReport}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isGeneratingMonthlyReport ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                Gerar relatório
+              </button>
               <button
                 type="button"
                 onClick={handleOpenCreateBill}
@@ -15100,7 +15224,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               : "border-red-500/40 text-red-700"
           } bg-white`}
         >
-          {feedbackMessage.message}
+          <div className="flex items-center justify-between gap-3">
+            <span>{feedbackMessage.message}</span>
+            {feedbackMessage.actionUrl ? (
+              <button
+                type="button"
+                onClick={handleOpenFeedbackAction}
+                className="rounded-xl border border-current/40 px-3 py-1 text-xs font-semibold"
+              >
+                {feedbackMessage.actionLabel ?? "Acessar"}
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -15152,16 +15287,79 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </div>
 
             {summaryFilterMode === "day" ? (
-              <label className="block text-sm text-white/70">
-                Data (dd/mm/aaaa)
-                <input
-                  type="text"
-                  value={summaryDayInput}
-                  onChange={(event) => setSummaryDayInput(formatDisplayDate(event.target.value))}
-                  placeholder="dd/mm/aaaa"
-                  className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base outline-none focus:border-white/40"
-                />
-              </label>
+              <div className="space-y-4">
+                <label className="block text-sm text-white/70">
+                  Data (dd/mm/aaaa)
+                  <input
+                    type="text"
+                    value={summaryDayInput}
+                    onChange={(event) => setSummaryDayInput(formatDisplayDate(event.target.value))}
+                    placeholder="dd/mm/aaaa"
+                    className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-4 py-3 text-base outline-none focus:border-white/40"
+                  />
+                </label>
+
+                <div className="flex items-center justify-between text-sm text-white/80">
+                  <button
+                    type="button"
+                    onClick={handleSummaryRangePrevMonth}
+                    className="rounded-full border border-white/10 p-2 text-white/70 hover:text-white"
+                    aria-label="Mês anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <span>{getSummaryMonthLabel(summaryRangeMonth)}</span>
+                    <span>{summaryRangeMonth.getFullYear()}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSummaryRangeNextMonth}
+                    className="rounded-full border border-white/10 p-2 text-white/70 hover:text-white"
+                    aria-label="Próximo mês"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-xs font-semibold text-white/60">
+                    {getSummaryMonthLabel(summaryRangeMonth)} {summaryRangeMonth.getFullYear()}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-white/40">
+                    {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((label) => (
+                      <span key={`${summaryRangeMonth.getMonth()}-${label}`}>{label}</span>
+                    ))}
+                  </div>
+                  <div className="mt-2 grid grid-cols-7 gap-1">
+                    {buildCalendarDays(summaryRangeMonth).map(({ date, inMonth }) => {
+                      const selectedDayIso = convertDisplayDateToIso(summaryDayInput);
+                      const selectedDayDate = selectedDayIso ? parseIsoDate(selectedDayIso) : null;
+                      const isSelected = isSameDay(date, selectedDayDate);
+                      const baseText = inMonth ? "text-white/80" : "text-white/30";
+                      const defaultStyle = isSelected ? "bg-white text-black font-semibold" : baseText;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                      const isFuture = normalized.getTime() > today.getTime();
+                      const disabledStyle = isFuture ? "cursor-not-allowed text-white/20" : "";
+                      return (
+                        <button
+                          key={date.toISOString()}
+                          type="button"
+                          onClick={() => handleSelectSummaryDayDate(date)}
+                          disabled={isFuture}
+                          className={`flex h-9 w-full items-center justify-center rounded-xl text-xs transition ${
+                            isFuture ? disabledStyle : defaultStyle
+                          }`}
+                        >
+                          {date.getDate()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             ) : summaryFilterMode === "month" ? (
               <div className="space-y-3">
                 <button

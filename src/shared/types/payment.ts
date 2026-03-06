@@ -1,1 +1,1 @@
-export type PaymentType = "credit" | "debit" | "pix" | "dinheiro";
+export type PaymentType = "credit" | "debit" | "pix" | "money";

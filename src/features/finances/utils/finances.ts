@@ -109,12 +109,15 @@ export const paymentTypeOptions: { value: PaymentType; label: string; icon: Luci
   { value: "credit", label: "Cartão de crédito", icon: CreditCard },
   { value: "debit", label: "Cartão de débito", icon: Wallet },
   { value: "pix", label: "Pix", icon: QrCode },
-  { value: "dinheiro", label: "Dinheiro", icon: Coins },
+  { value: "money", label: "Dinheiro", icon: Coins },
 ];
 
-export const getPaymentTypeLabel = (value: PaymentType | null | undefined) => {
+export const getPaymentTypeLabel = (value: PaymentType | "dinheiro" | null | undefined) => {
   if (!value) {
     return "";
+  }
+  if (value === "dinheiro") {
+    return "Dinheiro";
   }
   return paymentTypeOptions.find((option) => option.value === value)?.label ?? value;
 };
