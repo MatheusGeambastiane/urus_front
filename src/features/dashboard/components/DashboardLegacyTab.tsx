@@ -684,6 +684,7 @@ export function DashboardLegacyTab({ firstName, activeTab }: DashboardHomeProps)
   const [priceInput, setPriceInput] = useState("");
   const [priceManuallyEdited, setPriceManuallyEdited] = useState(false);
   const [discountInput, setDiscountInput] = useState("0");
+  const [tipsInput, setTipsInput] = useState("0.00");
   const [appointmentObservations, setAppointmentObservations] = useState("");
   const [appointmentsRefreshToken, setAppointmentsRefreshToken] = useState(0);
   const [showClientPickerModal, setShowClientPickerModal] = useState(false);
@@ -1011,6 +1012,7 @@ export function DashboardLegacyTab({ firstName, activeTab }: DashboardHomeProps)
     setPriceInput("");
     setPriceManuallyEdited(false);
     setDiscountInput("0");
+    setTipsInput("0.00");
     setAppointmentObservations("");
     setCreateAppointmentError(null);
     setAddedSales([]);
@@ -2827,6 +2829,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     return parseCurrencyInput(priceInput);
   }, [priceInput]);
 
+  const appointmentTipsValue = useMemo(() => {
+    return parseCurrencyInput(tipsInput);
+  }, [tipsInput]);
+
   const servicesGrossTotal = useMemo(() => {
     if (selectedAppointmentServices.length === 0) {
       return 0;
@@ -2854,9 +2860,20 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }, 0);
   }, [addedSales]);
 
+  const appointmentServiceTipsTotal = useMemo(() => {
+    return selectedAppointmentServices.reduce((sum, service) => {
+      const value = parseCurrencyInput(serviceAssignments[service.id]?.tips ?? "0");
+      return sum + (Number.isNaN(value) ? 0 : value);
+    }, 0);
+  }, [selectedAppointmentServices, serviceAssignments]);
+
+  const appointmentTipsTotal = useMemo(() => {
+    return hasMultipleProfessionals ? appointmentServiceTipsTotal : appointmentTipsValue;
+  }, [appointmentServiceTipsTotal, appointmentTipsValue, hasMultipleProfessionals]);
+
   const appointmentGrandTotal = useMemo(() => {
-    return servicesTotalAfterDiscount + addedSalesTotal;
-  }, [servicesTotalAfterDiscount, addedSalesTotal]);
+    return servicesTotalAfterDiscount + appointmentTipsTotal + addedSalesTotal;
+  }, [servicesTotalAfterDiscount, appointmentTipsTotal, addedSalesTotal]);
 
   const currentProfessionalPickerSlot = useMemo(() => {
     if (!professionalPickerContext) {
@@ -5261,6 +5278,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setPriceInput(detail.price_paid ?? "");
     setPriceManuallyEdited(false);
     setDiscountInput(detail.discount !== null && detail.discount !== undefined ? String(detail.discount) : "0");
+    setTipsInput(detail.tips ?? "0.00");
     setAppointmentObservations(detail.observations ?? "");
     setCreateAppointmentError(null);
 
@@ -5314,6 +5332,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         assignments[entry.service] = {
           professionalSlotId: slotId,
           price: entry.price_paid ?? priceMap.get(entry.service) ?? "0",
+          tips: entry.tips ?? "0.00",
         };
       });
     } else {
@@ -5326,6 +5345,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         assignments[service.id] = {
           professionalSlotId: defaultSlotId,
           price: servicePriceById.get(service.id) ?? "0",
+          tips: detail.tips ?? "0.00",
         };
       });
     }
@@ -5398,6 +5418,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           {
             professionalSlotId: appointmentProfessionals[0]?.id ?? null,
             price: getDefaultServicePrice(service.price),
+            tips: "0.00",
           };
       });
       return next;
@@ -5472,6 +5493,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       [serviceId]: {
         professionalSlotId: slotId,
         price: prev[serviceId]?.price ?? "0.00",
+        tips: prev[serviceId]?.tips ?? "0.00",
       },
     }));
   };
@@ -5486,6 +5508,26 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       [serviceId]: {
         professionalSlotId: prev[serviceId]?.professionalSlotId ?? appointmentProfessionals[0]?.id ?? null,
         price: value,
+        tips: prev[serviceId]?.tips ?? "0.00",
+      },
+    }));
+  };
+
+  const handleTipsInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setTipsInput(event.target.value);
+  };
+
+  const handleServiceAssignmentTipsChange = (
+    serviceId: number,
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = event.target.value;
+    setServiceAssignments((prev) => ({
+      ...prev,
+      [serviceId]: {
+        professionalSlotId: prev[serviceId]?.professionalSlotId ?? appointmentProfessionals[0]?.id ?? null,
+        price: prev[serviceId]?.price ?? "0.00",
+        tips: value,
       },
     }));
   };
@@ -5551,6 +5593,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           professionalSlotId:
             prev[service.id]?.professionalSlotId ?? appointmentProfessionals[0]?.id ?? null,
           price: getDefaultServicePrice(service.price),
+          tips: prev[service.id]?.tips ?? "0.00",
         };
       });
       return updated;
@@ -6972,6 +7015,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             professional: professional.id,
             service: service.id,
             price_paid: priceValue.toFixed(2),
+            tips: parseCurrencyInput(assignment?.tips ?? "0").toFixed(2),
           };
         });
         payload = {
@@ -6987,6 +7031,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           professional: professional?.id ?? 0,
           services: selectedAppointmentServices.map((service) => service.id),
           price_paid: appointmentPriceValue.toFixed(2),
+          tips: appointmentTipsValue.toFixed(2),
         };
       }
 
@@ -9605,6 +9650,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                           className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm outline-none focus:border-white/40"
                         />
                       </label>
+                      <label className="text-xs text-white/60">
+                        Gorjeta (R$)
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={assignment?.tips ?? ""}
+                          onChange={(event) => handleServiceAssignmentTipsChange(service.id, event)}
+                          placeholder="0.00"
+                          className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-3 py-2 text-sm outline-none focus:border-white/40"
+                        />
+                      </label>
                     </div>
                     {currentProfessional ? (
                       <p className="mt-2 text-xs text-white/50">
@@ -9766,6 +9822,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
             />
           </label>
+          <label className="block text-sm text-white/70">
+            Gorjeta (R$)
+            <input
+              type="text"
+              value={tipsInput}
+              onChange={handleTipsInputChange}
+              inputMode="decimal"
+              placeholder="0.00"
+              className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+            />
+          </label>
           <button
             type="button"
             onClick={() => setShowPaymentTypeModal(true)}
@@ -9890,6 +9957,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 const paidValue = formatCurrency(
                   parseCurrencyInput(assignment?.price ?? service.price ?? "0").toFixed(2),
                 );
+                const tipsValue = parseCurrencyInput(assignment?.tips ?? "0");
                 return (
                   <div
                     key={`summary-${service.id}`}
@@ -9902,6 +9970,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                     <p className="text-xs text-white/60">
                       Profissional: <span className="font-medium text-white">{professionalLabel}</span>
                     </p>
+                    {tipsValue > 0 ? (
+                      <p className="text-xs text-white/60">
+                        Gorjeta: <span className="font-medium text-white">{formatCurrency(tipsValue.toFixed(2))}</span>
+                      </p>
+                    ) : null}
                   </div>
                 );
               })
@@ -9935,6 +10008,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               Desconto aplicado (serviços): {normalizedDiscount}% (
               {formatCurrency(servicesDiscountAmount.toFixed(2))})
             </p>
+            {appointmentTipsTotal > 0 ? (
+              <p className="text-xs text-white/60">
+                Gorjeta:{" "}
+                <span className="font-semibold text-white">
+                  {formatCurrency(appointmentTipsTotal.toFixed(2))}
+                </span>
+              </p>
+            ) : null}
             {addedSales.length > 0 ? (
               <p className="text-xs text-white/60">
                 Vendas adicionais:{" "}
@@ -10168,6 +10249,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       : "Não informado";
     const paymentLabel = getPaymentTypeLabel(detail?.payment_type as PaymentType);
     const statusValue = detail?.status as AppointmentStatus | undefined;
+    const appointmentTipsLabel = formatCurrency(detail?.tips ?? "0");
+    const detailProfessionalServiceMap = new Map(
+      (detail?.professional_services ?? []).map((item) => [item.service, item]),
+    );
 
     return (
       <div className="flex flex-col gap-5 pb-24">
@@ -10281,6 +10366,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                     {detail.discount ? `${detail.discount}%` : "Sem desconto"}
                   </p>
                 </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-white/50">Gorjeta</p>
+                  <p className="text-base font-semibold text-white">{appointmentTipsLabel}</p>
+                </div>
               </div>
             </section>
 
@@ -10298,18 +10387,27 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 </p>
               ) : (
                 <ul className="space-y-2">
-                  {detail.services.map((service) => (
-                    <li
-                      key={`detail-service-${service.id}`}
-                      className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3"
-                    >
-                      <div>
-                        <p className="font-semibold">{service.name}</p>
-                        <p className="text-xs text-white/60">{service.category_name}</p>
-                      </div>
-                      <span className="text-xs text-white/50">#{service.id}</span>
-                    </li>
-                  ))}
+                  {detail.services.map((service) => {
+                    const professionalService = detailProfessionalServiceMap.get(service.id);
+                    const serviceTips = professionalService?.tips;
+                    return (
+                      <li
+                        key={`detail-service-${service.id}`}
+                        className="flex items-center justify-between rounded-2xl border border-white/10 px-4 py-3"
+                      >
+                        <div>
+                          <p className="font-semibold">{service.name}</p>
+                          <p className="text-xs text-white/60">{service.category_name}</p>
+                          {serviceTips ? (
+                            <p className="text-xs text-white/60">
+                              Gorjeta: <span className="text-white">{formatCurrency(serviceTips)}</span>
+                            </p>
+                          ) : null}
+                        </div>
+                        <span className="text-xs text-white/50">#{service.id}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
@@ -12854,15 +12952,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 {(() => {
                   const serviceValue = parseCurrencyInput(detail.value_service ?? "0");
                   const productValue = parseCurrencyInput(detail.value_product ?? "0");
+                  const tipsValue = parseCurrencyInput(detail.value_tips ?? "0");
                   const allowenceValue = parseCurrencyInput(detail.allowence ?? "0");
-                  const totalValue = serviceValue + productValue + allowenceValue;
+                  const totalValue = serviceValue + productValue + tipsValue + allowenceValue;
                   return (
                     <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
                       <p className="text-xs uppercase tracking-wide text-white/60">Valor total</p>
                       <p className="mt-1 text-2xl font-semibold">{formatCurrency(totalValue.toFixed(2))}</p>
                       <p className="mt-2 text-xs text-white/60">
                         Serviços: {formatCurrency(serviceValue.toFixed(2))} • Produtos:{" "}
-                        {formatCurrency(productValue.toFixed(2))} • Ajuda de custo:{" "}
+                        {formatCurrency(productValue.toFixed(2))} • Gorjetas:{" "}
+                        {formatCurrency(tipsValue.toFixed(2))} • Ajuda de custo:{" "}
                         {formatCurrency(allowenceValue.toFixed(2))}
                       </p>
                       <div className="mt-3 flex items-center justify-between gap-3">
@@ -13505,8 +13605,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 {repassesList.map((repasse) => {
                   const serviceValue = parseCurrencyInput(repasse.value_service ?? "0");
                   const productValue = parseCurrencyInput(repasse.value_product ?? "0");
+                  const tipsValue = parseCurrencyInput(repasse.value_tips ?? "0");
                   const allowenceValue = parseCurrencyInput(repasse.allowence ?? "0");
-                  const totalValue = serviceValue + productValue + allowenceValue;
+                  const totalValue = serviceValue + productValue + tipsValue + allowenceValue;
                   const isSelected = repasse.id === selectedRepasseId;
                   return (
                     <li
@@ -13532,7 +13633,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                           <p className="text-base font-semibold text-white">{repasse.professional.name}</p>
                           <p className="text-xs text-white/60">
                             Serviços: {formatCurrency(serviceValue.toFixed(2))} • Produtos:{" "}
-                            {formatCurrency(productValue.toFixed(2))} • Ajuda de custo:{" "}
+                            {formatCurrency(productValue.toFixed(2))} • Gorjetas:{" "}
+                            {formatCurrency(tipsValue.toFixed(2))} • Ajuda de custo:{" "}
                             {formatCurrency(allowenceValue.toFixed(2))}
                           </p>
                         </div>
@@ -13784,10 +13886,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const totals = analytics?.totals;
     const repassServiceValue = totals?.repass_value_service ?? detail?.value_service ?? "0";
     const repassProductValue = totals?.repass_value_product ?? detail?.value_product ?? "0";
+    const repassTipsValue = totals?.repass_value_tips ?? detail?.value_tips ?? "0";
     const repassAllowenceValue = detail?.allowence ?? "0";
     const repassTotalValue = (
       parseCurrencyInput(repassServiceValue) +
       parseCurrencyInput(repassProductValue) +
+      parseCurrencyInput(repassTipsValue) +
       parseCurrencyInput(repassAllowenceValue)
     ).toFixed(2);
     const appointmentsCount = totals?.appointments_count ?? 0;
@@ -13872,6 +13976,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </p>
                   <p className="text-xs text-white/60">
                     Produtos: {formatCurrency(repassProductValue)}
+                  </p>
+                  <p className="text-xs text-white/60">
+                    Gorjetas: {formatCurrency(repassTipsValue)}
                   </p>
                   <p className="text-xs text-white/60">
                     Ajuda de custo: {formatCurrency(repassAllowenceValue)}

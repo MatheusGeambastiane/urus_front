@@ -68,8 +68,9 @@ export const calculateRepasseTotals = (detail: RepasseDetail | null) => {
   }
   const serviceValue = parseCurrencyInput(detail.value_service ?? "0");
   const productValue = parseCurrencyInput(detail.value_product ?? "0");
+  const tipsValue = parseCurrencyInput(detail.value_tips ?? "0");
   const allowenceValue = parseCurrencyInput(detail.allowence ?? "0");
-  const total = serviceValue + productValue + allowenceValue;
+  const total = serviceValue + productValue + tipsValue + allowenceValue;
   const paid = detail.transactions.reduce((accumulator, transaction) => {
     return accumulator + parseCurrencyInput(transaction.price ?? "0");
   }, 0);

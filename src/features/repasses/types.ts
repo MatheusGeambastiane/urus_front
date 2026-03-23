@@ -7,6 +7,7 @@ export type RepasseItem = {
   };
   value_service: string;
   value_product: string;
+  value_tips?: string | null;
   allowence?: string | null;
   is_paid: boolean;
   invoice: string | null;
@@ -42,6 +43,7 @@ export type RepasseDetail = {
   };
   value_service: string;
   value_product: string;
+  value_tips?: string | null;
   allowence?: string | null;
   is_paid: boolean;
   transactions: RepasseTransaction[];
@@ -69,6 +71,7 @@ export type ProfessionalServiceSummary = {
     overall_revenue: string;
     repass_value_service?: string;
     repass_value_product?: string;
+    repass_value_tips?: string;
     appointments_count: number;
     services_performed: number;
   };

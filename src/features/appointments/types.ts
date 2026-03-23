@@ -8,6 +8,7 @@ export type AppointmentProfessionalSlot = {
 export type ServiceAssignment = {
   professionalSlotId: string | null;
   price: string;
+  tips: string;
 };
 
 export type AppointmentStatus = "realizado" | "agendado" | "cancelado" | "iniciado";
@@ -24,6 +25,7 @@ export type AppointmentProfessionalService = {
   service: number;
   service_name?: string;
   price_paid: string;
+  tips?: string | null;
 };
 
 export type AppointmentSell = {
@@ -53,6 +55,7 @@ export type AppointmentItem = {
   services: AppointmentService[];
   price_paid: string;
   discount: number | null;
+  tips?: string | null;
   payment_type: string | null;
   status: string;
   observations: string | null;
