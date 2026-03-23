@@ -323,7 +323,7 @@ const productSalePaymentOptions: {
   icon: LucideIcon;
 }[] = [
   { value: "pix", label: "Pix", icon: QrCode },
-  { value: "creditcard", label: "Cartão de crédito", icon: CreditCard },
+  { value: "credit", label: "Cartão de crédito", icon: CreditCard },
   { value: "debit", label: "Cartão de débito", icon: Wallet },
   { value: "money", label: "Dinheiro", icon: Coins },
 ];
@@ -2058,8 +2058,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               : "";
         const rawPayment = String(data?.transaction_payment ?? data?.payment ?? "");
         const normalizedPayment =
-          rawPayment === "credit"
-            ? "creditcard"
+          rawPayment === "creditcard"
+            ? "credit"
             : rawPayment === "dinheiro"
               ? "money"
               : rawPayment;

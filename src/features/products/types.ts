@@ -23,7 +23,7 @@ export type ProductsResponse = {
   results: ProductItem[];
 };
 
-export type ProductSalePaymentType = "pix" | "creditcard" | "debit" | "money";
+export type ProductSalePaymentType = PaymentType;
 
 export type ProductSaleListItem = {
   id?: number;
