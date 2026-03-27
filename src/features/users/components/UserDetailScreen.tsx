@@ -220,7 +220,7 @@ export function UserDetailScreen({
             {userDetail.first_name} {userDetail.last_name}
           </p>
         </div>
-        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} />
+        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} myProfileHref="/dashboard/meu-perfil" />
       </header>
 
       {feedback ? <FeedbackBanner message={feedback.message} type={feedback.type} /> : null}

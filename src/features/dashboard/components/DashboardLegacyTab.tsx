@@ -89,6 +89,7 @@ import {
   createProfessionalSlot,
   getDefaultServicePrice,
   formatDurationLabel,
+  normalizeAppointmentPaymentTypeForApi,
 } from "@/src/features/appointments/utils/appointments";
 import { getServiceIcon } from "@/src/features/services/utils/services";
 import { getSellPaymentLabel } from "@/src/features/products/utils/products";
@@ -483,7 +484,6 @@ export function DashboardLegacyTab({ firstName, activeTab }: DashboardHomeProps)
     },
     [router],
   );
-  const newAppointmentParam = searchParams.get("novo_atendimento");
   const newSaleParam = searchParams.get("nova_venda_produto");
   const newProductParam = searchParams.get("novo_produto");
   const [usersData, setUsersData] = useState<UsersResponse | null>(null);
@@ -6004,7 +6004,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const triggerQuickAction = (action: QuickActionKey) => {
     if (action === "create-appointment") {
-      router.push("/dashboard/agenda?novo_atendimento=1");
+      router.push("/dashboard/agenda/novo");
       return;
     }
     if (action === "create-product-sale") {
@@ -6156,10 +6156,6 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   useEffect(() => {
-    if (activeTab === "agenda" && newAppointmentParam === "1") {
-      handleStartCreateAppointment();
-      router.replace("/dashboard/agenda", { scroll: false });
-    }
     if (activeTab === "products" && newSaleParam === "1") {
       handleStartCreateProductSale();
       router.replace("/dashboard/produtos", { scroll: false });
@@ -6170,10 +6166,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }
   }, [
     activeTab,
-    newAppointmentParam,
     newSaleParam,
     newProductParam,
-    handleStartCreateAppointment,
     handleStartCreateProductSale,
     handleStartCreateProduct,
     router,
@@ -6685,7 +6679,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         date_time: dateTimeIso,
         client: selectedClient?.id ?? null,
         discount: normalizedDiscount,
-        payment_type: selectedPaymentType,
+        payment_type: normalizeAppointmentPaymentTypeForApi(selectedPaymentType),
         status: selectedAppointmentStatus,
         observations: appointmentObservations || null,
       };
@@ -7037,10 +7031,24 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         )}
       </button>
       {menuOpen ? (
-        <div className="absolute right-0 mt-3 w-40 rounded-2xl border border-white/10 bg-[#111] p-2 shadow-xl">
+        <div className="absolute right-0 mt-3 w-48 rounded-2xl border border-white/10 bg-[#111] p-2 shadow-xl">
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => {
+              setMenuOpen(false);
+              router.push("/dashboard/meu-perfil");
+            }}
+            className="mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"
+          >
+            <UserRound className="h-4 w-4" />
+            Meu perfil
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMenuOpen(false);
+              handleLogout();
+            }}
             className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"
           >
             <LogOut className="h-4 w-4" />
@@ -7084,9 +7092,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
     const last7DaysChartData = last7DaysItems.map((item) => {
       const dayIndex = Number(item.day);
-      const fallbackDate = new Date(item.date);
+      const itemDate = item.date ?? item.start_date ?? "";
+      const fallbackDate = new Date(itemDate);
       const fallbackLabel = Number.isNaN(fallbackDate.getTime())
-        ? item.date
+        ? itemDate
         : fallbackDate.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
       return {
         ...item,
@@ -10261,7 +10270,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <>
               <button
                 type="button"
-                onClick={handleStartCreateAppointment}
+                onClick={() => router.push("/dashboard/agenda/novo")}
                 disabled={isAllDayRestriction}
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
               >

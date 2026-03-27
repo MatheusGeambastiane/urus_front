@@ -1,9 +1,9 @@
 "use client";
 
-import { DashboardLegacyTab } from "@/src/features/dashboard/components/DashboardLegacyTab";
+import { HomePage } from "@/src/features/home/pages/HomePage";
 
 type Props = { firstName: string };
 
 export function HomeTab({ firstName }: Props) {
-  return <DashboardLegacyTab firstName={firstName} activeTab="home" />;
+  return <HomePage firstName={firstName} />;
 }

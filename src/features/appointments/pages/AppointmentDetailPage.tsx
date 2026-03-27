@@ -28,6 +28,7 @@ export function AppointmentDetailPage({ id }: Props) {
         profilePic={profilePic}
         onLogout={handleLogout}
         onBack={() => router.push("/dashboard/agenda")}
+        onEdit={() => router.push(`/dashboard/agenda/${id}/editar`)}
       />
     </DashboardShell>
   );

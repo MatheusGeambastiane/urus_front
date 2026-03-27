@@ -121,7 +121,7 @@ export function AppointmentDetailScreen({
               Editar atendimento
             </button>
           ) : null}
-          <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} />
+          <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} myProfileHref="/dashboard/meu-perfil" />
         </div>
       </header>
 

@@ -38,7 +38,7 @@ export function DashboardShell({ activeTab, children, userRole }: DashboardShell
     <div className="relative min-h-screen bg-[#050505] text-white">
       <div className="mx-auto flex w-full max-w-md flex-col px-5 pb-28 pt-10">{children}</div>
 
-      <nav className="fixed bottom-4 left-1/2 w-full max-w-md -translate-x-1/2 px-4">
+      <nav className="fixed bottom-4 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4">
         <div
           className="grid gap-2 rounded-3xl border border-white/10 bg-[#0b0b0b]/80 p-2 backdrop-blur"
           style={{ gridTemplateColumns: `repeat(${visibleItems.length}, minmax(0, 1fr))` }}

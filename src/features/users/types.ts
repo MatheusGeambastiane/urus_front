@@ -16,6 +16,34 @@ export type ProfessionalProfileDetail = {
   services: number[];
 };
 
+export type ProfessionalProfileServiceItem = {
+  id: number;
+  name: string;
+  category: number;
+  category_name: string;
+};
+
+export type AuthenticatedProfessionalProfile = {
+  id: number;
+  user: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    role: string;
+    role_display: string;
+    is_active: boolean;
+    date_of_birth: string;
+  };
+  professional_type: string;
+  cnpj: string;
+  commission: number;
+  bio: string;
+  services: ProfessionalProfileServiceItem[];
+  created_at: string;
+  updated_at: string;
+};
+
 export type HistoryItem = {
   id: number;
   name: string;
@@ -42,6 +70,23 @@ export type UserDetail = {
   date_of_birth: string;
   profile_pic: string | null;
   professional_profile: ProfessionalProfileDetail | null;
+};
+
+export type AuthenticatedUserProfile = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  cpf: string;
+  email: string;
+  phone: string;
+  role: string;
+  role_display: string;
+  is_active: boolean;
+  date_of_birth: string;
+  profile_pic: string | null;
+  created_at: string;
+  updated_at: string;
+  professional_profile: AuthenticatedProfessionalProfile | null;
 };
 
 export type UserItem = {

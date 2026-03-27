@@ -51,3 +51,12 @@ export type DailySummaryResponse = {
 };
 
 export type QuickActionKey = "create-appointment" | "create-product-sale" | "create-product";
+
+export type SummaryFilterMode = "day" | "month" | "range";
+
+export type HomeWeeklyFilter = {
+  day: string | null;
+  month: string | null;
+  startDate: string | null;
+  endDate: string | null;
+};

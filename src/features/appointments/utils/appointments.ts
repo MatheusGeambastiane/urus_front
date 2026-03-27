@@ -1,4 +1,5 @@
 import type { AppointmentProfessionalSlot } from "@/src/features/appointments/types";
+import type { PaymentType } from "@/src/shared/types/payment";
 import { parseCurrencyInput } from "@/src/features/shared/utils/money";
 import { generateUniqueId } from "@/src/features/shared/utils/id";
 
@@ -29,4 +30,11 @@ export const formatDurationLabel = (duration: string) => {
     return `${hrs}h ${mins}min`;
   }
   return `${totalMinutes}min`;
+};
+
+export const normalizeAppointmentPaymentTypeForApi = (paymentType: PaymentType) => {
+  if (paymentType === "money") {
+    return "dinheiro";
+  }
+  return paymentType;
 };

@@ -122,7 +122,7 @@ export function ServiceDetailScreen({
           <p className="text-sm text-white/60">Serviços</p>
           <p className="text-2xl font-semibold">{serviceDetail.name}</p>
         </div>
-        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} />
+        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} myProfileHref="/dashboard/meu-perfil" />
       </header>
 
       {feedback ? <FeedbackBanner message={feedback.message} type={feedback.type} /> : null}

@@ -39,7 +39,7 @@ export function ClientHistoryScreen({
             Histórico de {userDetail?.first_name} {userDetail?.last_name}
           </p>
         </div>
-        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} />
+        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} myProfileHref="/dashboard/meu-perfil" />
       </header>
 
       {clientHistoryLoading ? (

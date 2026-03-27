@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, UserRound, UserCircle2 } from "lucide-react";
 
 type ProfileMenuProps = {
   profilePicUrl: string | null;
   onLogout: () => void;
+  myProfileHref?: string;
 };
 
-export function ProfileMenu({ profilePicUrl, onLogout }: ProfileMenuProps) {
+export function ProfileMenu({ profilePicUrl, onLogout, myProfileHref }: ProfileMenuProps) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -25,7 +28,7 @@ export function ProfileMenu({ profilePicUrl, onLogout }: ProfileMenuProps) {
   }, [menuOpen]);
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative z-[70]" ref={menuRef}>
       <button
         type="button"
         className="h-12 w-12 overflow-hidden rounded-full border border-white/20"
@@ -47,7 +50,20 @@ export function ProfileMenu({ profilePicUrl, onLogout }: ProfileMenuProps) {
         )}
       </button>
       {menuOpen ? (
-        <div className="absolute right-0 mt-3 w-40 rounded-2xl border border-white/10 bg-[#111] p-2 shadow-xl">
+        <div className="absolute right-0 z-[80] mt-3 w-48 rounded-2xl border border-white/10 bg-[#111] p-2 shadow-xl">
+          {myProfileHref ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                router.push(myProfileHref);
+              }}
+              className="mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"
+            >
+              <UserCircle2 className="h-4 w-4" />
+              Meu perfil
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {

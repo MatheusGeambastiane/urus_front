@@ -60,6 +60,7 @@ export type AppointmentItem = {
   status: string;
   observations: string | null;
   professional_name: string | null;
+  professional_profile_pic?: string | null;
   client_name: string | null;
   professional_services?: AppointmentProfessionalService[];
   sells?: AppointmentSell[];
@@ -96,9 +97,12 @@ export type AppointmentsResponse = {
 };
 
 export type Last7DaysItem = {
-  day: number;
-  date: string;
+  day?: number;
+  date?: string;
+  start_date?: string;
+  end_date?: string;
   count: number;
+  total?: string | null;
 };
 
 export type Last7DaysResponse = {

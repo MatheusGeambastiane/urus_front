@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 
 export const usersEndpointBase = `${env.apiBaseUrl}/dashboard/users/`;
+export const usersMeEndpoint = `${env.apiBaseUrl}/dashboard/users/me/`;
 export const roleChoicesEndpoint = `${env.apiBaseUrl}/dashboard/users/role-choices/`;
 export const servicesSimpleListEndpoint = `${env.apiBaseUrl}/dashboard/services/simple-list/`;
 export const professionalProfilesEndpointBase = `${env.apiBaseUrl}/dashboard/professional-profiles/`;
