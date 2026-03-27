@@ -1,15 +1,34 @@
 "use client";
 
-import { Section } from "@/src/features/dashboard/components/Section";
+import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
+import { useAuth } from "@/src/features/shared/hooks/useAuth";
+import { useAppointmentDetail } from "@/src/features/appointments/hooks/useAppointmentDetail";
+import { AppointmentDetailScreen } from "@/src/features/appointments/components/AppointmentDetailScreen";
 
-export function AppointmentDetailPage({ id }: { id: string }) {
+type Props = { id: string };
+
+export function AppointmentDetailPage({ id }: Props) {
+  const router = useRouter();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
+  const detailState = useAppointmentDetail({
+    appointmentId: Number(id),
+    accessToken,
+    fetchWithAuth,
+  });
+
+  const handleLogout = async () => signOut({ callbackUrl: "/dashboard/login" });
+
   return (
-    <div className="space-y-6">
-      <Section title="Agendamento" subtitle={`ID: ${id}`}>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-          TODO: buscar e renderizar detalhes do agendamento via service existente.
-        </div>
-      </Section>
-    </div>
+    <DashboardShell activeTab="agenda" userRole={userRole}>
+      <AppointmentDetailScreen
+        appointmentId={Number(id)}
+        detailState={detailState}
+        profilePic={profilePic}
+        onLogout={handleLogout}
+        onBack={() => router.push("/dashboard/agenda")}
+      />
+    </DashboardShell>
   );
 }

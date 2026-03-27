@@ -1,58 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-import { EmptyState } from "@/src/features/dashboard/components/EmptyState";
-import { LoadingBlock } from "@/src/features/dashboard/components/LoadingBlock";
-import { Section } from "@/src/features/dashboard/components/Section";
+import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
+import { useAuth } from "@/src/features/shared/hooks/useAuth";
+import { useUsers } from "@/src/features/users/hooks/useUsers";
+import { useUserDetail } from "@/src/features/users/hooks/useUserDetail";
+import { UserDetailScreen } from "@/src/features/users/components/UserDetailScreen";
 
 type Props = { id: string };
 
-type UserDetailData = { id: string };
-
 export function UserDetailPage({ id }: Props) {
-  const [data, setData] = useState<UserDetailData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
+  const { roleOptions } = useUsers({ accessToken, fetchWithAuth });
+  const detail = useUserDetail({
+    userId: Number(id),
+    accessToken,
+    fetchWithAuth,
+  });
 
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        if (mounted) {
-          setData({ id });
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(err instanceof Error ? err.message : "Erro ao carregar usuário");
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      mounted = false;
-    };
-  }, [id]);
-
-  if (loading) return <LoadingBlock label="Carregando usuário..." />;
-  if (error) return <EmptyState title="Falha ao carregar" description={error} />;
+  const handleLogout = async () => signOut({ callbackUrl: "/dashboard/login" });
 
   return (
-    <div className="space-y-6">
-      <Section title="Usuário" subtitle={`ID: ${id}`}>
-        <pre className="overflow-auto rounded-2xl border border-white/10 bg-white/5 p-4 text-xs">
-          {JSON.stringify(data, null, 2)}
-        </pre>
-      </Section>
-    </div>
+    <DashboardShell activeTab="users" userRole={userRole}>
+      <UserDetailScreen
+        detail={detail}
+        accessToken={accessToken}
+        fetchWithAuth={fetchWithAuth}
+        roleOptions={roleOptions}
+        userRole={userRole}
+        profilePic={profilePic}
+        onLogout={handleLogout}
+        onBack={() => router.push("/dashboard/usuarios")}
+      />
+    </DashboardShell>
   );
 }

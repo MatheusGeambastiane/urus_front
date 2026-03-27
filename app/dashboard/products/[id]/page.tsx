@@ -1,6 +1,6 @@
-import { ProductDetailPage } from "@/src/features/products/pages/ProductDetailPage";
+import { redirect } from "next/navigation";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <ProductDetailPage id={id} />;
+  redirect(`/dashboard/produtos/${id}`);
 }

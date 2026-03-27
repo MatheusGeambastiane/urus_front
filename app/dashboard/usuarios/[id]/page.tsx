@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { UserDetailPage } from "@/src/features/users/pages/UserDetailPage";
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  redirect(`/dashboard/servicos/${id}`);
+  return <UserDetailPage id={id} />;
 }

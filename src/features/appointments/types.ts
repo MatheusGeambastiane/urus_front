@@ -66,6 +66,10 @@ export type AppointmentItem = {
   created_at?: string;
   updated_at?: string;
   appointment_origin?: string | null;
+  client_completed_appointments_total?: number | null;
+  client_completed_appointments_current_month_total?: number | null;
+  client_last_completed_appointment_id?: number | null;
+  client_last_completed_appointment_date?: string | null;
 };
 
 export type AppointmentsResponse = {
