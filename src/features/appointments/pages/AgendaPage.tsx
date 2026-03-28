@@ -231,6 +231,9 @@ export function AgendaPage() {
             onComplete={async (appointmentId) => {
               await agenda.updateAppointmentStatus(appointmentId, "realizado");
             }}
+            onReopen={async (appointmentId) => {
+              await agenda.updateAppointmentStatus(appointmentId, "agendado");
+            }}
           />
         )}
 

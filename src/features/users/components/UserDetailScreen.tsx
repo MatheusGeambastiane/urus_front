@@ -5,7 +5,6 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import { Calendar, ChevronLeft, Loader2, Mail, PenSquare, UserRound } from "lucide-react";
-import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import { FeedbackBanner } from "@/components/ui/FeedbackBanner";
 import { editUserSchema, type EditUserFormValues } from "@/src/features/users/schemas";
 import type { RoleOption } from "@/src/features/users/types";
@@ -23,9 +22,7 @@ type UserDetailScreenProps = {
   fetchWithAuth: TokenRefreshService["fetchWithAuth"];
   roleOptions: RoleOption[];
   userRole: string | undefined;
-  profilePic: string | null;
   onBack: () => void;
-  onLogout: () => void;
 };
 
 export function UserDetailScreen({
@@ -34,9 +31,7 @@ export function UserDetailScreen({
   fetchWithAuth,
   roleOptions,
   userRole,
-  profilePic,
   onBack,
-  onLogout,
 }: UserDetailScreenProps) {
   const {
     userDetail,
@@ -178,9 +173,7 @@ export function UserDetailScreen({
         clientHistoryData={clientHistoryData}
         clientHistoryLoading={clientHistoryLoading}
         clientHistoryError={clientHistoryError}
-        profilePic={profilePic}
         onBack={() => setShowClientHistory(false)}
-        onLogout={onLogout}
       />
     );
   }
@@ -220,7 +213,6 @@ export function UserDetailScreen({
             {userDetail.first_name} {userDetail.last_name}
           </p>
         </div>
-        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} myProfileHref="/dashboard/meu-perfil" />
       </header>
 
       {feedback ? <FeedbackBanner message={feedback.message} type={feedback.type} /> : null}

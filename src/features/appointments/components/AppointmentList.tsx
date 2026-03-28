@@ -7,6 +7,7 @@ type AppointmentListProps = {
   appointments: AppointmentItem[];
   onOpen: (appointmentId: number) => void;
   onComplete: (appointmentId: number) => Promise<void> | void;
+  onReopen: (appointmentId: number) => Promise<void> | void;
   statusUpdatingId: number | null;
 };
 
@@ -14,6 +15,7 @@ export function AppointmentList({
   appointments,
   onOpen,
   onComplete,
+  onReopen,
   statusUpdatingId,
 }: AppointmentListProps) {
   return (
@@ -24,6 +26,7 @@ export function AppointmentList({
             appointment={appointment}
             onOpen={onOpen}
             onComplete={onComplete}
+            onReopen={onReopen}
             completing={statusUpdatingId === appointment.id}
           />
         </div>

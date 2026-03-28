@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatDateParam } from "@/src/features/shared/utils/date";
@@ -26,7 +24,7 @@ type HomePageProps = {
 
 export function HomePage({ firstName }: HomePageProps) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, userRole } = useAuth();
   const dailySummary = useDailySummary({ accessToken, fetchWithAuth });
   const last7Days = useLast7Days({
     accessToken,
@@ -34,8 +32,6 @@ export function HomePage({ firstName }: HomePageProps) {
     filters: dailySummary.weeklyFilter,
   });
   const [typedHeader, setTypedHeader] = useState("");
-
-  const handleLogout = async () => signOut({ callbackUrl: "/dashboard/login" });
 
   const rotatingPhrases = useMemo(
     () => [
@@ -190,12 +186,6 @@ export function HomePage({ firstName }: HomePageProps) {
               <span className="ml-1 inline-block h-8 w-[2px] animate-pulse bg-white/70 align-[-4px]" />
             </h1>
           </div>
-
-          <ProfileMenu
-            profilePicUrl={profilePic}
-            onLogout={handleLogout}
-            myProfileHref="/dashboard/meu-perfil"
-          />
         </header>
 
         <HomeOverviewCard

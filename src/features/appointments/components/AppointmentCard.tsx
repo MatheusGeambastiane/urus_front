@@ -10,6 +10,7 @@ type AppointmentCardProps = {
   appointment: AppointmentItem;
   onOpen: (appointmentId: number) => void;
   onComplete: (appointmentId: number) => Promise<void> | void;
+  onReopen: (appointmentId: number) => Promise<void> | void;
   completing: boolean;
 };
 
@@ -37,14 +38,16 @@ const getStatusBorderColor = (status: string) => {
   return "border-amber-300/60";
 };
 
-export function AppointmentCard({ appointment, onOpen, onComplete, completing }: AppointmentCardProps) {
+export function AppointmentCard({ appointment, onOpen, onComplete, onReopen, completing }: AppointmentCardProps) {
   const [dragX, setDragX] = useState(0);
   const [isPointerActive, setIsPointerActive] = useState(false);
   const startXRef = useRef(0);
   const didDragRef = useRef(false);
   const suppressClickRef = useRef(false);
 
-  const isSwipeEnabled = appointment.status !== "realizado" && appointment.status !== "cancelado";
+  const canSwipeRight = appointment.status !== "realizado" && appointment.status !== "cancelado";
+  const canSwipeLeft = appointment.status === "realizado";
+  const isSwipeEnabled = canSwipeRight || canSwipeLeft;
 
   const handlePointerDown: React.PointerEventHandler<HTMLDivElement> = (event) => {
     if (!isSwipeEnabled || completing) {
@@ -60,11 +63,16 @@ export function AppointmentCard({ appointment, onOpen, onComplete, completing }:
     if (!isPointerActive || !isSwipeEnabled || completing) {
       return;
     }
-    const delta = Math.max(0, event.clientX - startXRef.current);
-    if (delta > 4) {
+    const rawDelta = event.clientX - startXRef.current;
+    const delta = canSwipeLeft && !canSwipeRight ? Math.min(rawDelta, 0) : Math.max(rawDelta, 0);
+    if (Math.abs(delta) > 4) {
       didDragRef.current = true;
     }
-    setDragX(Math.min(delta, 132));
+    if (delta >= 0) {
+      setDragX(Math.min(delta, 132));
+      return;
+    }
+    setDragX(Math.max(delta, -132));
   };
 
   const handlePointerEnd: React.PointerEventHandler<HTMLDivElement> = async () => {
@@ -74,7 +82,8 @@ export function AppointmentCard({ appointment, onOpen, onComplete, completing }:
       return;
     }
 
-    const shouldComplete = dragX >= 96;
+    const shouldComplete = canSwipeRight && dragX >= 96;
+    const shouldReopen = canSwipeLeft && dragX <= -96;
     suppressClickRef.current = didDragRef.current;
     setIsPointerActive(false);
     setDragX(0);
@@ -82,6 +91,12 @@ export function AppointmentCard({ appointment, onOpen, onComplete, completing }:
     if (shouldComplete) {
       suppressClickRef.current = true;
       await onComplete(appointment.id);
+      return;
+    }
+
+    if (shouldReopen) {
+      suppressClickRef.current = true;
+      await onReopen(appointment.id);
     }
   };
 
@@ -114,7 +129,7 @@ export function AppointmentCard({ appointment, onOpen, onComplete, completing }:
       />
 
       <div className="relative overflow-hidden rounded-[28px]">
-        {isSwipeEnabled ? (
+        {canSwipeRight ? (
           <div className="absolute inset-y-0 left-0 flex w-[132px] items-center justify-center rounded-[28px] bg-emerald-500/20 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
             {completing ? (
               <span className="inline-flex items-center gap-2">
@@ -123,6 +138,19 @@ export function AppointmentCard({ appointment, onOpen, onComplete, completing }:
               </span>
             ) : (
               "Arraste para concluir"
+            )}
+          </div>
+        ) : null}
+
+        {canSwipeLeft ? (
+          <div className="absolute inset-y-0 right-0 flex w-[132px] items-center justify-center rounded-[28px] bg-amber-400/20 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
+            {completing ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Salvando
+              </span>
+            ) : (
+              "Arraste para reagendar"
             )}
           </div>
         ) : null}

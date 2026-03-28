@@ -7,14 +7,11 @@ import { ChevronLeft, Loader2, PenSquare, Plus, Trash2 } from "lucide-react";
 import type { ServiceCategoryOption } from "@/src/features/services/types";
 import type { useServiceDetail } from "@/src/features/services/hooks/useServiceDetail";
 import { createServiceSchema, type CreateServiceFormValues } from "@/src/features/services/schemas";
-import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import { FeedbackBanner } from "@/components/ui/FeedbackBanner";
 
 type ServiceDetailScreenProps = {
   detail: ReturnType<typeof useServiceDetail>;
   serviceCategories: ServiceCategoryOption[];
-  profilePic: string | null;
-  onLogout: () => void;
   onBack: () => void;
   onAddProduct: () => void;
 };
@@ -22,8 +19,6 @@ type ServiceDetailScreenProps = {
 export function ServiceDetailScreen({
   detail,
   serviceCategories,
-  profilePic,
-  onLogout,
   onBack,
   onAddProduct,
 }: ServiceDetailScreenProps) {
@@ -122,7 +117,6 @@ export function ServiceDetailScreen({
           <p className="text-sm text-white/60">Serviços</p>
           <p className="text-2xl font-semibold">{serviceDetail.name}</p>
         </div>
-        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} myProfileHref="/dashboard/meu-perfil" />
       </header>
 
       {feedback ? <FeedbackBanner message={feedback.message} type={feedback.type} /> : null}

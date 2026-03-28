@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronLeft, Loader2 } from "lucide-react";
-import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import type { ClientHistorySummary, UserDetail } from "@/src/features/users/types";
 
 type ClientHistoryScreenProps = {
@@ -9,9 +8,7 @@ type ClientHistoryScreenProps = {
   clientHistoryData: ClientHistorySummary | null;
   clientHistoryLoading: boolean;
   clientHistoryError: string | null;
-  profilePic: string | null;
   onBack: () => void;
-  onLogout: () => void;
 };
 
 export function ClientHistoryScreen({
@@ -19,9 +16,7 @@ export function ClientHistoryScreen({
   clientHistoryData,
   clientHistoryLoading,
   clientHistoryError,
-  profilePic,
   onBack,
-  onLogout,
 }: ClientHistoryScreenProps) {
   return (
     <div className="flex flex-col gap-5">
@@ -39,7 +34,6 @@ export function ClientHistoryScreen({
             Histórico de {userDetail?.first_name} {userDetail?.last_name}
           </p>
         </div>
-        <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} myProfileHref="/dashboard/meu-perfil" />
       </header>
 
       {clientHistoryLoading ? (

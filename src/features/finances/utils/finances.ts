@@ -21,6 +21,14 @@ export const formatMonthParam = (date: Date) => {
   return `${year}-${month}`;
 };
 
+export const moneyResourceOptions = [
+  { value: "matheus", label: "Matheus" },
+  { value: "leilane", label: "Leilane" },
+  { value: "barbearia", label: "Barbearia" },
+] as const;
+
+export const pieChartColors = ["#fafafa", "#a3a3a3", "#fbbf24", "#38bdf8", "#fb7185", "#34d399"];
+
 export const getMonthLabel = (monthValue: string) => {
   const [year, month] = monthValue.split("-");
   if (!year || !month) {

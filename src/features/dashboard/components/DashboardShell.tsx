@@ -1,10 +1,13 @@
 "use client";
 
 import type { ComponentType, ReactNode } from "react";
+import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Calendar, Home, Scissors, ShoppingBag, Sparkles, Users, Wallet } from "lucide-react";
 
+import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
+import { useAuth } from "@/src/features/shared/hooks/useAuth";
 
 type DashboardShellProps = {
   activeTab: DashboardTab;
@@ -24,6 +27,7 @@ const bottomNavItems: Array<{ key: DashboardTab; label: string; icon: ComponentT
 
 export function DashboardShell({ activeTab, children, userRole }: DashboardShellProps) {
   const router = useRouter();
+  const { profilePic } = useAuth();
   const visibleItems = bottomNavItems.filter((item) => {
     if (item.key === "finances") {
       return userRole === "admin";
@@ -36,7 +40,28 @@ export function DashboardShell({ activeTab, children, userRole }: DashboardShell
 
   return (
     <div className="relative min-h-screen bg-[#050505] text-white">
-      <div className="mx-auto flex w-full max-w-md flex-col px-5 pb-28 pt-10">{children}</div>
+      <div className="mx-auto w-full max-w-md px-5 pt-4">
+        <div className="grid h-12 grid-cols-[48px_minmax(0,1fr)_48px] items-center rounded-3xl bg-[#050505]/60 px-0 backdrop-blur-xl">
+          <div className="h-12 w-12" />
+          <div className="flex flex-col items-center justify-center text-center leading-none">
+            <span className="brand-sheen text-[1.02rem] font-semibold uppercase tracking-[0.38em] text-white">
+              URUS
+            </span>
+            <span className="brand-sheen mt-1 text-[0.56rem] font-medium uppercase tracking-[0.34em] text-white/95">
+              Barbearia
+            </span>
+          </div>
+          <div className="flex justify-end pr-0">
+          <ProfileMenu
+            profilePicUrl={profilePic}
+            onLogout={() => void signOut({ callbackUrl: "/dashboard/login" })}
+            myProfileHref="/dashboard/meu-perfil"
+          />
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-md flex-col px-5 pb-28 pt-5">{children}</div>
 
       <nav className="fixed bottom-4 left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4">
         <div

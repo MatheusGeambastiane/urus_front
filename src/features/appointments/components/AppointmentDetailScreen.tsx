@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Loader2, PenSquare, RefreshCw } from "lucide-react";
-import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import { Modal } from "@/components/ui/Modal";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 import { capitalizeFirstLetter } from "@/src/features/shared/utils/string";
@@ -16,8 +15,6 @@ import { ClientLastAppointmentCard } from "./ClientLastAppointmentCard";
 type AppointmentDetailScreenProps = {
   appointmentId: number | null;
   detailState: ReturnType<typeof useAppointmentDetail>;
-  profilePic: string | null;
-  onLogout: () => void;
   onBack: () => void;
   onEdit?: () => void;
 };
@@ -45,8 +42,6 @@ const formatDateTime = (value?: string | null, fallback = "Não informado") => {
 export function AppointmentDetailScreen({
   appointmentId,
   detailState,
-  profilePic,
-  onLogout,
   onBack,
   onEdit,
 }: AppointmentDetailScreenProps) {
@@ -121,7 +116,6 @@ export function AppointmentDetailScreen({
               Editar atendimento
             </button>
           ) : null}
-          <ProfileMenu profilePicUrl={profilePic} onLogout={onLogout} myProfileHref="/dashboard/meu-perfil" />
         </div>
       </header>
 

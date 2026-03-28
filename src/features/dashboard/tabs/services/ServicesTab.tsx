@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signOut } from "next-auth/react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { useServices } from "@/src/features/services/hooks/useServices";
@@ -25,7 +24,7 @@ type ProductUsageItem = {
 
 export function ServicesTab({ firstName }: Props) {
   void firstName;
-  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, userRole } = useAuth();
 
   const [screen, setScreen] = useState<Screen>("list");
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
@@ -97,18 +96,12 @@ export function ServicesTab({ firstName }: Props) {
     setProductPickerCallback(null);
   };
 
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: "/dashboard/login" });
-  };
-
   const renderContent = () => {
     if (screen === "detail") {
       return (
         <ServiceDetailScreen
           detail={serviceDetail}
           serviceCategories={services.serviceCategories}
-          profilePic={profilePic}
-          onLogout={handleLogout}
           onBack={handleBackToList}
           onAddProduct={() =>
             handleOpenProductPicker((item) => {

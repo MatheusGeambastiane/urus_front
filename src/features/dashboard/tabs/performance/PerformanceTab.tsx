@@ -1,9 +1,9 @@
 "use client";
 
-import { DashboardLegacyTab } from "@/src/features/dashboard/components/DashboardLegacyTab";
+import { PerformancePage } from "@/src/features/finances/pages/PerformancePage";
 
 type Props = { firstName: string };
 
 export function PerformanceTab({ firstName }: Props) {
-  return <DashboardLegacyTab firstName={firstName} activeTab="performance" />;
+  return <PerformancePage firstName={firstName} />;
 }

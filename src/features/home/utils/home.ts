@@ -114,7 +114,7 @@ export const getWeekdayNumberLabel = (day?: number | null) => {
   if (typeof day !== "number" || Number.isNaN(day)) {
     return "";
   }
-  return `${dayMap[day] ?? day} - ${day}`;
+  return dayMap[day] ?? String(day);
 };
 
 export const formatFullDate = (value?: string | null) => {

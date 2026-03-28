@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signOut } from "next-auth/react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { useServiceDetail } from "@/src/features/services/hooks/useServiceDetail";
@@ -18,7 +17,7 @@ type ProductUsageItem = {
 
 export function ServiceDetailPage({ id }: { id: string }) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, userRole } = useAuth();
   const [productPickerOpen, setProductPickerOpen] = useState(false);
 
   const { serviceCategories } = useServices({ accessToken, fetchWithAuth });
@@ -31,7 +30,6 @@ export function ServiceDetailPage({ id }: { id: string }) {
   });
 
   const handleBack = () => router.push("/dashboard/servicos");
-  const handleLogout = async () => signOut({ callbackUrl: "/dashboard/login" });
 
   const handleAddProduct = () => setProductPickerOpen(true);
 
@@ -45,8 +43,6 @@ export function ServiceDetailPage({ id }: { id: string }) {
       <ServiceDetailScreen
         detail={detail}
         serviceCategories={serviceCategories}
-        profilePic={profilePic}
-        onLogout={handleLogout}
         onBack={handleBack}
         onAddProduct={handleAddProduct}
       />

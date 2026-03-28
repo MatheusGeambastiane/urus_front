@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Calendar, Camera, ChevronLeft, Loader2, Save, ShieldCheck, Sparkles } from "lucide-react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
-import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import { FeedbackBanner } from "@/components/ui/FeedbackBanner";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { convertDisplayDateToIso, formatDisplayDate } from "@/src/features/shared/utils/date";
@@ -164,8 +162,6 @@ export function MyProfilePage() {
     [form.services, serviceOptions],
   );
 
-  const handleLogout = async () => signOut({ callbackUrl: "/dashboard/login" });
-
   const setFormField = <K extends keyof ProfileFormState>(key: K, value: ProfileFormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -312,11 +308,6 @@ export function MyProfilePage() {
             <p className="text-sm uppercase tracking-[0.25em] text-amber-100/60">Meu perfil</p>
             <p className="text-2xl font-semibold text-white">Identidade da equipe</p>
           </div>
-          <ProfileMenu
-            profilePicUrl={profile?.profile_pic ?? profilePic}
-            onLogout={handleLogout}
-            myProfileHref="/dashboard/meu-perfil"
-          />
         </header>
 
         {feedback ? <FeedbackBanner message={feedback.message} type={feedback.type} /> : null}

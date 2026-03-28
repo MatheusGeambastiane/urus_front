@@ -72,6 +72,7 @@ export type ProfessionalServiceSummary = {
     repass_value_service?: string;
     repass_value_product?: string;
     repass_value_tips?: string;
+    repass_allowence?: string;
     appointments_count: number;
     services_performed: number;
   };
@@ -84,5 +85,21 @@ export type ProfessionalServiceSummary = {
     category_id: number;
     category_name: string;
     total: number;
+  }[];
+  sell_transactions_by_product?: {
+    product_id: number;
+    product_name: string;
+    transactions_count: number;
+    total_value: string;
+  }[];
+  best_revenue_day?: {
+    date: string;
+    total_value: string;
+  } | null;
+  average_daily_revenue?: string;
+  weekly_revenue?: {
+    start_date: string;
+    end_date: string;
+    total_value: string;
   }[];
 };
