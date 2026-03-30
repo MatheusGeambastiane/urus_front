@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock3, Filter, Plus, Trash2, Waves } from "lucide-react";
+import { Calendar, Clock3, Eye, EyeOff, Filter, Plus, Trash2, Waves } from "lucide-react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatDateParam } from "@/src/features/shared/utils/date";
@@ -13,11 +13,16 @@ import { DayRestrictionModal } from "@/src/features/appointments/components/DayR
 import { DeleteDayRestrictionModal } from "@/src/features/appointments/components/DeleteDayRestrictionModal";
 import { useAppointments } from "@/src/features/appointments/hooks/useAppointments";
 
+function SummarySkeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-full bg-white/10 ${className}`.trim()} />;
+}
+
 export function AgendaPage() {
   const router = useRouter();
   const { accessToken, fetchWithAuth, userRole } = useAuth();
   const agenda = useAppointments({ accessToken, fetchWithAuth });
   const appointmentsDateListRef = useRef<HTMLDivElement>(null);
+  const [showSummaryValues, setShowSummaryValues] = useState(false);
 
   useEffect(() => {
     const list = appointmentsDateListRef.current;
@@ -57,6 +62,20 @@ export function AgendaPage() {
     ? "1 atendimento pendente"
     : `${agenda.pendingAppointmentsCount} atendimentos pendentes`;
 
+  const summaryValueDisplay = showSummaryValues ? summaryValue : "R$ •••••";
+  const servicesValueDisplay = showSummaryValues
+    ? `${agenda.appointmentsSummary.completed_total_count ?? 0} / ${totalAppointments}`
+    : "••• / •••";
+  const completedTotalDisplay = showSummaryValues
+    ? formatCurrency(agenda.appointmentsSummary.completed_total_price ?? "0")
+    : "R$ •••••";
+  const totalScheduledDisplay = showSummaryValues
+    ? formatCurrency(agenda.appointmentsSummary.total_scheduled ?? "0")
+    : "R$ •••••";
+  const scheduledStatusTotalDisplay = showSummaryValues
+    ? agenda.appointmentsSummary.scheduled_status_total ?? 0
+    : "•••";
+
   return (
     <DashboardShell activeTab="agenda" userRole={userRole}>
       <div className="flex flex-col gap-5 pb-40">
@@ -75,82 +94,127 @@ export function AgendaPage() {
           </button>
         </header>
 
-        <section className="grid gap-4 min-[400px]:grid-cols-2">
-          <article className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-4">
-            <p className="text-sm text-white/60">Faturamento do período</p>
-            <p className="mt-2 text-3xl font-semibold">{summaryValue}</p>
-          </article>
-          <article className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-4">
-            <p className="text-sm text-white/60">Serviços</p>
-            <p className="mt-2 text-xs text-white/60">Concluídos / agendados</p>
-            <p className="mt-2 text-3xl font-semibold">
-              {agenda.appointmentsSummary.completed_total_count ?? 0} / {totalAppointments}
-            </p>
-          </article>
-        </section>
-
-        <section className="rounded-3xl border border-white/5 bg-[#0b0b0b] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-white/60">Serviços</p>
-              <p className="text-lg font-semibold">Resumo do período</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => agenda.setShowAppointmentsSummaryDetails((prev) => !prev)}
-              className="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/30 hover:text-white"
-            >
-              {agenda.showAppointmentsSummaryDetails ? "Ocultar detalhes" : "Ver detalhes"}
-            </button>
-          </div>
-
-          {agenda.showAppointmentsSummaryDetails ? (
-            <div className="mt-4 space-y-4 text-sm text-white/70">
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/5 bg-black/30 p-3">
-                  <p className="text-xs text-white/60">Total realizado</p>
-                  <p className="mt-1 text-base font-semibold text-white">
-                    {formatCurrency(agenda.appointmentsSummary.completed_total_price ?? "0")}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/5 bg-black/30 p-3">
-                  <p className="text-xs text-white/60">Total previsto</p>
-                  <p className="mt-1 text-base font-semibold text-white">
-                    {formatCurrency(agenda.appointmentsSummary.total_scheduled ?? "0")}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/5 bg-black/30 p-3">
-                  <p className="text-xs text-white/60">Total pendente</p>
-                  <p className="mt-1 text-base font-semibold text-white">
-                    {agenda.appointmentsSummary.scheduled_status_total ?? 0}
-                  </p>
-                </div>
-              </div>
-
+        <section className="overflow-hidden rounded-[32px] border border-white/8 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.1),_transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] p-5 backdrop-blur-sm">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
-                  Atendimentos por profissional
-                </p>
-                {scheduledByProfessional.length === 0 ? (
-                  <p className="mt-2 rounded-2xl border border-white/5 bg-black/30 px-3 py-2 text-sm text-white/60">
-                    Nenhum profissional encontrado.
-                  </p>
-                ) : (
-                  <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {scheduledByProfessional.map((item) => (
-                      <li
-                        key={item.id}
-                        className="flex items-center justify-between rounded-2xl border border-white/5 bg-black/30 px-3 py-2"
-                      >
-                        <span className="text-sm text-white/80">{item.name}</span>
-                        <span className="text-sm font-semibold text-white">{item.total}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <p className="text-[11px] uppercase tracking-[0.28em] text-white/45">Panorama</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">Resumo do período</h2>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowSummaryValues((prev) => !prev)}
+                className="rounded-full border border-white/10 bg-white/5 p-2 text-white/70 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+                aria-label={showSummaryValues ? "Ocultar valores" : "Mostrar valores"}
+                title={showSummaryValues ? "Ocultar valores" : "Mostrar valores"}
+              >
+                {showSummaryValues ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
-          ) : null}
+
+            <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+              <article className="rounded-[28px] border border-white/8 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-white/40">Faturamento</p>
+                {agenda.appointmentsLoading ? (
+                  <div className="mt-4 space-y-3">
+                    <SummarySkeleton className="h-10 w-40 rounded-2xl" />
+                    <SummarySkeleton className="h-4 w-52" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-4 text-4xl font-semibold tracking-tight text-white">{summaryValueDisplay}</p>
+                  </>
+                )}
+              </article>
+
+              <article className="rounded-[28px] border border-white/8 bg-white/[0.03] p-4">
+                <p className="text-xs uppercase tracking-[0.22em] text-white/40">Serviços</p>
+                {agenda.appointmentsLoading ? (
+                  <div className="mt-4 space-y-3">
+                    <SummarySkeleton className="h-10 w-28 rounded-2xl" />
+                    <SummarySkeleton className="h-4 w-40" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-4 text-4xl font-semibold tracking-tight text-white">{servicesValueDisplay}</p>
+                  </>
+                )}
+              </article>
+            </div>
+
+            <div className="rounded-[28px] border border-white/8 bg-black/15 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.22em] text-white/40">Detalhamento</p>
+                  <p className="mt-1 text-sm text-white/55">Distribuição financeira e atendimentos por profissional.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => agenda.setShowAppointmentsSummaryDetails((prev) => !prev)}
+                  className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+                >
+                  {agenda.showAppointmentsSummaryDetails ? "Ocultar detalhes" : "Ver detalhes"}
+                </button>
+              </div>
+
+              {agenda.appointmentsLoading ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-3">
+                    <SummarySkeleton className="h-3 w-20" />
+                    <SummarySkeleton className="mt-3 h-7 w-24 rounded-xl" />
+                  </div>
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-3">
+                    <SummarySkeleton className="h-3 w-20" />
+                    <SummarySkeleton className="mt-3 h-7 w-24 rounded-xl" />
+                  </div>
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-3">
+                    <SummarySkeleton className="h-3 w-20" />
+                    <SummarySkeleton className="mt-3 h-7 w-24 rounded-xl" />
+                  </div>
+                </div>
+              ) : agenda.showAppointmentsSummaryDetails ? (
+                <div className="mt-4 space-y-4 text-sm text-white/70">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-3">
+                      <p className="text-xs text-white/50">Total realizado</p>
+                      <p className="mt-2 text-lg font-semibold text-white">{completedTotalDisplay}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-3">
+                      <p className="text-xs text-white/50">Total previsto</p>
+                      <p className="mt-2 text-lg font-semibold text-white">{totalScheduledDisplay}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-3">
+                      <p className="text-xs text-white/50">Total pendente</p>
+                      <p className="mt-2 text-lg font-semibold text-white">{scheduledStatusTotalDisplay}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/40">
+                      Atendimentos por profissional
+                    </p>
+                    {scheduledByProfessional.length === 0 ? (
+                      <p className="mt-3 rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-2 text-sm text-white/55">
+                        Nenhum profissional encontrado.
+                      </p>
+                    ) : (
+                      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {scheduledByProfessional.map((item) => (
+                          <li
+                            key={item.id}
+                            className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-2.5"
+                          >
+                            <span className="text-sm text-white/75">{item.name}</span>
+                            <span className="text-sm font-semibold text-white">{item.total}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </section>
 
         <div
