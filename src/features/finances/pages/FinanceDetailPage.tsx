@@ -13,7 +13,7 @@ import type { BillDetail } from "@/src/features/bills/types";
 
 export function FinanceDetailPage({ id }: { id: string }) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const bills = useBills({ accessToken, fetchWithAuth, month: formatMonthParam(new Date()) });
   const [detail, setDetail] = useState<BillDetail | null>(null);
   const [editing, setEditing] = useState({
@@ -103,7 +103,7 @@ export function FinanceDetailPage({ id }: { id: string }) {
   };
 
   return (
-    <DashboardShell activeTab="finances" userRole={userRole}>
+    <DashboardShell activeTab="finances" profilePic={profilePic} userRole={userRole}>
       <div className="space-y-5 pb-8">
         <header className="flex items-center justify-between">
           <div>

@@ -66,6 +66,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
   const [professionalsError, setProfessionalsError] = useState<string | null>(null);
   const [serviceCategories, setServiceCategories] = useState<ServiceCategoryOption[]>([]);
   const [serviceCategoriesError, setServiceCategoriesError] = useState<string | null>(null);
+  const [filterOptionsLoaded, setFilterOptionsLoaded] = useState(false);
 
   const [dayRestriction, setDayRestriction] = useState<AppointmentsResponse["day_restriction"]>(null);
   const [showDeleteDayRestrictionModal, setShowDeleteDayRestrictionModal] = useState(false);
@@ -84,70 +85,72 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
   const [dayRestrictionSubmitting, setDayRestrictionSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken || !showAppointmentsFilterModal || filterOptionsLoaded) {
       return;
     }
     const controller = new AbortController();
 
-    const fetchProfessionals = async () => {
+    const fetchFilterOptions = async () => {
       try {
-        const response = await fetchWithAuth(professionalProfilesSimpleListEndpoint, {
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          signal: controller.signal,
-        });
+        const [professionalsResponse, categoriesResponse] = await Promise.all([
+          fetchWithAuth(professionalProfilesSimpleListEndpoint, {
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            signal: controller.signal,
+          }),
+          fetchWithAuth(serviceCategoriesEndpoint, {
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            signal: controller.signal,
+          }),
+        ]);
 
-        if (!response.ok) {
+        if (!professionalsResponse.ok) {
           throw new Error("Não foi possível carregar profissionais.");
         }
 
-        const data = (await response.json()) as ProfessionalSimple[];
-        const list: ServiceOption[] = Array.isArray(data)
-          ? data.map((item) => ({ id: item.id, name: item.user_name }))
-          : [];
-        setProfessionalsList(list);
-        setProfessionalsError(null);
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          setProfessionalsError(
-            err instanceof Error ? err.message : "Erro inesperado ao carregar profissionais.",
-          );
-        }
-      }
-    };
-
-    const fetchCategories = async () => {
-      try {
-        const response = await fetchWithAuth(serviceCategoriesEndpoint, {
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          signal: controller.signal,
-        });
-        if (!response.ok) {
+        if (!categoriesResponse.ok) {
           throw new Error("Não foi possível carregar categorias.");
         }
-        const data: ServiceCategoryOption[] = await response.json();
-        setServiceCategories(Array.isArray(data) ? data : []);
+
+        const professionalsData = (await professionalsResponse.json()) as ProfessionalSimple[];
+        const categoriesData: ServiceCategoryOption[] = await categoriesResponse.json();
+
+        setProfessionalsList(
+          Array.isArray(professionalsData)
+            ? professionalsData.map((item) => ({ id: item.id, name: item.user_name }))
+            : [],
+        );
+        setServiceCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        setProfessionalsError(null);
         setServiceCategoriesError(null);
+        setFilterOptionsLoaded(true);
       } catch (err) {
         if (!controller.signal.aborted) {
-          setServiceCategoriesError(
-            err instanceof Error ? err.message : "Erro inesperado ao carregar categorias.",
-          );
+          const message =
+            err instanceof Error ? err.message : "Erro inesperado ao carregar filtros.";
+
+          if (message.includes("profissionais")) {
+            setProfessionalsError(message);
+          } else if (message.includes("categorias")) {
+            setServiceCategoriesError(message);
+          } else {
+            setProfessionalsError(message);
+            setServiceCategoriesError(message);
+          }
         }
       }
     };
 
-    void fetchProfessionals();
-    void fetchCategories();
+    void fetchFilterOptions();
     return () => controller.abort();
-  }, [accessToken, fetchWithAuth]);
+  }, [accessToken, fetchWithAuth, filterOptionsLoaded, showAppointmentsFilterModal]);
 
   useEffect(() => {
     if (!accessToken) {

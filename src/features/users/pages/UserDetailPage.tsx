@@ -11,7 +11,7 @@ type Props = { id: string };
 
 export function UserDetailPage({ id }: Props) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const { roleOptions } = useUsers({ accessToken, fetchWithAuth });
   const detail = useUserDetail({
     userId: Number(id),
@@ -20,7 +20,7 @@ export function UserDetailPage({ id }: Props) {
   });
 
   return (
-    <DashboardShell activeTab="users" userRole={userRole}>
+    <DashboardShell activeTab="users" profilePic={profilePic} userRole={userRole}>
       <UserDetailScreen
         detail={detail}
         accessToken={accessToken}

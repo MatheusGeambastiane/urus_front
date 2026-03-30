@@ -10,7 +10,7 @@ type Props = { id: string };
 
 export function AppointmentDetailPage({ id }: Props) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const detailState = useAppointmentDetail({
     appointmentId: Number(id),
     accessToken,
@@ -18,7 +18,7 @@ export function AppointmentDetailPage({ id }: Props) {
   });
 
   return (
-    <DashboardShell activeTab="agenda" userRole={userRole}>
+    <DashboardShell activeTab="agenda" profilePic={profilePic} userRole={userRole}>
       <AppointmentDetailScreen
         appointmentId={Number(id)}
         detailState={detailState}

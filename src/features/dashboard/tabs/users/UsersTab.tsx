@@ -16,7 +16,7 @@ type Screen = "list" | "create";
 export function UsersTab({ firstName }: Props) {
   void firstName;
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const users = useUsers({ accessToken, fetchWithAuth });
   const [screen, setScreen] = useState<Screen>("list");
   const [showFabOptions, setShowFabOptions] = useState(false);
@@ -96,5 +96,5 @@ export function UsersTab({ firstName }: Props) {
       </div>
     );
 
-  return <DashboardShell activeTab="users" userRole={userRole}>{content}</DashboardShell>;
+  return <DashboardShell activeTab="users" profilePic={profilePic} userRole={userRole}>{content}</DashboardShell>;
 }

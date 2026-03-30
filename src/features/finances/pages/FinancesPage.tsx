@@ -26,7 +26,7 @@ type Props = { firstName: string };
 export function FinancesPage({ firstName }: Props) {
   void firstName;
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const [month, setMonth] = useState(formatMonthParam(new Date()));
   const [monthModalOpen, setMonthModalOpen] = useState(false);
   const [monthYearInput, setMonthYearInput] = useState(month.slice(0, 4));
@@ -98,7 +98,7 @@ export function FinancesPage({ firstName }: Props) {
   };
 
   return (
-    <DashboardShell activeTab="finances" userRole={userRole}>
+    <DashboardShell activeTab="finances" profilePic={profilePic} userRole={userRole}>
       <div className="flex flex-col gap-5 pb-40">
         <header className="flex items-center justify-between">
           <div>

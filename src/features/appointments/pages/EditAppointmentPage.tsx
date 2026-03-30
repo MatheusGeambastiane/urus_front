@@ -12,7 +12,7 @@ type Props = {
 
 export function EditAppointmentPage({ id }: Props) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const numericId = Number(id);
 
   const form = useAppointmentForm({
@@ -30,7 +30,7 @@ export function EditAppointmentPage({ id }: Props) {
   });
 
   return (
-    <DashboardShell activeTab="agenda" userRole={userRole}>
+    <DashboardShell activeTab="agenda" profilePic={profilePic} userRole={userRole}>
       <AppointmentFormScreen form={form} onBack={() => router.push(`/dashboard/agenda/${id}`)} />
     </DashboardShell>
   );

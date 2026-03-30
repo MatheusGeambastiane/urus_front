@@ -11,7 +11,7 @@ import type { ProfessionalServiceSummary, RepasseDetail } from "@/src/features/r
 
 export function PerformanceDetailPage({ id }: { id: string }) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const repasses = useRepasses({ accessToken, fetchWithAuth, month: formatMonthParam(new Date()), userRole });
   const { fetchDetail, fetchAnalytics } = repasses;
   const [detail, setDetail] = useState<RepasseDetail | null>(null);
@@ -38,7 +38,7 @@ export function PerformanceDetailPage({ id }: { id: string }) {
   }, [loadAnalysis]);
 
   return (
-    <DashboardShell activeTab="performance" userRole={userRole}>
+    <DashboardShell activeTab="performance" profilePic={profilePic} userRole={userRole}>
       <div className="space-y-5 pb-8">
         <header className="flex items-center justify-between">
           <div>

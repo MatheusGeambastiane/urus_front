@@ -24,7 +24,7 @@ type ProductUsageItem = {
 
 export function ServicesTab({ firstName }: Props) {
   void firstName;
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
 
   const [screen, setScreen] = useState<Screen>("list");
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
@@ -176,7 +176,7 @@ export function ServicesTab({ firstName }: Props) {
   };
 
   return (
-    <DashboardShell activeTab="services" userRole={userRole}>
+    <DashboardShell activeTab="services" profilePic={profilePic} userRole={userRole}>
       {renderContent()}
 
       <ProductPickerModal

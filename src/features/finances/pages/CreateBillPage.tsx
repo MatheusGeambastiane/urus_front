@@ -12,7 +12,7 @@ import { parseCurrencyInput } from "@/src/features/shared/utils/money";
 
 export function CreateBillPage() {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const bills = useBills({ accessToken, fetchWithAuth, month: formatMonthParam(new Date()) });
   const [form, setForm] = useState({
     name: "",
@@ -46,7 +46,7 @@ export function CreateBillPage() {
   };
 
   return (
-    <DashboardShell activeTab="finances" userRole={userRole}>
+    <DashboardShell activeTab="finances" profilePic={profilePic} userRole={userRole}>
       <div className="space-y-5 pb-8">
         <header className="flex items-center justify-between">
           <button

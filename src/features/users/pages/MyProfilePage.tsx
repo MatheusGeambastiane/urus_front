@@ -284,7 +284,7 @@ export function MyProfilePage() {
 
   if (loading) {
     return (
-      <DashboardShell activeTab="home" userRole={userRole}>
+      <DashboardShell activeTab="home" profilePic={profilePic} userRole={userRole}>
         <div className="flex min-h-[60vh] items-center justify-center text-white/70">
           <Loader2 className="h-6 w-6 animate-spin" />
           <span className="ml-3 text-sm">Carregando perfil...</span>
@@ -294,7 +294,7 @@ export function MyProfilePage() {
   }
 
   return (
-    <DashboardShell activeTab="home" userRole={userRole}>
+    <DashboardShell activeTab="home" profilePic={profilePic} userRole={userRole}>
       <div className="space-y-5 pb-24">
         <header className="flex items-center justify-between">
           <button

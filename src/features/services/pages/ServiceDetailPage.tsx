@@ -17,7 +17,7 @@ type ProductUsageItem = {
 
 export function ServiceDetailPage({ id }: { id: string }) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const [productPickerOpen, setProductPickerOpen] = useState(false);
 
   const { serviceCategories } = useServices({ accessToken, fetchWithAuth });
@@ -39,7 +39,7 @@ export function ServiceDetailPage({ id }: { id: string }) {
   };
 
   return (
-    <DashboardShell activeTab="services" userRole={userRole}>
+    <DashboardShell activeTab="services" profilePic={profilePic} userRole={userRole}>
       <ServiceDetailScreen
         detail={detail}
         serviceCategories={serviceCategories}

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Clock3, Eye, EyeOff, Filter, Plus, Trash2, Waves } from "lucide-react";
@@ -7,11 +8,32 @@ import { DashboardShell } from "@/src/features/dashboard/components/DashboardShe
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatDateParam } from "@/src/features/shared/utils/date";
 import { formatCurrency } from "@/src/features/shared/utils/money";
-import { AppointmentFilterModal } from "@/src/features/appointments/components/AppointmentFilterModal";
 import { AppointmentList } from "@/src/features/appointments/components/AppointmentList";
-import { DayRestrictionModal } from "@/src/features/appointments/components/DayRestrictionModal";
-import { DeleteDayRestrictionModal } from "@/src/features/appointments/components/DeleteDayRestrictionModal";
 import { useAppointments } from "@/src/features/appointments/hooks/useAppointments";
+
+const AppointmentFilterModal = dynamic(
+  () =>
+    import("@/src/features/appointments/components/AppointmentFilterModal").then((module) => ({
+      default: module.AppointmentFilterModal,
+    })),
+  { ssr: false },
+);
+
+const DayRestrictionModal = dynamic(
+  () =>
+    import("@/src/features/appointments/components/DayRestrictionModal").then((module) => ({
+      default: module.DayRestrictionModal,
+    })),
+  { ssr: false },
+);
+
+const DeleteDayRestrictionModal = dynamic(
+  () =>
+    import("@/src/features/appointments/components/DeleteDayRestrictionModal").then((module) => ({
+      default: module.DeleteDayRestrictionModal,
+    })),
+  { ssr: false },
+);
 
 function SummarySkeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-full bg-white/10 ${className}`.trim()} />;
@@ -19,7 +41,7 @@ function SummarySkeleton({ className = "" }: { className?: string }) {
 
 export function AgendaPage() {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const agenda = useAppointments({ accessToken, fetchWithAuth });
   const appointmentsDateListRef = useRef<HTMLDivElement>(null);
   const [showSummaryValues, setShowSummaryValues] = useState(false);
@@ -77,7 +99,7 @@ export function AgendaPage() {
     : "•••";
 
   return (
-    <DashboardShell activeTab="agenda" userRole={userRole}>
+    <DashboardShell activeTab="agenda" profilePic={profilePic} userRole={userRole}>
       <div className="flex flex-col gap-5 pb-40">
         <header className="flex items-center justify-between">
           <div>
@@ -112,31 +134,35 @@ export function AgendaPage() {
               </button>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-              <article className="rounded-[28px] border border-white/8 bg-black/20 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <article className="min-w-0 rounded-[28px] border border-white/8 bg-black/20 p-4">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/40">Faturamento</p>
                 {agenda.appointmentsLoading ? (
                   <div className="mt-4 space-y-3">
-                    <SummarySkeleton className="h-10 w-40 rounded-2xl" />
+                    <SummarySkeleton className="h-10 w-full max-w-40 rounded-2xl" />
                     <SummarySkeleton className="h-4 w-52" />
                   </div>
                 ) : (
                   <>
-                    <p className="mt-4 text-4xl font-semibold tracking-tight text-white">{summaryValueDisplay}</p>
+                    <p className="mt-4 truncate text-[clamp(1.5rem,6vw,2.25rem)] font-semibold tracking-tight text-white">
+                      {summaryValueDisplay}
+                    </p>
                   </>
                 )}
               </article>
 
-              <article className="rounded-[28px] border border-white/8 bg-white/[0.03] p-4">
+              <article className="min-w-0 rounded-[28px] border border-white/8 bg-white/[0.03] p-4">
                 <p className="text-xs uppercase tracking-[0.22em] text-white/40">Serviços</p>
                 {agenda.appointmentsLoading ? (
                   <div className="mt-4 space-y-3">
-                    <SummarySkeleton className="h-10 w-28 rounded-2xl" />
+                    <SummarySkeleton className="h-10 w-full max-w-28 rounded-2xl" />
                     <SummarySkeleton className="h-4 w-40" />
                   </div>
                 ) : (
                   <>
-                    <p className="mt-4 text-4xl font-semibold tracking-tight text-white">{servicesValueDisplay}</p>
+                    <p className="mt-4 truncate text-[clamp(1.5rem,6vw,2.25rem)] font-semibold tracking-tight text-white">
+                      {servicesValueDisplay}
+                    </p>
                   </>
                 )}
               </article>
@@ -146,7 +172,6 @@ export function AgendaPage() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.22em] text-white/40">Detalhamento</p>
-                  <p className="mt-1 text-sm text-white/55">Distribuição financeira e atendimentos por profissional.</p>
                 </div>
                 <button
                   type="button"

@@ -14,7 +14,7 @@ import type { RepasseDetail } from "@/src/features/repasses/types";
 
 export function RepasseDetailPage({ id }: { id: string }) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const repasses = useRepasses({ accessToken, fetchWithAuth, month: formatMonthParam(new Date()), userRole });
   const { fetchDetail, updateAllowance, registerPayment, uploadInvoice } = repasses;
   const [detail, setDetail] = useState<RepasseDetail | null>(null);
@@ -94,7 +94,7 @@ export function RepasseDetailPage({ id }: { id: string }) {
   };
 
   return (
-    <DashboardShell activeTab="finances" userRole={userRole}>
+    <DashboardShell activeTab="finances" profilePic={profilePic} userRole={userRole}>
       <div className="space-y-5 pb-8">
         <header className="flex items-center justify-between">
           <div>

@@ -24,7 +24,7 @@ type HomePageProps = {
 
 export function HomePage({ firstName }: HomePageProps) {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const dailySummary = useDailySummary({ accessToken, fetchWithAuth });
   const last7Days = useLast7Days({
     accessToken,
@@ -174,7 +174,7 @@ export function HomePage({ firstName }: HomePageProps) {
   });
 
   return (
-    <DashboardShell activeTab="home" userRole={userRole}>
+    <DashboardShell activeTab="home" profilePic={profilePic} userRole={userRole}>
       <div className="space-y-5 pb-6">
         <header className="flex items-center justify-between">
           <div>

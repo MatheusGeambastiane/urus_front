@@ -7,12 +7,12 @@ import { Calendar, Home, Scissors, ShoppingBag, Sparkles, Users, Wallet } from "
 
 import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
-import { useAuth } from "@/src/features/shared/hooks/useAuth";
 
 type DashboardShellProps = {
   activeTab: DashboardTab;
   children: ReactNode;
   userRole?: string;
+  profilePic?: string | null;
 };
 
 const bottomNavItems: Array<{ key: DashboardTab; label: string; icon: ComponentType<{ className?: string; strokeWidth?: number }> }> = [
@@ -25,9 +25,8 @@ const bottomNavItems: Array<{ key: DashboardTab; label: string; icon: ComponentT
   { key: "performance", label: "Desempenho", icon: Sparkles },
 ];
 
-export function DashboardShell({ activeTab, children, userRole }: DashboardShellProps) {
+export function DashboardShell({ activeTab, children, userRole, profilePic = null }: DashboardShellProps) {
   const router = useRouter();
-  const { profilePic } = useAuth();
   const visibleItems = bottomNavItems.filter((item) => {
     if (item.key === "finances") {
       return userRole === "admin";

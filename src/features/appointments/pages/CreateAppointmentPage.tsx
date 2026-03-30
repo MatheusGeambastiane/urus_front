@@ -8,7 +8,7 @@ import { useAppointmentForm } from "@/src/features/appointments/hooks/useAppoint
 
 export function CreateAppointmentPage() {
   const router = useRouter();
-  const { accessToken, fetchWithAuth, userRole } = useAuth();
+  const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const form = useAppointmentForm({
     accessToken,
     fetchWithAuth,
@@ -22,7 +22,7 @@ export function CreateAppointmentPage() {
   });
 
   return (
-    <DashboardShell activeTab="agenda" userRole={userRole}>
+    <DashboardShell activeTab="agenda" profilePic={profilePic} userRole={userRole}>
       <AppointmentFormScreen form={form} onBack={() => router.push("/dashboard/agenda")} />
     </DashboardShell>
   );
