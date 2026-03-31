@@ -67,6 +67,7 @@ import {
 } from "lucide-react";
 import { env } from "@/lib/env";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
+import { Modal } from "@/components/ui/Modal";
 import { createTokenRefreshService } from "@/src/features/shared/utils/auth";
 import {
   formatDisplayDate,
@@ -210,6 +211,7 @@ import type {
 type ProductsLegacyTabProps = {
   firstName: string;
   activeTab?: DashboardTab;
+  initialSalesView?: boolean;
 };
 
 const buildSalesFingerprint = (sales: AddedSaleItem[]) => {
@@ -431,6 +433,7 @@ const getSummaryMonthLabel = (date: Date) =>
 export function ProductsLegacyTab({
   firstName,
   activeTab = "products",
+  initialSalesView = false,
 }: ProductsLegacyTabProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -778,7 +781,7 @@ export function ProductsLegacyTab({
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
   const [isCreatingProductSale, setIsCreatingProductSale] = useState(false);
   const [showProductsFabOptions, setShowProductsFabOptions] = useState(false);
-  const [isViewingProductSales, setIsViewingProductSales] = useState(false);
+  const [isViewingProductSales, setIsViewingProductSales] = useState(initialSalesView);
   const [selectedResourceCount, setSelectedResourceCount] = useState<{
     label: string;
     count: number;
@@ -788,6 +791,17 @@ export function ProductsLegacyTab({
   const [productSalesError, setProductSalesError] = useState<string | null>(null);
   const [productSalesSearchInput, setProductSalesSearchInput] = useState("");
   const [productSalesSearchTerm, setProductSalesSearchTerm] = useState("");
+  const [productSalesUserFilter, setProductSalesUserFilter] = useState("");
+  const [productSalesStartDate, setProductSalesStartDate] = useState("");
+  const [productSalesFinishDate, setProductSalesFinishDate] = useState("");
+  const [pendingProductSalesUserFilter, setPendingProductSalesUserFilter] = useState("");
+  const [pendingProductSalesStartDate, setPendingProductSalesStartDate] = useState("");
+  const [pendingProductSalesFinishDate, setPendingProductSalesFinishDate] = useState("");
+  const [showProductSalesFilterModal, setShowProductSalesFilterModal] = useState(false);
+  const [productSalesPageSize, setProductSalesPageSize] = useState<typeof PAGE_SIZE_OPTIONS[number]>(
+    PAGE_SIZE_OPTIONS[0],
+  );
+  const [productSalesPage, setProductSalesPage] = useState(1);
   const [productSalesRefreshToken, setProductSalesRefreshToken] = useState(0);
   const [selectedProductSaleId, setSelectedProductSaleId] = useState<number | null>(null);
   const [productSaleDetailLoading, setProductSaleDetailLoading] = useState(false);
@@ -1990,6 +2004,17 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setProductSalesError(null);
       try {
         const url = new URL(transactionsSellListEndpoint);
+        if (productSalesUserFilter) {
+          url.searchParams.set("user", productSalesUserFilter);
+        }
+        if (productSalesStartDate) {
+          url.searchParams.set("start_date", productSalesStartDate);
+        }
+        if (productSalesFinishDate) {
+          url.searchParams.set("finish_date", productSalesFinishDate);
+        }
+        url.searchParams.set("page", String(productSalesPage));
+        url.searchParams.set("page_size", String(productSalesPageSize));
         if (productSalesSearchTerm) {
           url.searchParams.set("search", productSalesSearchTerm);
         }
@@ -2021,10 +2046,20 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchProductSales();
     return () => controller.abort();
-  }, [isViewingProductSales, accessToken, productSalesSearchTerm, productSalesRefreshToken]);
+  }, [
+    accessToken,
+    isViewingProductSales,
+    productSalesFinishDate,
+    productSalesPage,
+    productSalesPageSize,
+    productSalesRefreshToken,
+    productSalesSearchTerm,
+    productSalesStartDate,
+    productSalesUserFilter,
+  ]);
 
   useEffect(() => {
-    if (!selectedProductSaleId || !accessToken) {
+    if ((!selectedProductSaleId && !isViewingProductSales) || !accessToken) {
       return;
     }
     const controller = new AbortController();
@@ -2099,7 +2134,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchProductSaleDetail();
     return () => controller.abort();
-  }, [selectedProductSaleId, accessToken]);
+  }, [selectedProductSaleId, isViewingProductSales, accessToken]);
 
   useEffect(() => {
     if (!selectedProductId || !accessToken) {
@@ -2152,7 +2187,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   }, [selectedProductId, accessToken]);
 
   useEffect(() => {
-    if (!selectedProductSaleId || !accessToken) {
+    if ((!selectedProductSaleId && !showProductSalesFilterModal && !isViewingProductSales) || !accessToken) {
       return;
     }
     const controller = new AbortController();
@@ -2175,10 +2210,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         const mapped = Array.isArray(data)
           ? data
               .map((item) => ({
-                userId: item.user_id ?? item.id,
+                userId: item.user_id,
                 name: item.user_name,
               }))
-              .filter((item) => Number.isFinite(item.userId))
+              .filter(
+                (item): item is { userId: number; name: string } =>
+                  typeof item.userId === "number" && Boolean(item.name),
+              )
           : [];
         setProductSalesProfessionals(mapped);
       } catch (err) {
@@ -2190,7 +2228,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchProductSaleProfessionals();
     return () => controller.abort();
-  }, [selectedProductSaleId, accessToken]);
+  }, [selectedProductSaleId, showProductSalesFilterModal, isViewingProductSales, accessToken]);
 
   useEffect(() => {
     if (activeTab !== "home" || !accessToken) {
@@ -5677,24 +5715,50 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   const handleOpenProductSalesList = () => {
-    setIsViewingProductSales(true);
-    setIsCreatingProduct(false);
-    setIsCreatingProductSale(false);
-    setProductSalesSearchInput("");
-    setProductSalesSearchTerm("");
-    setProductSalesError(null);
-    setShowProductsFabOptions(false);
+    router.push("/dashboard/produtos/vendas");
   };
 
   const handleCloseProductSalesList = () => {
     setIsViewingProductSales(false);
     setProductSalesError(null);
     setSelectedProductSaleId(null);
+    setProductSalesPage(1);
+    setShowProductSalesFilterModal(false);
+    router.push("/dashboard/produtos");
   };
 
   const handleProductSalesSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setProductSalesSearchTerm(productSalesSearchInput.trim());
+    setProductSalesPage(1);
+  };
+
+  const handleClearProductSalesFilters = () => {
+    setProductSalesSearchInput("");
+    setProductSalesSearchTerm("");
+    setProductSalesUserFilter("");
+    setProductSalesStartDate("");
+    setProductSalesFinishDate("");
+    setPendingProductSalesUserFilter("");
+    setPendingProductSalesStartDate("");
+    setPendingProductSalesFinishDate("");
+    setProductSalesPageSize(PAGE_SIZE_OPTIONS[0]);
+    setProductSalesPage(1);
+  };
+
+  const handleOpenProductSalesFilters = () => {
+    setPendingProductSalesUserFilter(productSalesUserFilter);
+    setPendingProductSalesStartDate(productSalesStartDate);
+    setPendingProductSalesFinishDate(productSalesFinishDate);
+    setShowProductSalesFilterModal(true);
+  };
+
+  const handleApplyProductSalesFilters = () => {
+    setProductSalesUserFilter(pendingProductSalesUserFilter);
+    setProductSalesStartDate(pendingProductSalesStartDate);
+    setProductSalesFinishDate(pendingProductSalesFinishDate);
+    setProductSalesPage(1);
+    setShowProductSalesFilterModal(false);
   };
 
   const handleOpenProductSaleDetail = (saleId: number | null | undefined) => {
@@ -8289,15 +8353,74 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   const renderProductSalesListScreen = () => {
     const sales = productSalesData?.results ?? [];
-    const filteredSales = productSalesSearchTerm
-      ? sales.filter((sale) =>
-          [sale.name, sale.user_name, sale.payment]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(productSalesSearchTerm.toLowerCase()),
-        )
-      : sales;
+    const totalSales = productSalesData?.count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(totalSales / productSalesPageSize));
+    const totalSalesValue = sales.reduce((accumulator, sale) => {
+      const price = Number(sale.price ?? 0);
+      return accumulator + (Number.isFinite(price) ? price : 0);
+    }, 0);
+    const selectedProfessional = productSalesProfessionals.find(
+      (professional) => String(professional.userId) === productSalesUserFilter,
+    );
+    const paginationWindowStart = Math.max(1, productSalesPage - 1);
+    const paginationWindowEnd = Math.min(totalPages, paginationWindowStart + 2);
+    const visiblePaginationPages = Array.from(
+      { length: paginationWindowEnd - paginationWindowStart + 1 },
+      (_, index) => paginationWindowStart + index,
+    );
+
+    const renderSalesPagination = (position: "top" | "bottom") => (
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 ${
+          position === "bottom" ? "border-t border-white/5 pt-4" : ""
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setProductSalesPage((current) => Math.max(1, current - 1))}
+            disabled={productSalesPage <= 1 || !productSalesData?.previous}
+            className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Anterior
+          </button>
+
+          <div className="flex items-center gap-2">
+            {visiblePaginationPages.map((pageNumber) => {
+              const isActive = pageNumber === productSalesPage;
+
+              return (
+                <button
+                  key={`${position}-page-${pageNumber}`}
+                  type="button"
+                  onClick={() => setProductSalesPage(pageNumber)}
+                  className={`flex h-10 w-10 items-center justify-center rounded-2xl border text-sm font-semibold transition ${
+                    isActive
+                      ? "border-white bg-white text-black"
+                      : "border-white/10 bg-black/20 text-white/70 hover:border-white/20 hover:text-white"
+                  }`}
+                >
+                  {pageNumber}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setProductSalesPage((current) => Math.min(totalPages, current + 1))}
+            disabled={productSalesPage >= totalPages || !productSalesData?.next}
+            className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80 transition hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Próxima
+          </button>
+        </div>
+
+        <span className="text-xs text-white/45">
+          {totalSales} vendas
+        </span>
+      </div>
+    );
 
     return (
       <div className="flex flex-col gap-5">
@@ -8313,41 +8436,119 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <p className="text-sm text-white/60">Produtos</p>
             <p className="text-2xl font-semibold">Vendas</p>
           </div>
+          <button
+            type="button"
+            onClick={handleOpenProductSalesFilters}
+            className="ml-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+            aria-label="Abrir filtros"
+            title="Abrir filtros"
+          >
+            <Filter className="h-5 w-5" />
+          </button>
         </header>
 
-        <form onSubmit={handleProductSalesSearchSubmit} className="relative" role="search">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-          <input
-            type="search"
-            value={productSalesSearchInput}
-            onChange={(event) => setProductSalesSearchInput(event.target.value)}
-            placeholder="Buscar por produto ou usuário"
-            className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-24 text-sm outline-none transition focus:border-white/40"
-          />
-          {productSalesSearchTerm ? (
-            <button
-              type="button"
-              onClick={() => {
-                setProductSalesSearchInput("");
-                setProductSalesSearchTerm("");
-              }}
-              className="absolute right-24 top-1/2 -translate-y-1/2 text-xs text-white/60"
-            >
-              Limpar
-            </button>
-          ) : null}
-          <button
-            type="submit"
-            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black transition hover:bg-white/90"
-          >
-            Buscar
-          </button>
-        </form>
+        <section className="overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-card backdrop-blur-sm">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.26em] text-white/40">Painel</p>
+                <h3 className="mt-2 text-xl font-semibold tracking-tight text-white">Fluxo de vendas</h3>
+              </div>
+              <label className="text-right text-[11px] uppercase tracking-[0.22em] text-white/40">
+                Itens por página
+                <select
+                  value={productSalesPageSize}
+                  onChange={(event) => {
+                    setProductSalesPageSize(Number(event.target.value) as (typeof PAGE_SIZE_OPTIONS)[number]);
+                    setProductSalesPage(1);
+                  }}
+                  className="mt-2 h-10 rounded-2xl border border-white/10 bg-black/30 px-3 text-sm font-medium text-white outline-none transition focus:border-white/30"
+                >
+                  {PAGE_SIZE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
-        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+            <form onSubmit={handleProductSalesSearchSubmit} className="relative" role="search">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              <input
+                type="search"
+                value={productSalesSearchInput}
+                onChange={(event) => setProductSalesSearchInput(event.target.value)}
+                placeholder="Buscar por produto ou usuário"
+                className="h-12 w-full rounded-2xl border border-white/10 bg-black/20 pl-11 pr-24 text-sm outline-none transition focus:border-white/30"
+              />
+              {productSalesSearchTerm ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductSalesSearchInput("");
+                    setProductSalesSearchTerm("");
+                    setProductSalesPage(1);
+                  }}
+                  className="absolute right-24 top-1/2 -translate-y-1/2 text-xs text-white/55"
+                >
+                  Limpar
+                </button>
+              ) : null}
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black transition hover:bg-white/90"
+              >
+                Buscar
+              </button>
+            </form>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+              <div className="flex min-h-[52px] flex-wrap items-center gap-2 rounded-[24px] border border-white/8 bg-black/15 px-3 py-3">
+                <span className="text-[11px] uppercase tracking-[0.22em] text-white/38">Filtros aplicados</span>
+                {selectedProfessional ? (
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/65">
+                    {selectedProfessional.name}
+                  </span>
+                ) : null}
+                {productSalesStartDate ? (
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/65">
+                    {formatIsoToDisplay(productSalesStartDate)}
+                  </span>
+                ) : null}
+                {productSalesFinishDate ? (
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/65">
+                    {formatIsoToDisplay(productSalesFinishDate)}
+                  </span>
+                ) : null}
+                {!selectedProfessional && !productSalesStartDate && !productSalesFinishDate ? (
+                  <span className="text-sm text-white/45">Sem filtros ativos</span>
+                ) : null}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[24px] border border-white/8 bg-black/15 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-white/38">Quantidade</p>
+                  <p className="mt-2 text-2xl font-semibold text-white">{totalSales}</p>
+                </div>
+                <div className="rounded-[24px] border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 shadow-[0_0_0_1px_rgba(74,222,128,0.08)]">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-emerald-100/70">Total vendido</p>
+                  <p className="mt-2 inline-flex items-center gap-2 text-2xl font-semibold text-emerald-50">
+                    <DollarSign className="h-5 w-5" />
+                    {formatCurrency(totalSalesValue.toFixed(2))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {!productSalesLoading && totalSales > 0 ? renderSalesPagination("top") : null}
+
+        <section className="space-y-4 rounded-[30px] border border-white/6 bg-[#0b0b0b] p-5 shadow-card">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Vendas realizadas</h3>
-            <span className="text-xs text-white/60">{filteredSales.length} itens</span>
+            <span className="text-xs text-white/60">{totalSales} itens</span>
           </div>
           {productSalesLoading ? (
             <div className="flex items-center justify-center py-10 text-white/70">
@@ -8357,13 +8558,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <p className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
               {productSalesError}
             </p>
-          ) : filteredSales.length === 0 ? (
+          ) : sales.length === 0 ? (
             <p className="rounded-2xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">
               Nenhuma venda encontrada.
             </p>
           ) : (
             <ul className="space-y-3">
-              {filteredSales.map((sale, index) => {
+              {sales.map((sale, index) => {
                 const paymentLabel = getSellPaymentLabel(sale.payment);
                 const saleDate = sale.date ? formatIsoToDisplay(sale.date) : "--";
                 return (
@@ -8372,9 +8573,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                       type="button"
                       onClick={() => handleOpenProductSaleDetail(sale.id)}
                       disabled={!sale.id}
-                      className="flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-black/30 p-4 text-left disabled:cursor-not-allowed disabled:opacity-70"
+                      className="flex w-full items-center gap-4 rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] p-4 text-left transition hover:border-white/20 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))] disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-white/5">
+                      <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-[22px] bg-white/5 ring-1 ring-white/8">
                         {sale.image ? (
                           <Image
                             src={sale.image}
@@ -8389,20 +8590,20 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                           </div>
                         )}
                       </div>
-                      <div className="flex-1">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-base font-semibold">{sale.name}</p>
-                          <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] uppercase tracking-wide text-white/70">
+                          <p className="max-w-[70%] truncate text-base font-semibold">{sale.name}</p>
+                          <span className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] uppercase tracking-wide text-white/70">
                             {paymentLabel}
                           </span>
                         </div>
-                        <p className="text-xs text-white/60">
-                          Vendido por: {sale.user_name ?? "—"}
-                        </p>
-                        <p className="text-xs text-white/60">Data: {saleDate}</p>
-                        <p className="text-sm font-semibold text-white">
-                          {formatCurrency(sale.price)}
-                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-white/55">
+                          <span className="rounded-full bg-white/6 px-2.5 py-1">
+                            {sale.user_name ?? "Sem usuário"}
+                          </span>
+                          <span className="rounded-full bg-white/6 px-2.5 py-1">{saleDate}</span>
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-white">{formatCurrency(sale.price)}</p>
                       </div>
                     </button>
                   </li>
@@ -8410,7 +8611,82 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               })}
             </ul>
           )}
+
+          {!productSalesLoading && totalSales > 0 ? (
+            renderSalesPagination("bottom")
+          ) : null}
         </section>
+
+        <Modal
+          open={showProductSalesFilterModal}
+          onClose={() => setShowProductSalesFilterModal(false)}
+          title="Filtrar vendas"
+          subtitle="Filtros"
+        >
+          <div className="space-y-3 text-sm text-white/80">
+            <label className="block text-white/70">
+              Usuário
+              <select
+                value={pendingProductSalesUserFilter}
+                onChange={(event) => setPendingProductSalesUserFilter(event.target.value)}
+                className="mt-1 h-12 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 text-sm outline-none focus:border-white/40"
+              >
+                <option value="">Todos</option>
+                {productSalesProfessionals.map((professional) => (
+                  <option key={professional.userId} value={professional.userId}>
+                    {professional.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block text-white/70">
+              Data inicial
+              <input
+                type="date"
+                value={pendingProductSalesStartDate}
+                onChange={(event) => setPendingProductSalesStartDate(event.target.value)}
+                className="mt-1 h-12 w-full rounded-2xl border border-white/10 bg-transparent px-4 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+
+            <label className="block text-white/70">
+              Data final
+              <input
+                type="date"
+                value={pendingProductSalesFinishDate}
+                onChange={(event) => setPendingProductSalesFinishDate(event.target.value)}
+                className="mt-1 h-12 w-full rounded-2xl border border-white/10 bg-transparent px-4 text-sm outline-none focus:border-white/40"
+              />
+            </label>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleClearProductSalesFilters}
+              className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+            >
+              Limpar
+            </button>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowProductSalesFilterModal(false)}
+                className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/80"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyProductSalesFilters}
+                className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </Modal>
       </div>
     );
   };
