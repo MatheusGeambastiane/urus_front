@@ -2,6 +2,7 @@
 
 import { Modal } from "@/components/ui/Modal";
 import { moneyResourceOptions, paymentTypeOptions } from "@/src/features/finances/utils/finances";
+import { formatCurrency, formatMoneyInputValue } from "@/src/features/shared/utils/money";
 
 type BillPaymentModalProps = {
   open: boolean;
@@ -11,6 +12,7 @@ type BillPaymentModalProps = {
     money_resource: string;
     payment_proof: File | null;
   };
+  remainingAmount: number;
   error: string | null;
   submitting: boolean;
   onClose: () => void;
@@ -21,6 +23,7 @@ type BillPaymentModalProps = {
 export function BillPaymentModal({
   open,
   form,
+  remainingAmount,
   error,
   submitting,
   onClose,
@@ -35,9 +38,11 @@ export function BillPaymentModal({
           <input
             type="text"
             value={form.price}
-            onChange={(event) => onChange("price", event.target.value)}
+            onChange={(event) => onChange("price", formatMoneyInputValue(event.target.value))}
             className="h-11 w-full rounded-2xl border border-white/10 bg-transparent px-4 text-sm outline-none focus:border-white/40"
+            placeholder="R$ 0,00"
           />
+          <p className="mt-1 text-xs text-white/60">Falta para quitar: {formatCurrency(remainingAmount.toFixed(2))}</p>
         </label>
         <label className="block">
           <span className="mb-1 block text-sm text-white/60">Forma</span>

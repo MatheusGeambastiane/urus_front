@@ -85,7 +85,7 @@ export const editUserSchema = z.object({
   role: z.string().min(1, "Selecione uma função."),
   dateOfBirth: z
     .string()
-    .regex(/^\d{2}\/\d{2}\/\d{4}$/, "Use o formato dd/mm/aaaa."),
+    .refine((value) => value === "" || /^\d{2}\/\d{2}\/\d{4}$/.test(value), "Use o formato dd/mm/aaaa."),
   isActive: z.boolean().default(true),
   profilePic: z
     .any()

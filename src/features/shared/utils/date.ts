@@ -42,11 +42,20 @@ export const formatIsoToDisplay = (iso: string) => {
   if (!iso) {
     return "";
   }
-  const [year, month, day] = iso.split("-");
-  if (!year || !month || !day) {
-    return "";
+  const normalized = iso.trim();
+
+  const isoMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${day}/${month}/${year}`;
   }
-  return `${day}/${month}/${year}`;
+
+  const displayMatch = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (displayMatch) {
+    return normalized;
+  }
+
+  return "";
 };
 
 export const buildDateTimeISOString = (date: string, time: string) => {

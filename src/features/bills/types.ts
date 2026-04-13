@@ -2,6 +2,7 @@ export type BillItem = {
   id: number;
   name: string;
   bill_type: string;
+  bill_type_display?: string | null;
   value: string;
   is_paid: boolean;
   date_of_payment: string;
@@ -25,6 +26,7 @@ export type BillTransaction = {
 
 export type BillDetail = BillItem & {
   type: string;
+  type_display?: string | null;
   finish_month: string | null;
   created_at: string;
   updated_at: string;
