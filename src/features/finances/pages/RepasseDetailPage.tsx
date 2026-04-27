@@ -9,7 +9,7 @@ import { RepasseDetailPanel } from "@/src/features/finances/components/RepasseDe
 import { RepassePaymentModal } from "@/src/features/finances/components/RepassePaymentModal";
 import { RepasseInvoiceModal } from "@/src/features/finances/components/RepasseInvoiceModal";
 import { formatMonthParam } from "@/src/features/finances/utils/finances";
-import { formatMoneyFromDecimalString, parseCurrencyInput } from "@/src/features/shared/utils/money";
+import { formatMoneyFromDecimalString, formatMoneyInputValue, parseCurrencyInput } from "@/src/features/shared/utils/money";
 import type { RepasseDetail } from "@/src/features/repasses/types";
 
 export function RepasseDetailPage({ id }: { id: string }) {
@@ -35,10 +35,18 @@ export function RepasseDetailPage({ id }: { id: string }) {
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
 
+  const formatAllowanceField = (value: string | null | undefined) => {
+    const parsed = parseCurrencyInput(value ?? "0");
+    if (parsed <= 0) {
+      return "";
+    }
+    return formatMoneyFromDecimalString(parsed.toFixed(2)).replace(/^R\$\s?/, "");
+  };
+
   useEffect(() => {
     void fetchDetail(Number(id)).then((data) => {
       setDetail(data);
-      setAllowanceInput(formatMoneyFromDecimalString(data.allowence ?? "0"));
+      setAllowanceInput(formatAllowanceField(data.allowence));
     }).catch((err) => setAllowanceError(err instanceof Error ? err.message : "Erro ao carregar repasse."));
   }, [fetchDetail, id]);
 
@@ -48,12 +56,17 @@ export function RepasseDetailPage({ id }: { id: string }) {
     try {
       const updated = await updateAllowance(Number(id), parseCurrencyInput(allowanceInput).toFixed(2));
       setDetail(updated);
-      setAllowanceInput(formatMoneyFromDecimalString(updated.allowence ?? "0"));
+      setAllowanceInput(formatAllowanceField(updated.allowence));
     } catch (err) {
       setAllowanceError(err instanceof Error ? err.message : "Erro ao salvar ajuda de custo.");
     } finally {
       setAllowanceSaving(false);
     }
+  };
+
+  const handleAllowanceChange = (value: string) => {
+    const formatted = formatMoneyInputValue(value).replace(/^R\$\s?/, "");
+    setAllowanceInput(formatted);
   };
 
   const handleRegisterPayment = async () => {
@@ -111,7 +124,7 @@ export function RepasseDetailPage({ id }: { id: string }) {
           allowanceInput={allowanceInput}
           allowanceError={allowanceError}
           allowanceSaving={allowanceSaving}
-          onAllowanceChange={setAllowanceInput}
+          onAllowanceChange={handleAllowanceChange}
           onSaveAllowance={handleSaveAllowance}
           onOpenPayment={() => setPaymentOpen(true)}
           onOpenInvoice={() => setInvoiceOpen(true)}

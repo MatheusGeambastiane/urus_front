@@ -10,6 +10,7 @@ import { formatDateParam } from "@/src/features/shared/utils/date";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 import { AppointmentList } from "@/src/features/appointments/components/AppointmentList";
 import { useAppointments } from "@/src/features/appointments/hooks/useAppointments";
+import type { PaymentType } from "@/src/shared/types/payment";
 
 const AppointmentFilterModal = dynamic(
   () =>
@@ -315,10 +316,11 @@ export function AgendaPage() {
         ) : (
           <AppointmentList
             appointments={agenda.appointments}
+            servicesList={agenda.servicesList}
             statusUpdatingId={agenda.statusUpdatingId}
             onOpen={(appointmentId) => router.push(`/dashboard/agenda/${appointmentId}`)}
-            onComplete={async (appointmentId) => {
-              await agenda.updateAppointmentStatus(appointmentId, "realizado");
+            onComplete={async (appointmentId, paymentType: PaymentType, serviceIds: number[]) => {
+              await agenda.updateAppointmentStatus(appointmentId, "realizado", paymentType, serviceIds);
             }}
             onReopen={async (appointmentId) => {
               await agenda.updateAppointmentStatus(appointmentId, "agendado");

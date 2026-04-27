@@ -5,7 +5,12 @@ import type { TokenRefreshService } from "@/src/features/shared/utils/auth";
 import { buildDateTimeISOString, formatDateParam, formatTimeInputValue } from "@/src/features/shared/utils/date";
 import { parseCurrencyInput } from "@/src/features/shared/utils/money";
 import { appointmentsEndpointBase, professionalProfilesSimpleListEndpoint } from "@/src/features/appointments/services/endpoints";
-import { createProfessionalSlot, getDefaultServicePrice, normalizeAppointmentPaymentTypeForApi } from "@/src/features/appointments/utils/appointments";
+import {
+  createProfessionalSlot,
+  getDefaultServicePrice,
+  normalizeApiPaymentTypeToUi,
+  normalizeAppointmentPaymentTypeForApi,
+} from "@/src/features/appointments/utils/appointments";
 import type {
   AppointmentItem,
   AppointmentProfessionalSlot,
@@ -71,19 +76,6 @@ const buildSalesFingerprint = (sales: AddedSaleItem[]) => {
       const bKey = `${b.saleId ?? "n"}-${b.productId}-${b.quantity}-${b.price}-${b.paymentType}-${b.userId ?? "n"}`;
       return aKey.localeCompare(bKey);
     });
-};
-
-const normalizeApiPaymentTypeToUi = (value: string | null | undefined): PaymentType | null => {
-  if (!value) {
-    return null;
-  }
-  if (value === "dinheiro") {
-    return "money";
-  }
-  if (value === "credit" || value === "debit" || value === "pix" || value === "money") {
-    return value;
-  }
-  return null;
 };
 
 export function useAppointmentForm({
@@ -996,6 +988,7 @@ export function useAppointmentForm({
       });
       return next;
     });
+    setPriceManuallyEdited(false);
     setShowServicesPickerModal(false);
   };
 
@@ -1007,6 +1000,7 @@ export function useAppointmentForm({
       delete updated[serviceId];
       return updated;
     });
+    setPriceManuallyEdited(false);
   };
 
   const handleAddProfessionalSlot = () => {

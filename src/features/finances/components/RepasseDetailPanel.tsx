@@ -45,12 +45,29 @@ export function RepasseDetailPanel({
             <p className="text-lg font-semibold">{detail.professional.name}</p>
             <p className="text-sm text-white/60">{detail.professional.professional_type || "Tipo não informado"}</p>
           </div>
-          <p className="text-2xl font-semibold">{formatCurrency(totals.total.toFixed(2))}</p>
+          <div className="text-right">
+            <p className="text-2xl font-semibold">{formatCurrency(totals.total.toFixed(2))}</p>
+            <div className="mt-2 space-y-1 text-xs text-white/60">
+              <p>Serviços: <span className="font-semibold text-white">{formatCurrency(detail.value_service ?? "0")}</span></p>
+              <p>Produtos: <span className="font-semibold text-white">{formatCurrency(detail.value_product ?? "0")}</span></p>
+              <p>Gorjetas: <span className="font-semibold text-white">{formatCurrency(detail.value_tips ?? "0")}</span></p>
+              <p>Ajuda de custo: <span className="font-semibold text-white">{formatCurrency(detail.allowence ?? "0")}</span></p>
+            </div>
+          </div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
           <p className="text-xs uppercase tracking-wide text-white/60">Ajuda de custo</p>
           <div className="mt-2 flex items-center gap-3">
-            <input value={allowanceInput} onChange={(e) => onAllowanceChange(e.target.value)} className="h-11 flex-1 rounded-2xl border border-white/10 bg-transparent px-4 text-sm outline-none focus:border-white/40" />
+            <div className="relative flex-1">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/45">R$</span>
+              <input
+                value={allowanceInput}
+                onChange={(e) => onAllowanceChange(e.target.value)}
+                placeholder="0,00"
+                inputMode="numeric"
+                className="h-11 w-full rounded-2xl border border-white/10 bg-transparent pl-12 pr-4 text-sm outline-none placeholder:text-white/25 focus:border-white/40"
+              />
+            </div>
             <button type="button" onClick={onSaveAllowance} disabled={allowanceSaving} className="rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-60">
               {allowanceSaving ? "Salvando..." : "Salvar"}
             </button>

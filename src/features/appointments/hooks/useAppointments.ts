@@ -3,10 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { TokenRefreshService } from "@/src/features/shared/utils/auth";
 import { formatDateParam, formatDatePillLabel } from "@/src/features/shared/utils/date";
+import { parseCurrencyInput } from "@/src/features/shared/utils/money";
 import { appointmentsEndpointBase, dayRestrictionsEndpointBase, professionalProfilesSimpleListEndpoint } from "@/src/features/appointments/services/endpoints";
 import { serviceCategoriesEndpoint } from "@/src/features/services/services/endpoints";
-import type { ProfessionalSimple, ServiceCategoryOption, ServiceOption } from "@/src/features/services/types";
+import { normalizeAppointmentPaymentTypeForApi } from "@/src/features/appointments/utils/appointments";
+import { servicesSimpleListEndpoint } from "@/src/features/users/services/endpoints";
+import type { ProfessionalSimple, ServiceCategoryOption, ServiceOption, ServiceSimpleOption } from "@/src/features/services/types";
 import type { AppointmentsResponse, AppointmentItem, AppointmentStatus } from "@/src/features/appointments/types";
+import type { PaymentType } from "@/src/shared/types/payment";
 
 type UseAppointmentsParams = {
   accessToken: string | null;
@@ -29,6 +33,18 @@ const buildDateTimeWithTimezoneOffset = (date: string, time: string) => {
   }
   const normalizedTime = time.length === 5 ? `${time}:00` : time;
   return `${date}T${normalizedTime}${DASHBOARD_TIMEZONE_OFFSET}`;
+};
+
+const sumAppointmentPricesByStatus = (items: AppointmentItem[], status: AppointmentStatus) => {
+  return items
+    .filter((appointment) => appointment.status === status)
+    .reduce((total, appointment) => total + parseCurrencyInput(appointment.price_paid ?? "0"), 0);
+};
+
+const sumServicesPrice = (services: ServiceSimpleOption[], serviceIds: number[]) => {
+  return services
+    .filter((service) => serviceIds.includes(service.id))
+    .reduce((total, service) => total + parseCurrencyInput(service.price ?? "0"), 0);
 };
 
 export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsParams) {
@@ -66,7 +82,43 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
   const [professionalsError, setProfessionalsError] = useState<string | null>(null);
   const [serviceCategories, setServiceCategories] = useState<ServiceCategoryOption[]>([]);
   const [serviceCategoriesError, setServiceCategoriesError] = useState<string | null>(null);
+  const [servicesList, setServicesList] = useState<ServiceSimpleOption[]>([]);
   const [filterOptionsLoaded, setFilterOptionsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const fetchServicesList = async () => {
+      try {
+        const response = await fetchWithAuth(servicesSimpleListEndpoint, {
+          credentials: "include",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("Não foi possível carregar os serviços.");
+        }
+
+        const data: ServiceSimpleOption[] = await response.json();
+        setServicesList(Array.isArray(data) ? data : []);
+      } catch {
+        if (!controller.signal.aborted) {
+          setServicesList([]);
+        }
+      }
+    };
+
+    void fetchServicesList();
+    return () => controller.abort();
+  }, [accessToken, fetchWithAuth]);
 
   const [dayRestriction, setDayRestriction] = useState<AppointmentsResponse["day_restriction"]>(null);
   const [showDeleteDayRestrictionModal, setShowDeleteDayRestrictionModal] = useState(false);
@@ -463,15 +515,38 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
   };
 
   const updateAppointmentStatus = useCallback(
-    async (appointmentId: number, status: AppointmentStatus) => {
+    async (
+      appointmentId: number,
+      status: AppointmentStatus,
+      paymentType?: PaymentType,
+      serviceIds?: number[],
+    ) => {
       if (!accessToken) {
         setAppointmentsError("Sessão expirada. Faça login novamente.");
+        return false;
+      }
+
+      const currentAppointment = appointments.find((appointment) => appointment.id === appointmentId);
+      if (!currentAppointment) {
+        setAppointmentsError("Agendamento não encontrado.");
         return false;
       }
 
       setStatusUpdatingId(appointmentId);
       setAppointmentsError(null);
       try {
+        const payload: Record<string, unknown> = { status };
+        const nextPricePaid =
+          serviceIds && serviceIds.length > 0
+            ? sumServicesPrice(servicesList, serviceIds).toFixed(2)
+            : currentAppointment.price_paid;
+        if (paymentType) {
+          payload.payment_type = normalizeAppointmentPaymentTypeForApi(paymentType);
+        }
+        if (serviceIds && serviceIds.length > 0) {
+          payload.services = serviceIds;
+          payload.price_paid = nextPricePaid;
+        }
         const response = await fetchWithAuth(`${appointmentsEndpointBase}${appointmentId}/`, {
           method: "PATCH",
           credentials: "include",
@@ -480,7 +555,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ status }),
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
@@ -497,18 +572,43 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
         }
 
         const updated: AppointmentItem | null = await response.json().catch(() => null);
-        setAppointments((previous) =>
-          previous.map((appointment) =>
-            appointment.id === appointmentId
-              ? {
-                  ...appointment,
-                  ...(updated ?? {}),
-                  status,
-                }
-              : appointment,
-          ),
+        const nextAppointments = appointments.map((appointment) =>
+          appointment.id === appointmentId
+            ? {
+                ...appointment,
+                ...(updated ?? {}),
+                status,
+                payment_type:
+                  updated?.payment_type ??
+                  (paymentType ? normalizeAppointmentPaymentTypeForApi(paymentType) : appointment.payment_type),
+                price_paid: updated?.price_paid ?? nextPricePaid,
+                services:
+                  updated?.services ??
+                  (serviceIds
+                    ? servicesList
+                        .filter((service) => serviceIds.includes(service.id))
+                        .map((service) => ({
+                          id: service.id,
+                          name: service.name,
+                          category_name: "",
+                        }))
+                    : appointment.services),
+              }
+            : appointment,
         );
-        setAppointmentsRefreshToken((previous) => previous + 1);
+        const completedTotalCount = nextAppointments.filter((appointment) => appointment.status === "realizado").length;
+        const scheduledStatusTotal = nextAppointments.filter(
+          (appointment) => appointment.status !== "realizado" && appointment.status !== "cancelado",
+        ).length;
+        const completedTotalPrice = sumAppointmentPricesByStatus(nextAppointments, "realizado").toFixed(2);
+
+        setAppointments(nextAppointments);
+        setAppointmentsSummary((previous) => ({
+          ...previous,
+          completed_total_count: completedTotalCount,
+          completed_total_price: completedTotalPrice,
+          scheduled_status_total: scheduledStatusTotal,
+        }));
         return true;
       } catch (err) {
         setAppointmentsError(
@@ -519,7 +619,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
         setStatusUpdatingId(null);
       }
     },
-    [accessToken, fetchWithAuth],
+    [accessToken, appointments, fetchWithAuth, servicesList],
   );
 
   return {
@@ -546,6 +646,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
     professionalsError,
     serviceCategories,
     serviceCategoriesError,
+    servicesList,
     dayRestriction,
     showDeleteDayRestrictionModal,
     deleteDayRestrictionError,

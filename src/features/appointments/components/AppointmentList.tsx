@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { AppointmentItem } from "@/src/features/appointments/types";
 import { AppointmentCard } from "@/src/features/appointments/components/AppointmentCard";
+import type { ServiceSimpleOption } from "@/src/features/services/types";
+import type { PaymentType } from "@/src/shared/types/payment";
 
 type AppointmentListProps = {
   appointments: AppointmentItem[];
+  servicesList: ServiceSimpleOption[];
   onOpen: (appointmentId: number) => void;
-  onComplete: (appointmentId: number) => Promise<void> | void;
+  onComplete: (appointmentId: number, paymentType: PaymentType, serviceIds: number[]) => Promise<void> | void;
   onReopen: (appointmentId: number) => Promise<void> | void;
   statusUpdatingId: number | null;
 };
@@ -17,6 +20,7 @@ const APPOINTMENTS_BATCH_SIZE = 8;
 
 export function AppointmentList({
   appointments,
+  servicesList,
   onOpen,
   onComplete,
   onReopen,
@@ -62,6 +66,7 @@ export function AppointmentList({
         <div key={appointment.id} className={index === visibleAppointments.length - 1 ? "last:border-0" : ""}>
           <AppointmentCard
             appointment={appointment}
+            servicesList={servicesList}
             onOpen={onOpen}
             onComplete={onComplete}
             onReopen={onReopen}

@@ -38,3 +38,16 @@ export const normalizeAppointmentPaymentTypeForApi = (paymentType: PaymentType) 
   }
   return paymentType;
 };
+
+export const normalizeApiPaymentTypeToUi = (value: string | null | undefined): PaymentType | null => {
+  if (!value) {
+    return null;
+  }
+  if (value === "dinheiro") {
+    return "money";
+  }
+  if (value === "credit" || value === "debit" || value === "pix" || value === "money") {
+    return value;
+  }
+  return null;
+};

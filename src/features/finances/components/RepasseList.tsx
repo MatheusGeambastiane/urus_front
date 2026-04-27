@@ -57,7 +57,7 @@ export function RepasseList({
                   <p className="text-[11px] uppercase tracking-[0.18em] text-white/35">Repasse</p>
                   <p className="mt-1 text-base font-semibold text-white">{repasse.professional.name}</p>
                   <p className="text-xs text-white/60">
-                    Serviços: {formatCurrency((repasse.value_service ?? "0"))} • Produtos: {formatCurrency(repasse.value_product ?? "0")}
+                    Serviços: {formatCurrency((repasse.value_service ?? "0"))} • Produtos: {formatCurrency(repasse.value_product ?? "0")} • Ajuda de custo: {formatCurrency(repasse.allowence ?? "0")}
                   </p>
                 </div>
                 <p className="text-lg font-semibold text-white">{formatCurrency(total.toFixed(2))}</p>

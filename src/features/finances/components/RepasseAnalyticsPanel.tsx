@@ -86,6 +86,9 @@ export function RepasseAnalyticsPanel({
     0,
   );
   const averageDailyRevenue = parseCurrencyInput(analytics?.average_daily_revenue ?? "0");
+  const serviceRevenue = parseCurrencyInput(totals?.service_revenue ?? "0");
+  const salesRevenue = parseCurrencyInput(totals?.sales_revenue ?? "0");
+  const totalGeneratedRevenue = serviceRevenue + salesRevenue;
   const weeklyRevenueData = weeklyRevenue.map((item) => ({
     label: formatCompactRange(item.start_date, item.end_date),
     total: parseCurrencyInput(item.total_value ?? "0"),
@@ -156,11 +159,32 @@ export function RepasseAnalyticsPanel({
             </article>
 
             <article className="rounded-[24px] border border-white/10 bg-white/[0.05] p-4 backdrop-blur-md">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Média diária</p>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Média/dia</p>
               <p className="mt-3 text-2xl font-semibold text-cyan-200 sm:text-3xl">
                 {formatCurrency(averageDailyRevenue.toFixed(2))}
               </p>
               <p className="mt-2 text-xs text-white/58">Faturamento médio por dia</p>
+            </article>
+
+            <article className="col-span-2 rounded-[24px] border border-white/10 bg-white/[0.05] p-4 backdrop-blur-md">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Total gerado</p>
+                  <p className="mt-3 text-2xl font-semibold text-emerald-300 sm:text-3xl">
+                    {formatCurrency(totalGeneratedRevenue.toFixed(2))}
+                  </p>
+                </div>
+                <div className="min-w-[10rem] space-y-2 text-right text-sm">
+                  <div>
+                    <p className="text-white/50">Serviços</p>
+                    <p className="font-semibold text-white">{formatCurrency(serviceRevenue.toFixed(2))}</p>
+                  </div>
+                  <div>
+                    <p className="text-white/50">Vendas</p>
+                    <p className="font-semibold text-white">{formatCurrency(salesRevenue.toFixed(2))}</p>
+                  </div>
+                </div>
+              </div>
             </article>
           </div>
 
