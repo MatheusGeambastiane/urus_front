@@ -257,6 +257,7 @@ export function useUserDetail({ userId, accessToken, fetchWithAuth }: UseUserDet
           body: JSON.stringify(payload),
         });
         if (!response.ok) return { success: false, error: "Não foi possível criar o intervalo." };
+        setDetailRefreshToken((prev) => prev + 1);
         return { success: true };
       } catch (err) {
         return { success: false, error: err instanceof Error ? err.message : "Erro ao criar intervalo." };

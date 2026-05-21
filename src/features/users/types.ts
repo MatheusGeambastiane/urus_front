@@ -7,6 +7,25 @@ export type ProfessionalProfile = {
   professional_type: string | null;
 };
 
+export type ProfessionalProfileServiceItem = {
+  id: number;
+  name: string;
+  category: number;
+  category_name: string;
+};
+
+export type ProfessionalInterval = {
+  id: number;
+  professional: number;
+  date_start: string | null;
+  date_finish: string | null;
+  hour_start: string;
+  hour_finish: string;
+  week_days: number[];
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type ProfessionalProfileDetail = {
   id: number;
   professional_type: string;
@@ -14,13 +33,7 @@ export type ProfessionalProfileDetail = {
   commission: number;
   bio: string;
   services: number[];
-};
-
-export type ProfessionalProfileServiceItem = {
-  id: number;
-  name: string;
-  category: number;
-  category_name: string;
+  active_professional_interval: ProfessionalInterval | null;
 };
 
 export type AuthenticatedProfessionalProfile = {
@@ -40,6 +53,7 @@ export type AuthenticatedProfessionalProfile = {
   commission: number;
   bio: string;
   services: ProfessionalProfileServiceItem[];
+  active_professional_interval: ProfessionalInterval | null;
   created_at: string;
   updated_at: string;
 };

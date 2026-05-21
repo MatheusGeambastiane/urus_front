@@ -520,8 +520,10 @@ export function UserDetailScreen({
           userDetail={userDetail}
           accessToken={accessToken}
           fetchWithAuth={fetchWithAuth}
+          canEditUser={canEditUser}
           onSaveProfile={updateProfessionalProfile}
           onAddInterval={addProfessionalInterval}
+          onSaveActiveInterval={updateUser}
           onFeedback={setFeedback}
         />
       ) : null}
