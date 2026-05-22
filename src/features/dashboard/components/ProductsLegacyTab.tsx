@@ -836,6 +836,7 @@ export function ProductsLegacyTab({
   const [productSalePriceInput, setProductSalePriceInput] = useState("");
   const [productSaleQuantityInput, setProductSaleQuantityInput] = useState("1");
   const [productSalePayment, setProductSalePayment] = useState<ProductSalePaymentType | null>(null);
+  const [productSaleIsInternalSell, setProductSaleIsInternalSell] = useState(false);
   const [productSaleDateIso, setProductSaleDateIso] = useState(() => formatDateParam(new Date()));
   const [productSaleDateDisplay, setProductSaleDateDisplay] = useState(() =>
     formatIsoToDisplay(formatDateParam(new Date())),
@@ -1827,7 +1828,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         });
 
         if (!response.ok) {
-          throw new Error("Não foi possível carregar vendedores.");
+          throw new Error(
+            productSaleIsInternalSell
+              ? "Não foi possível carregar compradores."
+              : "Não foi possível carregar vendedores.",
+          );
         }
 
         const data: ProfessionalSimple[] = await response.json();
@@ -1845,7 +1850,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           setProductSaleSellerError(
             err instanceof Error
               ? err.message
-              : "Erro inesperado ao buscar vendedores.",
+              : productSaleIsInternalSell
+                ? "Erro inesperado ao buscar compradores."
+                : "Erro inesperado ao buscar vendedores.",
           );
         }
       } finally {
@@ -1857,7 +1864,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     fetchSellers();
     return () => controller.abort();
-  }, [showProductSaleSellerModal, productSaleSellerSearchTerm, accessToken]);
+  }, [showProductSaleSellerModal, productSaleSellerSearchTerm, productSaleIsInternalSell, accessToken]);
 
   useEffect(() => {
     if (!saleModalOpen || !accessToken) {
@@ -5693,6 +5700,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSalePriceInput("");
     setProductSaleQuantityInput("1");
     setProductSalePayment(null);
+    setProductSaleIsInternalSell(false);
     setProductSaleSeller(null);
     setShowProductSaleSellerModal(false);
     setProductSaleSellerSearchInput("");
@@ -5711,6 +5719,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setProductSaleError(null);
     setProductSaleProductModalOpen(false);
     setProductSaleSelectedProduct(null);
+    setProductSaleIsInternalSell(false);
     setShowProductSaleSellerModal(false);
   };
 
@@ -6621,7 +6630,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       return;
     }
     if (!productSaleSeller) {
-      setProductSaleError("Selecione o vendedor.");
+      setProductSaleError(
+        productSaleIsInternalSell ? "Selecione o comprador." : "Selecione o vendedor.",
+      );
       return;
     }
     const priceValue = parseCurrencyInput(productSalePriceInput);
@@ -6643,6 +6654,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     formData.append("date_of_transaction", saleDateIso);
     formData.append("transaction_payment", productSalePayment);
     formData.append("quantity", quantityValue.toString());
+    formData.append("is_internal_sell", productSaleIsInternalSell ? "true" : "false");
     formData.append("user", String(productSaleSeller.id));
     formData.append("product", productSaleSelectedProduct.id.toString());
 
@@ -8295,7 +8307,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </label>
 
             <div>
-              <p className="text-sm text-white/70">Vendedor</p>
+              <p className="text-sm text-white/70">
+                {productSaleIsInternalSell ? "Comprador" : "Vendedor"}
+              </p>
               <button
                 type="button"
                 onClick={handleOpenProductSaleSellerModal}
@@ -8309,12 +8323,42 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                     <p className="text-sm font-semibold">
                       {productSaleSeller?.name ?? "Selecionar"}
                     </p>
-                    <p className="text-xs text-white/60">Escolha o vendedor</p>
+                    <p className="text-xs text-white/60">
+                      {productSaleIsInternalSell ? "Escolha o comprador" : "Escolha o vendedor"}
+                    </p>
                   </div>
                 </div>
                 <ChevronRight className="h-4 w-4 text-white/50" />
               </button>
             </div>
+
+            <label className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 px-4 py-3">
+              <span>
+                <span className="block text-sm font-semibold text-white">Venda interna</span>
+                <span className="block text-xs text-white/60">
+                  Marque quando a venda for interna.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label="Venda interna"
+                checked={productSaleIsInternalSell}
+                onChange={(event) => setProductSaleIsInternalSell(event.target.checked)}
+                className="sr-only"
+              />
+              <span
+                className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                  productSaleIsInternalSell ? "bg-emerald-400" : "bg-white/15"
+                }`}
+              >
+                <span
+                  className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white transition ${
+                    productSaleIsInternalSell ? "translate-x-5" : ""
+                  }`}
+                />
+              </span>
+            </label>
           </section>
 
           {productSaleError ? (
@@ -14300,8 +14344,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-sm text-white/60">Vendedores</p>
-                <h2 className="text-xl font-semibold">Selecionar vendedor</h2>
+                <p className="text-sm text-white/60">
+                  {productSaleIsInternalSell ? "Compradores" : "Vendedores"}
+                </p>
+                <h2 className="text-xl font-semibold">
+                  {productSaleIsInternalSell ? "Selecionar comprador" : "Selecionar vendedor"}
+                </h2>
               </div>
               <button
                 type="button"
@@ -14321,7 +14369,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 type="search"
                 value={productSaleSellerSearchInput}
                 onChange={(event) => setProductSaleSellerSearchInput(event.target.value)}
-                placeholder="Buscar vendedor"
+                placeholder={productSaleIsInternalSell ? "Buscar comprador" : "Buscar vendedor"}
                 className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-24 text-sm outline-none focus:border-white/40"
               />
               <button
@@ -14339,7 +14387,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               ) : productSaleSellerError ? (
                 <p className="px-4 py-3 text-sm text-red-300">{productSaleSellerError}</p>
               ) : productSaleSellerResults.length === 0 ? (
-                <p className="px-4 py-3 text-sm text-white/60">Nenhum vendedor encontrado.</p>
+                <p className="px-4 py-3 text-sm text-white/60">
+                  {productSaleIsInternalSell
+                    ? "Nenhum comprador encontrado."
+                    : "Nenhum vendedor encontrado."}
+                </p>
               ) : (
                 <ul className="divide-y divide-white/5 text-sm text-white/80">
                   {productSaleSellerResults.map((seller) => {
