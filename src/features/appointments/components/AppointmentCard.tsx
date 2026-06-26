@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronLeft, Loader2, Scissors, UserRound } from "lucide-react";
+import { Check, ChevronLeft, Loader2, Monitor, Scissors, UserRound } from "lucide-react";
 import { formatCurrency, parseCurrencyInput } from "@/src/features/shared/utils/money";
 import { getPaymentTypeLabel, paymentTypeOptions, priceStatusColor } from "@/src/features/finances/utils/finances";
 import { normalizeApiPaymentTypeToUi } from "@/src/features/appointments/utils/appointments";
@@ -190,6 +190,13 @@ export function AppointmentCard({
   const displayPrice = showCompleteActions && selectedServices.length > 0
     ? selectedServicesTotal.toFixed(2)
     : appointment.price_paid;
+  const isScheduleSystemOrigin = appointment.appointment_origin === "schedule_system";
+  const isPresentialOrigin = appointment.appointment_origin === "presencial";
+  const appointmentOriginLabel = isScheduleSystemOrigin
+    ? "Online"
+    : isPresentialOrigin
+      ? "Presencial"
+      : null;
 
   return (
     <div className={`relative pl-8 pb-8 ${getTimelineColor(appointment.status)} border-l`}>
@@ -428,8 +435,8 @@ export function AppointmentCard({
                 </p>
 
                 <div className="mt-5 flex items-center justify-between border-t border-neutral-900 pt-4">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-neutral-800 text-neutral-400">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-800 text-neutral-400">
                       {appointment.professional_profile_pic ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -441,12 +448,25 @@ export function AppointmentCard({
                         <UserRound className="h-3.5 w-3.5" />
                       )}
                     </div>
-                    <span className="text-xs font-medium text-neutral-400">
+                    <span className="truncate text-xs font-medium text-neutral-400">
                       {professionalName}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
+                    {appointmentOriginLabel ? (
+                      <span
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/8 bg-white/[0.03] text-neutral-400"
+                        aria-label={`Origem: ${appointmentOriginLabel}`}
+                        title={`Origem: ${appointmentOriginLabel}`}
+                      >
+                        {isScheduleSystemOrigin ? (
+                          <Monitor className="h-3.5 w-3.5" />
+                        ) : (
+                          <UserRound className="h-3.5 w-3.5" />
+                        )}
+                      </span>
+                    ) : null}
                     <span className={`h-2.5 w-2.5 rounded-full ${getStatusDotColor(appointment.status)}`} />
                     <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-neutral-500">
                       {appointment.status}

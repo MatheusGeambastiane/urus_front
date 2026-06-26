@@ -29,6 +29,59 @@ export type SummaryServiceHighlight = {
   total: number;
 };
 
+export type DailySummaryComparisonMetric = {
+  current: string;
+  compared: string;
+  difference: string;
+  percentage: string | null;
+};
+
+export type DailySummaryComparedDay = {
+  date: string;
+  period: {
+    type: string;
+    start: string;
+    end: string;
+  };
+  metrics: {
+    revenue: string;
+    appointments_value: string;
+    sell_value: string;
+    total_services_performed?: number | string;
+  };
+};
+
+export type DailySummaryComparison = {
+  type: string;
+  weekday?: number;
+  weekday_name?: string;
+  current_period: {
+    type: string;
+    start: string;
+    end: string;
+    metrics: {
+      revenue: string;
+      appointments_value: string;
+      sell_value: string;
+      total_services_performed: number | string;
+    };
+  };
+  compared_days: DailySummaryComparedDay[];
+  compared_days_count: number;
+  compared_average: {
+    revenue: string;
+    appointments_value: string;
+    sell_value: string;
+    total_services_performed: number | string;
+  };
+  variation: {
+    revenue: DailySummaryComparisonMetric;
+    appointments_value: DailySummaryComparisonMetric;
+    sell_value: DailySummaryComparisonMetric;
+    total_services_performed: DailySummaryComparisonMetric;
+  };
+};
+
 export type DailySummaryResponse = {
   period: {
     type: string;
@@ -48,6 +101,7 @@ export type DailySummaryResponse = {
   next_appointment: SummaryNextAppointment | null;
   appointments_by_professional: SummaryProfessionalBreakdown[];
   top_services: SummaryServiceHighlight[];
+  comparison?: DailySummaryComparison | null;
 };
 
 export type QuickActionKey = "create-appointment" | "create-product-sale" | "create-product";

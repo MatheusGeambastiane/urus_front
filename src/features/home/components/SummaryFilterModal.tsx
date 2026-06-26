@@ -27,6 +27,8 @@ type SummaryFilterModalProps = {
   rangeEnd: Date | null;
   rangeMonth: Date;
   years: string[];
+  compareEnabled: boolean;
+  onCompareEnabledChange: (enabled: boolean) => void;
   error: string | null;
   onClose: () => void;
   onClear: () => void;
@@ -52,6 +54,8 @@ export function SummaryFilterModal({
   rangeEnd,
   rangeMonth,
   years,
+  compareEnabled,
+  onCompareEnabledChange,
   error,
   onClose,
   onClear,
@@ -118,6 +122,29 @@ export function SummaryFilterModal({
           Por range
         </button>
       </div>
+
+      <label className="mb-4 flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-white">Comparar com a média</span>
+        </span>
+        <input
+          type="checkbox"
+          checked={compareEnabled}
+          onChange={(event) => onCompareEnabledChange(event.target.checked)}
+          className="sr-only"
+        />
+        <span
+          className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+            compareEnabled ? "border-white bg-white" : "border-white/15 bg-white/10"
+          }`}
+        >
+          <span
+            className={`absolute left-1 top-1 h-5 w-5 rounded-full transition ${
+              compareEnabled ? "translate-x-5 bg-black" : "bg-white"
+            }`}
+          />
+        </span>
+      </label>
 
       {mode === "day" ? (
         <div className="space-y-4">

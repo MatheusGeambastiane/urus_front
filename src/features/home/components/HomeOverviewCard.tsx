@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Filter, Loader2 } from "lucide-react";
+import { formatCurrency } from "@/src/features/shared/utils/money";
+import type { DailySummaryComparisonMetric } from "@/src/features/home/types";
 
 type ChartItem = {
   key: string;
@@ -18,6 +20,7 @@ type HomeOverviewCardProps = {
   appointmentsValue: string;
   sellValue: string;
   totalServices: number;
+  revenueComparison?: DailySummaryComparisonMetric | null;
   chartItems: ChartItem[];
   loading: boolean;
   error: string | null;
@@ -32,6 +35,7 @@ export function HomeOverviewCard({
   appointmentsValue,
   sellValue,
   totalServices,
+  revenueComparison,
   chartItems,
   loading,
   error,
@@ -49,6 +53,27 @@ export function HomeOverviewCard({
     return chunks;
   }, [chartItems]);
   const showPagination = pages.length > 1;
+  const comparisonPercentage = revenueComparison?.percentage
+    ? Number(revenueComparison.percentage)
+    : null;
+  const hasRevenueComparison = Boolean(revenueComparison);
+  const comparisonTone = (comparisonPercentage ?? Number(revenueComparison?.difference ?? 0)) >= 0
+    ? "text-emerald-200 border-emerald-400/20 bg-emerald-400/10"
+    : "text-rose-200 border-rose-400/20 bg-rose-400/10";
+  const comparisonDifference = revenueComparison ? Number(revenueComparison.difference) : 0;
+  const comparisonDirection = comparisonDifference >= 0 ? "acima" : "abaixo";
+  const comparisonPercentageLabel = comparisonPercentage === null || Number.isNaN(comparisonPercentage)
+    ? "Sem percentual"
+    : `${Math.abs(comparisonPercentage).toLocaleString("pt-BR", {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      })}%`;
+  const comparisonDifferenceLabel = revenueComparison
+    ? formatCurrency(String(Math.abs(comparisonDifference)))
+    : "";
+  const comparisonAverageLabel = revenueComparison
+    ? formatCurrency(revenueComparison.compared)
+    : "";
 
   const scrollToPage = (pageIndex: number) => {
     const container = sliderRef.current;
@@ -76,6 +101,14 @@ export function HomeOverviewCard({
               {totalValue.replace(/^R\$\s?/, "")}
             </span>
           </div>
+          {hasRevenueComparison ? (
+            <div className="mt-3 flex flex-wrap text-xs font-semibold">
+              <span className={`rounded-full border px-3 py-1 ${comparisonTone}`}>
+                {comparisonPercentageLabel} ({comparisonDifferenceLabel}) {comparisonDirection} da média de{" "}
+                {comparisonAverageLabel}
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col items-end gap-2">

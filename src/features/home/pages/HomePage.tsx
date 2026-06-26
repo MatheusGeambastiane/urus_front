@@ -12,6 +12,7 @@ import { NextAppointmentCard } from "@/src/features/home/components/NextAppointm
 import { ProfessionalBreakdownChart } from "@/src/features/home/components/ProfessionalBreakdownChart";
 import { QuickActions } from "@/src/features/home/components/QuickActions";
 import { SummaryFilterModal } from "@/src/features/home/components/SummaryFilterModal";
+import { SummaryComparisonCard } from "@/src/features/home/components/SummaryComparisonCard";
 import { TopServicesChart } from "@/src/features/home/components/TopServicesChart";
 import { useDailySummary } from "@/src/features/home/hooks/useDailySummary";
 import { useLast7Days } from "@/src/features/home/hooks/useLast7Days";
@@ -128,6 +129,7 @@ export function HomePage({ firstName }: HomePageProps) {
   const appointmentsValue = formatCurrency(dailySummary.dailySummary?.appointments_value ?? "0");
   const sellValue = formatCurrency(dailySummary.dailySummary?.sell_value ?? "0");
   const nextAppointment = dailySummary.dailySummary?.next_appointment ?? null;
+  const comparison = dailySummary.dailySummary?.comparison ?? null;
 
   const quickActions = [
     {
@@ -194,6 +196,7 @@ export function HomePage({ firstName }: HomePageProps) {
           appointmentsValue={appointmentsValue}
           sellValue={sellValue}
           totalServices={dailySummary.dailySummary?.total_services_performed ?? 0}
+          revenueComparison={comparison?.variation.revenue ?? null}
           chartItems={chartItems}
           loading={dailySummary.dailySummaryLoading || last7Days.last7DaysLoading}
           error={dailySummary.dailySummaryError ?? last7Days.last7DaysError}
@@ -201,6 +204,10 @@ export function HomePage({ firstName }: HomePageProps) {
           onOpenFilters={dailySummary.handleOpenSummaryFilters}
           onClearFilters={dailySummary.handleClearSummaryFilters}
         />
+
+        {comparison && !dailySummary.dailySummaryLoading ? (
+          <SummaryComparisonCard comparison={comparison} />
+        ) : null}
 
         <NextAppointmentCard
           nextAppointment={nextAppointment}
@@ -244,6 +251,8 @@ export function HomePage({ firstName }: HomePageProps) {
         rangeEnd={dailySummary.summaryRangeEnd}
         rangeMonth={dailySummary.summaryRangeMonth}
         years={dailySummary.summaryFilterYears}
+        compareEnabled={dailySummary.pendingSummaryCompare}
+        onCompareEnabledChange={dailySummary.setPendingSummaryCompare}
         error={dailySummary.summaryFilterError}
         onClose={dailySummary.handleCloseSummaryFilters}
         onClear={dailySummary.handleClearSummaryFilters}

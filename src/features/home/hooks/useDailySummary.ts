@@ -31,6 +31,8 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
   const [activeSummaryMonth, setActiveSummaryMonth] = useState<string | null>(null);
   const [activeSummaryRangeStart, setActiveSummaryRangeStart] = useState<string | null>(null);
   const [activeSummaryRangeEnd, setActiveSummaryRangeEnd] = useState<string | null>(null);
+  const [activeSummaryCompare, setActiveSummaryCompare] = useState(false);
+  const [pendingSummaryCompare, setPendingSummaryCompare] = useState(false);
   const [summaryFilterError, setSummaryFilterError] = useState<string | null>(null);
 
   const summaryFilterYears = useMemo(() => {
@@ -61,6 +63,9 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
           if (activeSummaryMonth) {
             url.searchParams.set("month", activeSummaryMonth);
           }
+        }
+        if (activeSummaryCompare) {
+          url.searchParams.set("compare", "true");
         }
 
         const response = await fetchWithAuth(url.toString(), {
@@ -99,11 +104,13 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     activeSummaryMonth,
     activeSummaryRangeStart,
     activeSummaryRangeEnd,
+    activeSummaryCompare,
     fetchWithAuth,
   ]);
 
   const handleOpenSummaryFilters = () => {
     setSummaryFilterError(null);
+    setPendingSummaryCompare(activeSummaryCompare);
 
     if (activeSummaryDay) {
       setSummaryFilterMode("day");
@@ -200,6 +207,16 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     setSummaryFilterError(null);
 
     if (summaryFilterMode === "day") {
+      if (!summaryDayInput.trim() && pendingSummaryCompare) {
+        setActiveSummaryDay(null);
+        setActiveSummaryMonth(null);
+        setActiveSummaryRangeStart(null);
+        setActiveSummaryRangeEnd(null);
+        setActiveSummaryCompare(true);
+        setShowSummaryFilters(false);
+        return;
+      }
+
       const isoValue = convertDisplayDateToIso(summaryDayInput);
       if (!isoValue) {
         setSummaryFilterError("Informe uma data válida no formato dd/mm/aaaa.");
@@ -210,6 +227,7 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
       setActiveSummaryMonth(null);
       setActiveSummaryRangeStart(null);
       setActiveSummaryRangeEnd(null);
+      setActiveSummaryCompare(pendingSummaryCompare);
       setShowSummaryFilters(false);
       return;
     }
@@ -224,6 +242,7 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
       setActiveSummaryRangeEnd(formatDateParam(summaryRangeEnd));
       setActiveSummaryDay(null);
       setActiveSummaryMonth(null);
+      setActiveSummaryCompare(pendingSummaryCompare);
       setShowSummaryFilters(false);
       return;
     }
@@ -237,6 +256,7 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     setActiveSummaryDay(null);
     setActiveSummaryRangeStart(null);
     setActiveSummaryRangeEnd(null);
+    setActiveSummaryCompare(pendingSummaryCompare);
     setShowSummaryFilters(false);
   };
 
@@ -245,6 +265,8 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     setActiveSummaryMonth(null);
     setActiveSummaryRangeStart(null);
     setActiveSummaryRangeEnd(null);
+    setActiveSummaryCompare(false);
+    setPendingSummaryCompare(false);
     setSummaryDayInput("");
     setSummaryMonthYear("");
     setSummaryMonthValue("");
@@ -253,7 +275,7 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     setSummaryFilterError(null);
   };
 
-  const filterDescription =
+  const periodFilterDescription =
     activeSummaryDay
       ? `Filtrando por dia: ${formatIsoToDisplay(activeSummaryDay)}`
       : activeSummaryMonth
@@ -261,6 +283,11 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
         : activeSummaryRangeStart && activeSummaryRangeEnd
           ? `Filtrando por período: ${formatIsoToDisplay(activeSummaryRangeStart)} até ${formatIsoToDisplay(activeSummaryRangeEnd)}`
           : null;
+
+  const filterDescription = [
+    periodFilterDescription,
+    activeSummaryCompare ? "Comparando com a média do mesmo dia da semana no mês" : null,
+  ].filter(Boolean).join(" • ") || null;
 
   const overviewTitle =
     activeSummaryRangeStart && activeSummaryRangeEnd
@@ -299,6 +326,9 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     summaryRangeMonth,
     summaryFilterError,
     summaryFilterYears,
+    pendingSummaryCompare,
+    setPendingSummaryCompare,
+    activeSummaryCompare,
     activeSummaryDay,
     activeSummaryMonth,
     activeSummaryRangeStart,
