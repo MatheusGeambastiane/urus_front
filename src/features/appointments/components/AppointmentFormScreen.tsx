@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, Loader2, PenSquare, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, PenSquare, Plus, Search, Trash2, UserRound } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { formatCurrency, parseCurrencyInput } from "@/src/features/shared/utils/money";
 import { buildDateTimeISOString } from "@/src/features/shared/utils/date";
@@ -812,14 +812,14 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
         </div>
       </Modal>
 
-      <Modal open={form.saleModalOpen} onClose={form.handleCloseSaleModal} title="Adicionar produto" subtitle="Venda">
+      <Modal open={form.saleModalOpen} onClose={form.handleCloseSaleModal} title="Adicionar produto">
         <div className="space-y-3">
           <label className="block text-white/70">
-            Buscar produto
-            <div className="mt-1 flex items-center gap-2 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm focus-within:border-white/40">
+            <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm focus-within:border-white/40">
               <Search className="h-4 w-4 text-white/40" />
               <input
                 type="text"
+                aria-label="Buscar produto"
                 value={form.saleProductsSearchInput}
                 onChange={(event) => {
                   const value = event.target.value;
@@ -867,36 +867,44 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
 
           {form.selectedSaleProductId ? (
             <div className="space-y-3 rounded-2xl border border-white/10 p-4 text-sm text-white/80">
-              <label className="block text-white/70">
-                Usuário que vendeu
-                <select
-                  value={form.saleProfessionalId ? String(form.saleProfessionalId) : ""}
-                  onChange={(event) => form.setSaleProfessionalId(event.target.value ? Number(event.target.value) : null)}
-                  className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
-                >
-                  <option value="">Sem usuário</option>
-                  {form.saleProfessionalsList.map((professional) => (
-                    <option key={professional.userId} value={professional.userId}>
-                      {professional.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-white/70">
-                Forma de pagamento
-                <select
-                  value={form.salePaymentSelect}
-                  onChange={(event) => form.setSalePaymentSelect(event.target.value as PaymentType)}
-                  className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-white/40"
-                >
-                  <option value="">Selecione</option>
-                  {paymentTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="min-w-0 text-xs text-white/70">
+                  Usuário que vendeu
+                  <span className="relative mt-1 block">
+                    <select
+                      value={form.saleProfessionalId ? String(form.saleProfessionalId) : ""}
+                      onChange={(event) => form.setSaleProfessionalId(event.target.value ? Number(event.target.value) : null)}
+                      className="w-full appearance-none rounded-2xl border border-white/10 bg-[#050505] px-3 py-3 pr-8 text-sm outline-none focus:border-white/40"
+                    >
+                      <option value="">Sem usuário</option>
+                      {form.saleProfessionalsList.map((professional) => (
+                        <option key={professional.userId} value={professional.userId}>
+                          {professional.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  </span>
+                </label>
+                <label className="min-w-0 text-xs text-white/70">
+                  Forma de pagamento
+                  <span className="relative mt-1 block">
+                    <select
+                      value={form.salePaymentSelect}
+                      onChange={(event) => form.setSalePaymentSelect(event.target.value as PaymentType)}
+                      className="w-full appearance-none rounded-2xl border border-white/10 bg-[#050505] px-3 py-3 pr-8 text-sm outline-none focus:border-white/40"
+                    >
+                      <option value="">Selecione</option>
+                      {paymentTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                  </span>
+                </label>
+              </div>
               <label className="block text-white/70">
                 Quantidade
                 <input
