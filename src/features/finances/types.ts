@@ -12,6 +12,8 @@ export type FinanceSummary = {
   month: string;
   revenue: string;
   expenses: string;
+  previous_month_period_revenue?: string;
+  revenue_difference_previous_month_period?: string;
   appointments_count: number;
   sell_transactions_count: number;
   appointments_average_per_day?: string;
@@ -24,4 +26,26 @@ export type FinanceSummary = {
   }[];
   appointments_by_payment_type: PaymentBreakdown[];
   sell_by_payment_type: SellBreakdown[];
+};
+
+export type ServiceSummaryItem = {
+  service_name: string;
+  total: number;
+};
+
+export type ServiceProfessionalDistribution = {
+  professional_id: number;
+  professional_name: string;
+  count: number;
+  percentage: string;
+};
+
+export type FinanceServicesSummary = {
+  month: string;
+  period: {
+    start: string;
+    end: string;
+  };
+  services: ServiceSummaryItem[];
+  professionals: ServiceProfessionalDistribution[];
 };

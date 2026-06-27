@@ -6,14 +6,18 @@ import { Calendar, FileText, Plus } from "lucide-react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { useFinanceSummary } from "@/src/features/finances/hooks/useFinanceSummary";
+import { useFinanceServicesSummary } from "@/src/features/finances/hooks/useFinanceServicesSummary";
 import { useBills } from "@/src/features/finances/hooks/useBills";
 import { useRepasses } from "@/src/features/finances/hooks/useRepasses";
 import { FinanceSummaryCards } from "@/src/features/finances/components/FinanceSummaryCards";
+import { FinanceDesktopIndicators } from "@/src/features/finances/components/FinanceDesktopIndicators";
 import { RepasseList } from "@/src/features/finances/components/RepasseList";
 import { BillList } from "@/src/features/finances/components/BillList";
 import { MonthSelectorModal } from "@/src/features/finances/components/MonthSelectorModal";
 import { PaymentDistributionCard } from "@/src/features/finances/components/PaymentDistributionCard";
 import { ResourceDistributionChart } from "@/src/features/finances/components/ResourceDistributionChart";
+import { ServicesProfessionalDistributionCard } from "@/src/features/finances/components/ServicesProfessionalDistributionCard";
+import { ServicesSummaryTable } from "@/src/features/finances/components/ServicesSummaryTable";
 import { FabMenu } from "@/components/ui/FabMenu";
 import { formatMonthParam, getMonthLabel, getPaymentTypeLabel, pieChartColors } from "@/src/features/finances/utils/finances";
 import { FeedbackBanner } from "@/components/ui/FeedbackBanner";
@@ -34,9 +38,11 @@ export function FinancesPage({ firstName }: Props) {
   const [monthError, setMonthError] = useState<string | null>(null);
   const [showFabOptions, setShowFabOptions] = useState(false);
   const [showAllBills, setShowAllBills] = useState(false);
+  const [showPreviousRevenueInfo, setShowPreviousRevenueInfo] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const finance = useFinanceSummary({ accessToken, fetchWithAuth, month });
+  const servicesSummary = useFinanceServicesSummary({ accessToken, fetchWithAuth, month });
   const bills = useBills({ accessToken, fetchWithAuth, month });
   const repasses = useRepasses({ accessToken, fetchWithAuth, month, userRole });
   const appointmentPaymentData =
@@ -66,6 +72,12 @@ export function FinancesPage({ firstName }: Props) {
   const appointmentTicketAverage = finance.summary?.appointments_ticket_average ?? "0";
   const monthlyTicketAverage = finance.summary?.appointments_sell_ticket_average ?? "0";
   const expenseReferenceLabel = `${month.slice(5, 7)}-${month.slice(0, 4)}`;
+  const previousMonthPeriodRevenue = finance.summary?.previous_month_period_revenue ?? null;
+  const revenueDifferencePreviousMonthPeriod = finance.summary?.revenue_difference_previous_month_period ?? null;
+  const revenueDifferenceValue = Number(revenueDifferencePreviousMonthPeriod ?? 0);
+  const hasPreviousRevenueComparison = revenueDifferencePreviousMonthPeriod !== null;
+  const revenueDifferenceTone = revenueDifferenceValue >= 0 ? "text-emerald-200" : "text-rose-200";
+  const revenueDifferencePrefix = revenueDifferenceValue > 0 ? "+" : "";
 
   const years = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -117,6 +129,7 @@ export function FinancesPage({ firstName }: Props) {
 
         {feedback ? <FeedbackBanner message={feedback.message} type={feedback.type} /> : null}
         {finance.error ? <FeedbackBanner message={finance.error} type="error" /> : null}
+        {servicesSummary.error ? <FeedbackBanner message={servicesSummary.error} type="error" /> : null}
         {bills.error ? <FeedbackBanner message={bills.error} type="error" /> : null}
         {repasses.error ? <FeedbackBanner message={repasses.error} type="error" /> : null}
 
@@ -131,6 +144,29 @@ export function FinancesPage({ firstName }: Props) {
                   {formatCurrency(finance.summary?.revenue ?? "0").replace(/^R\$\s?/, "")}
                 </span>
               </div>
+              {hasPreviousRevenueComparison ? (
+                <button
+                  type="button"
+                  onClick={() => setShowPreviousRevenueInfo((current) => !current)}
+                  onBlur={() => setShowPreviousRevenueInfo(false)}
+                  className={`group relative mt-2 block text-left text-xs font-medium ${revenueDifferenceTone}`}
+                  title={`Total faturado no mesmo período do mês anterior: ${formatCurrency(previousMonthPeriodRevenue ?? "0")}`}
+                >
+                  {revenueDifferencePrefix}
+                  {formatCurrency(revenueDifferencePreviousMonthPeriod ?? "0")}
+                  <span className="ml-1 text-white/38">vs mesmo período anterior</span>
+                  <span
+                    className={`pointer-events-none absolute left-0 top-full z-20 mt-2 w-max max-w-[260px] rounded-2xl border border-white/10 bg-[#111] px-3 py-2 text-xs text-white/75 shadow-xl transition ${
+                      showPreviousRevenueInfo ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  >
+                    Total faturado no mesmo período anterior:{" "}
+                    <span className="font-semibold text-white">
+                      {formatCurrency(previousMonthPeriodRevenue ?? "0")}
+                    </span>
+                  </span>
+                </button>
+              ) : null}
               <p className="mt-3 text-sm text-white/72">
                 Despesa em {expenseReferenceLabel}:{" "}
                 <span className="text-rose-300">
@@ -154,9 +190,18 @@ export function FinancesPage({ firstName }: Props) {
           </div>
         </section>
 
-        <FinanceSummaryCards summary={finance.summary} />
+        <div className="lg:hidden">
+          <FinanceSummaryCards summary={finance.summary} />
+        </div>
 
-        <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5 shadow-card text-white">
+        <FinanceDesktopIndicators
+          summary={finance.summary}
+          averageAppointmentsPerDay={averageAppointmentsPerDay}
+          appointmentTicketAverage={appointmentTicketAverage}
+          monthlyTicketAverage={monthlyTicketAverage}
+        />
+
+        <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5 shadow-card text-white lg:hidden">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-white/40">Médias</p>
             <p className="mt-1 text-lg font-semibold">Indicadores do período</p>
@@ -186,6 +231,17 @@ export function FinancesPage({ firstName }: Props) {
           </div>
         </section>
 
+        <section className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.72fr)] lg:gap-4">
+          <ServicesProfessionalDistributionCard
+            items={servicesSummary.summary?.professionals ?? []}
+            loading={servicesSummary.loading}
+          />
+          <ServicesSummaryTable
+            items={servicesSummary.summary?.services ?? []}
+            loading={servicesSummary.loading}
+          />
+        </section>
+
         <section className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <PaymentDistributionCard
@@ -199,6 +255,17 @@ export function FinancesPage({ firstName }: Props) {
               data={sellPaymentData}
             />
           </div>
+        </section>
+
+        <section className="space-y-4 lg:hidden">
+          <ServicesProfessionalDistributionCard
+            items={servicesSummary.summary?.professionals ?? []}
+            loading={servicesSummary.loading}
+          />
+          <ServicesSummaryTable
+            items={servicesSummary.summary?.services ?? []}
+            loading={servicesSummary.loading}
+          />
         </section>
 
         <RepasseList
