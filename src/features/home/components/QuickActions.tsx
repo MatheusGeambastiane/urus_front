@@ -25,13 +25,13 @@ export function QuickActions({ actions, onAction }: QuickActionsProps) {
         <span className="text-[11px] uppercase tracking-[0.18em] text-white/30">Fluxo</span>
       </div>
 
-      <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+      <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0">
         {actions.map((action) => (
           <button
             key={action.key}
             type="button"
             onClick={() => onAction(action.key)}
-            className={`group relative min-h-[164px] min-w-[82%] shrink-0 overflow-hidden rounded-[26px] border p-5 text-left transition-transform active:scale-[0.98] sm:min-w-[280px] ${action.className}`}
+            className={`group relative min-h-[164px] min-w-[82%] shrink-0 overflow-hidden rounded-[26px] border p-5 text-left transition-transform active:scale-[0.98] sm:min-w-[280px] lg:col-span-1 lg:min-w-0 ${action.className}`}
           >
             <div className="absolute inset-y-0 right-0 w-28 bg-gradient-to-l from-white/10 to-transparent opacity-60" />
             <div className="relative flex min-h-[144px] items-start gap-4">

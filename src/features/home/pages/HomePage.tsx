@@ -7,7 +7,7 @@ import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatDateParam } from "@/src/features/shared/utils/date";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 import { HighlightsRow } from "@/src/features/home/components/HighlightsRow";
-import { HomeOverviewCard } from "@/src/features/home/components/HomeOverviewCard";
+import { HomeOverviewCard, PeriodChartCard } from "@/src/features/home/components/HomeOverviewCard";
 import { NextAppointmentCard } from "@/src/features/home/components/NextAppointmentCard";
 import { ProfessionalBreakdownChart } from "@/src/features/home/components/ProfessionalBreakdownChart";
 import { QuickActions } from "@/src/features/home/components/QuickActions";
@@ -177,8 +177,8 @@ export function HomePage({ firstName }: HomePageProps) {
 
   return (
     <DashboardShell activeTab="home" profilePic={profilePic} userRole={userRole}>
-      <div className="space-y-5 pb-6">
-        <header className="flex items-center justify-between">
+      <div className="space-y-5 pb-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-5 lg:space-y-0">
+        <header className="flex items-center justify-between lg:col-span-12">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.24em] text-white/35">
               Visão Geral
@@ -196,6 +196,7 @@ export function HomePage({ firstName }: HomePageProps) {
           appointmentsValue={appointmentsValue}
           sellValue={sellValue}
           totalServices={dailySummary.dailySummary?.total_services_performed ?? 0}
+          highlights={highlightCards}
           revenueComparison={comparison?.variation.revenue ?? null}
           chartItems={chartItems}
           loading={dailySummary.dailySummaryLoading || last7Days.last7DaysLoading}
@@ -205,36 +206,56 @@ export function HomePage({ firstName }: HomePageProps) {
           onClearFilters={dailySummary.handleClearSummaryFilters}
         />
 
+        <div className="hidden lg:col-span-8 lg:block">
+          <PeriodChartCard
+            chartItems={chartItems}
+            loading={dailySummary.dailySummaryLoading || last7Days.last7DaysLoading}
+            error={dailySummary.dailySummaryError ?? last7Days.last7DaysError}
+          />
+        </div>
+
+        <div className="lg:col-span-4">
+          <NextAppointmentCard
+            nextAppointment={nextAppointment}
+            loading={dailySummary.dailySummaryLoading}
+            dateLabel={formatShortDate(nextAppointment?.date_time)}
+            timeLabel={formatShortTime(nextAppointment?.date_time)}
+          />
+        </div>
+
+        <div className="lg:col-span-12">
+          <QuickActions actions={quickActions} onAction={triggerQuickAction} />
+        </div>
+
+        <div className="lg:hidden">
+          <HighlightsRow
+            loading={last7Days.last7DaysLoading}
+            error={last7Days.last7DaysError}
+            cards={highlightCards}
+          />
+        </div>
+
         {comparison && !dailySummary.dailySummaryLoading ? (
-          <SummaryComparisonCard comparison={comparison} />
+          <div className="lg:col-span-12">
+            <SummaryComparisonCard comparison={comparison} />
+          </div>
         ) : null}
-
-        <NextAppointmentCard
-          nextAppointment={nextAppointment}
-          loading={dailySummary.dailySummaryLoading}
-          dateLabel={formatShortDate(nextAppointment?.date_time)}
-          timeLabel={formatShortTime(nextAppointment?.date_time)}
-        />
-
-        <QuickActions actions={quickActions} onAction={triggerQuickAction} />
-
-        <HighlightsRow
-          loading={last7Days.last7DaysLoading}
-          error={last7Days.last7DaysError}
-          cards={highlightCards}
-        />
 
         {userRole !== "professional" ? (
-          <ProfessionalBreakdownChart
-            items={dailySummary.dailySummary?.appointments_by_professional ?? []}
-            loading={dailySummary.dailySummaryLoading}
-          />
+          <div className="lg:col-span-6">
+            <ProfessionalBreakdownChart
+              items={dailySummary.dailySummary?.appointments_by_professional ?? []}
+              loading={dailySummary.dailySummaryLoading}
+            />
+          </div>
         ) : null}
 
-        <TopServicesChart
-          items={dailySummary.dailySummary?.top_services ?? []}
-          loading={dailySummary.dailySummaryLoading}
-        />
+        <div className={userRole !== "professional" ? "lg:col-span-6" : "lg:col-span-8"}>
+          <TopServicesChart
+            items={dailySummary.dailySummary?.top_services ?? []}
+            loading={dailySummary.dailySummaryLoading}
+          />
+        </div>
       </div>
 
       <SummaryFilterModal

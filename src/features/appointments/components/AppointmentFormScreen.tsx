@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, PenSquare, Plus, Search, Trash2, UserRound } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { formatCurrency, parseCurrencyInput } from "@/src/features/shared/utils/money";
@@ -22,6 +23,10 @@ const appointmentStatusOptions = [
 ] as const;
 
 export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenProps) {
+  const [collapsedSaleProductList, setCollapsedSaleProductList] = useState<{
+    productId: number;
+    searchInput: string;
+  } | null>(null);
   const clientName = form.selectedClient
     ? [form.selectedClient.first_name, form.selectedClient.last_name].filter(Boolean).join(" ") ||
       form.selectedClient.email
@@ -54,6 +59,30 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
     }
     return ["gmail.com", "outlook.com", "hotmail.com"].map((domain) => `${local}@${domain}`);
   })();
+
+  const saleProductsListCollapsed = Boolean(
+    form.saleModalOpen &&
+    form.selectedSaleProductId &&
+    collapsedSaleProductList?.productId === form.selectedSaleProductId &&
+    collapsedSaleProductList.searchInput === form.saleProductsSearchInput,
+  );
+  const saleProductsListExpanded = !saleProductsListCollapsed;
+  const visibleSaleProducts = form.selectedSaleProductId && saleProductsListCollapsed
+    ? form.saleProductsList.filter((product) => product.id === form.selectedSaleProductId)
+    : form.saleProductsList;
+
+  const handleSaleProductListClick = (productId: number) => {
+    if (form.selectedSaleProductId === productId && saleProductsListCollapsed) {
+      setCollapsedSaleProductList(null);
+      return;
+    }
+
+    form.handleSelectSaleProduct(productId);
+    setCollapsedSaleProductList({
+      productId,
+      searchInput: form.saleProductsSearchInput,
+    });
+  };
 
   if (form.loadingExistingAppointment) {
     return (
@@ -842,26 +871,37 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
           ) : form.saleProductsList.length === 0 ? (
             <p className="text-sm text-white/60">Nenhum produto disponível para venda.</p>
           ) : (
-            <ul className="max-h-52 overflow-y-auto rounded-2xl border border-white/10">
-              {form.saleProductsList.map((product) => (
+            <ul className={`${saleProductsListExpanded ? "max-h-52 overflow-y-auto" : ""} rounded-2xl border border-white/10`}>
+              {visibleSaleProducts.map((product) => {
+                const isSelected = form.selectedSaleProductId === product.id;
+                return (
                 <li key={product.id}>
-                  <label className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-white/5">
+                  <button
+                    type="button"
+                    onClick={() => handleSaleProductListClick(product.id)}
+                    className={`flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-white/5 ${
+                      isSelected ? "bg-white/[0.04]" : ""
+                    }`}
+                    aria-pressed={isSelected}
+                  >
                     <div>
                       <p className="font-semibold">{product.name}</p>
                       <p className="text-xs text-white/60">
                         Preço sugerido: {formatCurrency(product.price_to_sell)}
                       </p>
                     </div>
-                    <input
-                      type="radio"
-                      name="saleProduct"
-                      checked={form.selectedSaleProductId === product.id}
-                      onChange={() => form.handleSelectSaleProduct(product.id)}
-                      className="h-4 w-4 rounded-full border-white/30 bg-transparent text-black"
-                    />
-                  </label>
+                    <span
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                        isSelected ? "border-white bg-white text-black" : "border-white/30 text-transparent"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
 
