@@ -69,6 +69,7 @@ import { env } from "@/lib/env";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
 import { Modal } from "@/components/ui/Modal";
 import { createTokenRefreshService } from "@/src/features/shared/utils/auth";
+import { getApiErrorMessage } from "@/src/features/shared/utils/api-errors";
 import {
   formatDisplayDate,
   convertDisplayDateToIso,
@@ -3319,9 +3320,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        const detail =
-          (data && (data.detail || data.message)) ||
-          "Não foi possível redefinir a senha.";
+        const detail = getApiErrorMessage(data, "Não foi possível redefinir a senha.");
         throw new Error(detail);
       }
 

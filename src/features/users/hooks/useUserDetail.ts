@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { env } from "@/lib/env";
 import type { TokenRefreshService } from "@/src/features/shared/utils/auth";
+import { getApiErrorMessage } from "@/src/features/shared/utils/api-errors";
 import {
   usersEndpointBase,
   professionalProfilesEndpointBase,
@@ -200,7 +201,7 @@ export function useUserDetail({ userId, accessToken, fetchWithAuth }: UseUserDet
         );
         if (!response.ok) {
           const data = await response.json().catch(() => null);
-          const detail = (data && (data.detail || data.message)) || "Não foi possível redefinir a senha.";
+          const detail = getApiErrorMessage(data, "Não foi possível redefinir a senha.");
           return { success: false, error: detail };
         }
         return { success: true };
