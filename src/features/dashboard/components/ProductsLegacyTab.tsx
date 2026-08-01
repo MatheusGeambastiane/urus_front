@@ -461,9 +461,10 @@ export function ProductsLegacyTab({
       createTokenRefreshService({
         apiBaseUrl: env.apiBaseUrl,
         refreshToken,
+        accessToken: session?.accessToken ?? null,
         onAccessToken: (token) => setAccessToken(token),
       }),
-    [refreshToken, setAccessToken],
+    [refreshToken, session?.accessToken, setAccessToken],
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

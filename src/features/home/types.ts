@@ -104,7 +104,11 @@ export type DailySummaryResponse = {
   comparison?: DailySummaryComparison | null;
 };
 
-export type QuickActionKey = "create-appointment" | "create-product-sale" | "create-product";
+export type QuickActionKey =
+  | "create-appointment"
+  | "create-professional-interval"
+  | "create-product-sale"
+  | "create-product";
 
 export type SummaryFilterMode = "day" | "month" | "range";
 

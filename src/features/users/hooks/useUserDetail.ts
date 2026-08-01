@@ -267,6 +267,58 @@ export function useUserDetail({ userId, accessToken, fetchWithAuth }: UseUserDet
     [accessToken, fetchWithAuth],
   );
 
+  const deactivateProfessionalInterval = useCallback(
+    async (intervalId: number): Promise<{ success: boolean; error?: string }> => {
+      if (!accessToken) return { success: false, error: "Sessão expirada." };
+
+      try {
+        const response = await fetchWithAuth(
+          `${professionalIntervalsEndpointBase}${intervalId}/deactivate/`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          },
+        );
+
+        if (!response.ok) {
+          const payload: unknown = await response.json().catch(() => null);
+          return {
+            success: false,
+            error: getApiErrorMessage(payload, "Não foi possível desativar o intervalo."),
+          };
+        }
+
+        const payload = (await response.json()) as { id: number; is_active: boolean };
+        setUserDetail((current) => {
+          if (!current?.professional_profile) return current;
+
+          return {
+            ...current,
+            professional_profile: {
+              ...current.professional_profile,
+              active_professional_intervals:
+                (current.professional_profile.active_professional_intervals ?? []).filter(
+                  (interval) => interval.id !== payload.id,
+                ),
+            },
+          };
+        });
+
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Erro ao desativar intervalo.",
+        };
+      }
+    },
+    [accessToken, fetchWithAuth],
+  );
+
   return {
     userDetail,
     userDetailLoading,
@@ -287,6 +339,7 @@ export function useUserDetail({ userId, accessToken, fetchWithAuth }: UseUserDet
     updateProfessionalProfile,
     sendPasswordReset,
     addProfessionalInterval,
+    deactivateProfessionalInterval,
     sendReviewEmail,
     refreshUserDetail,
   };

@@ -2,6 +2,7 @@
 
 import type { ComponentType, ReactNode } from "react";
 import { signOut } from "next-auth/react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Calendar, Home, Scissors, ShoppingBag, Sparkles, Users, Wallet } from "lucide-react";
 
@@ -43,16 +44,19 @@ export function DashboardShell({ activeTab, children, userRole, profilePic = nul
   return (
     <div className="relative min-h-screen bg-[#050505] text-white">
       <aside className="fixed inset-y-0 left-0 z-50 hidden w-72 border-r border-white/8 bg-[#070707]/95 px-5 py-6 backdrop-blur-xl lg:flex lg:flex-col">
-        <div className="px-3">
-          <span className="brand-sheen block text-[1.05rem] font-semibold uppercase tracking-[0.38em] text-white">
-            URUS
-          </span>
-          <span className="brand-sheen mt-1 block text-[0.58rem] font-medium uppercase tracking-[0.34em] text-white/95">
-            Barbearia
-          </span>
+        <div className="flex h-28 shrink-0 items-center justify-center overflow-hidden" aria-label="Urus Barbearia">
+          <Image
+            src="/urus_logo_nobg_branca.png"
+            alt="Urus Barbearia"
+            width={500}
+            height={500}
+            sizes="224px"
+            className="h-56 w-56 max-w-none object-contain"
+            priority
+          />
         </div>
 
-        <nav className="mt-10 flex flex-1 flex-col gap-2">
+        <nav className="mt-6 flex flex-1 flex-col gap-2">
           {visibleItems.map((item) => {
             const isActive = item.key === activeTab;
             const Icon = item.icon;

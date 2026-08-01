@@ -90,6 +90,10 @@ export function HomePage({ firstName }: HomePageProps) {
       router.push("/dashboard/agenda/novo");
       return;
     }
+    if (action === "create-professional-interval") {
+      router.push("/dashboard/intervalos/novo");
+      return;
+    }
     if (action === "create-product-sale") {
       router.push("/dashboard/produtos?nova_venda_produto=1");
       return;
@@ -140,6 +144,13 @@ export function HomePage({ firstName }: HomePageProps) {
       className: "border-white bg-white text-black",
     },
     {
+      key: "create-professional-interval" as const,
+      title: "Criar novo intervalo",
+      subtitle: "Bloqueie um período pontual ou recorrente na agenda.",
+      image: "/icon_calendar.png",
+      className: "border-white/10 bg-[#151515] text-white hover:bg-[#1b1b1b]",
+    },
+    {
       key: "create-product-sale" as const,
       title: "Venda Rápida",
       subtitle: "Registre uma venda de produto com poucos toques.",
@@ -151,7 +162,7 @@ export function HomePage({ firstName }: HomePageProps) {
       title: "Novo Produto",
       subtitle: "Adicione itens ao estoque sem sair do dashboard.",
       image: "/caixa_urus.png",
-      className: "border-white/10 bg-[#0f1724] text-white sm:col-span-2",
+      className: "border-white/10 bg-[#0f1724] text-white",
       imageClassName: "sm:h-24 sm:w-24",
     },
   ];

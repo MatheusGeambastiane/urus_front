@@ -9,6 +9,7 @@ import {
 import type { ProfessionalServiceSummary, RepasseDetail, RepasseItem } from "@/src/features/repasses/types";
 import { transactionsEndpointBase } from "@/src/features/products/services/endpoints";
 import { formatDateParam } from "@/src/features/shared/utils/date";
+import { getApiErrorMessage } from "@/src/features/shared/utils/api-errors";
 
 type FetchWithAuth = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -24,6 +25,13 @@ type RepassePaymentInput = {
   transaction_payment: string;
   money_resource: string;
   payment_proof: File | null;
+};
+
+export type RepassePaymentUpdateInput = {
+  price: string;
+  date_of_transaction: string;
+  transaction_payment: string;
+  money_resource: string;
 };
 
 export function useRepasses({ accessToken, fetchWithAuth, month, userRole }: UseRepassesParams) {
@@ -204,6 +212,7 @@ export function useRepasses({ accessToken, fetchWithAuth, month, userRole }: Use
     formData.append("date_of_transaction", formatDateParam(new Date()));
     formData.append("transaction_payment", payload.transaction_payment);
     formData.append("money_resource", payload.money_resource);
+    formData.append("repass_id", String(detail.id));
     formData.append("user", String(detail.professional.user_id ?? detail.professional.id));
     if (payload.payment_proof) {
       formData.append("payment_proof", payload.payment_proof);
@@ -224,6 +233,63 @@ export function useRepasses({ accessToken, fetchWithAuth, month, userRole }: Use
     }
 
     return fetchDetail(detail.id, true);
+  }, [accessToken, fetchDetail, fetchWithAuth]);
+
+  const updatePayment = useCallback(async (
+    repasseId: number,
+    transactionId: number,
+    payload: RepassePaymentUpdateInput,
+  ) => {
+    if (!accessToken) {
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+
+    const response = await fetchWithAuth(`${transactionsEndpointBase}${transactionId}/`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        type: "payment",
+        price: payload.price,
+        date_of_transaction: payload.date_of_transaction,
+        transaction_payment: payload.transaction_payment,
+        money_resource: payload.money_resource,
+        repass_id: repasseId,
+      }),
+    });
+
+    if (!response.ok) {
+      const responsePayload: unknown = await response.json().catch(() => null);
+      throw new Error(getApiErrorMessage(responsePayload, "Não foi possível editar o pagamento."));
+    }
+
+    return fetchDetail(repasseId, true);
+  }, [accessToken, fetchDetail, fetchWithAuth]);
+
+  const deletePayment = useCallback(async (repasseId: number, transactionId: number) => {
+    if (!accessToken) {
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+
+    const response = await fetchWithAuth(`${transactionsEndpointBase}${transactionId}/`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const responsePayload: unknown = await response.json().catch(() => null);
+      throw new Error(getApiErrorMessage(responsePayload, "Não foi possível excluir o pagamento."));
+    }
+
+    return fetchDetail(repasseId, true);
   }, [accessToken, fetchDetail, fetchWithAuth]);
 
   const fetchAnalytics = useCallback(async (detail: RepasseDetail) => {
@@ -269,6 +335,8 @@ export function useRepasses({ accessToken, fetchWithAuth, month, userRole }: Use
     updateAllowance,
     uploadInvoice,
     registerPayment,
+    updatePayment,
+    deletePayment,
     fetchAnalytics,
   };
 }

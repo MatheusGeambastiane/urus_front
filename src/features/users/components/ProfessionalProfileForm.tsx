@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarClock, Check, Loader2, PenSquare, Plus, X } from "lucide-react";
+import { CalendarClock, Check, Loader2, PenSquare, Plus, Trash2, X } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
 import type { TokenRefreshService } from "@/src/features/shared/utils/auth";
 import { professionalProfileSchema, type ProfessionalProfileFormValues } from "@/src/features/users/schemas";
 import { servicesSimpleListEndpoint } from "@/src/features/users/services/endpoints";
@@ -26,6 +27,7 @@ type ProfessionalProfileFormProps = {
     },
   ) => Promise<{ success: boolean; error?: string }>;
   onAddInterval: (payload: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
+  onDeactivateInterval: (intervalId: number) => Promise<{ success: boolean; error?: string }>;
   onSaveActiveInterval: (payload: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
   onFeedback: (feedback: { type: "success" | "error"; message: string }) => void;
 };
@@ -102,6 +104,25 @@ const formatWeekDays = (weekDays: number[]) => {
   return weekDays.map((day) => dayNames.get(day) ?? String(day)).join(", ");
 };
 
+const formatIntervalPeriod = (interval: ProfessionalInterval) => {
+  if (!interval.date_start || !interval.date_finish) return "Intervalo recorrente";
+  return `${formatDisplayDate(interval.date_start)} até ${formatDisplayDate(interval.date_finish)}`;
+};
+
+const formatCreatedAt = (value?: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
 export function ProfessionalProfileForm({
   userDetail,
   accessToken,
@@ -109,6 +130,7 @@ export function ProfessionalProfileForm({
   canEditUser,
   onSaveProfile,
   onAddInterval,
+  onDeactivateInterval,
   onSaveActiveInterval,
   onFeedback,
 }: ProfessionalProfileFormProps) {
@@ -120,9 +142,14 @@ export function ProfessionalProfileForm({
   const [intervalError, setIntervalError] = useState<string | null>(null);
   const [intervalSubmitting, setIntervalSubmitting] = useState(false);
   const [activeIntervalModalOpen, setActiveIntervalModalOpen] = useState(false);
+  const [activeIntervalToEdit, setActiveIntervalToEdit] = useState<ProfessionalInterval | null>(null);
   const [activeIntervalForm, setActiveIntervalForm] = useState<IntervalFormState>(initialIntervalForm);
   const [activeIntervalError, setActiveIntervalError] = useState<string | null>(null);
   const [activeIntervalSubmitting, setActiveIntervalSubmitting] = useState(false);
+  const [showAllIntervals, setShowAllIntervals] = useState(false);
+  const [intervalToDeactivate, setIntervalToDeactivate] = useState<ProfessionalInterval | null>(null);
+  const [deactivateIntervalError, setDeactivateIntervalError] = useState<string | null>(null);
+  const [deactivateIntervalSubmitting, setDeactivateIntervalSubmitting] = useState(false);
 
   const {
     register,
@@ -197,6 +224,23 @@ export function ProfessionalProfileForm({
         .map((service) => service.name),
     [serviceOptions, selectedServices],
   );
+  const activeIntervals = useMemo(
+    () =>
+      [...(userDetail.professional_profile?.active_professional_intervals ?? [])]
+        .filter((interval) => interval.is_active !== false)
+        .sort((first, second) => {
+          const firstCreatedAt = first.created_at ? Date.parse(first.created_at) : Number.NaN;
+          const secondCreatedAt = second.created_at ? Date.parse(second.created_at) : Number.NaN;
+
+          if (Number.isFinite(firstCreatedAt) && Number.isFinite(secondCreatedAt)) {
+            return secondCreatedAt - firstCreatedAt;
+          }
+
+          return second.id - first.id;
+        }),
+    [userDetail.professional_profile?.active_professional_intervals],
+  );
+  const visibleIntervals = showAllIntervals ? activeIntervals : activeIntervals.slice(0, 1);
 
   const handleToggleService = (serviceId: number) => {
     const exists = selectedServices.includes(serviceId);
@@ -215,11 +259,9 @@ export function ProfessionalProfileForm({
     setIntervalModalOpen(true);
   };
 
-  const openActiveIntervalModal = () => {
-    const activeInterval = userDetail.professional_profile?.active_professional_interval;
-    if (!activeInterval) return;
-
-    setActiveIntervalForm(getIntervalFormFromActiveInterval(activeInterval));
+  const openActiveIntervalModal = (interval: ProfessionalInterval) => {
+    setActiveIntervalToEdit(interval);
+    setActiveIntervalForm(getIntervalFormFromActiveInterval(interval));
     setActiveIntervalError(null);
     setActiveIntervalModalOpen(true);
   };
@@ -296,16 +338,19 @@ export function ProfessionalProfileForm({
   const handleSaveActiveInterval = async () => {
     setActiveIntervalError(null);
     const profile = userDetail.professional_profile;
-    const activeInterval = profile?.active_professional_interval;
 
-    if (!profile || !activeInterval) {
+    if (!profile || !activeIntervalToEdit) {
       setActiveIntervalError("Intervalo ativo não encontrado para este profissional.");
       return;
     }
 
     const { dateStart, dateFinish, hourStart, hourFinish, weekDays } = activeIntervalForm;
-    if (!dateStart || !dateFinish || !hourStart || !hourFinish) {
-      setActiveIntervalError("Informe as datas e os horários do intervalo.");
+    if (!hourStart || !hourFinish) {
+      setActiveIntervalError("Informe os horários do intervalo.");
+      return;
+    }
+    if (weekDays.length === 0 && (!dateStart || !dateFinish)) {
+      setActiveIntervalError("Informe as datas do intervalo.");
       return;
     }
 
@@ -319,9 +364,9 @@ export function ProfessionalProfileForm({
         bio: values.bio ?? "",
         services: values.services,
         active_professional_interval: {
-          id: activeInterval.id,
-          date_start: dateStart,
-          date_finish: dateFinish,
+          id: activeIntervalToEdit.id,
+          date_start: dateStart || null,
+          date_finish: dateFinish || null,
           hour_start: hourStart,
           hour_finish: hourFinish,
           week_days: weekDays,
@@ -336,10 +381,31 @@ export function ProfessionalProfileForm({
     }
 
     setActiveIntervalModalOpen(false);
+    setActiveIntervalToEdit(null);
     onFeedback({ type: "success", message: "Intervalo ativo atualizado com sucesso." });
   };
 
-  const activeInterval = userDetail.professional_profile?.active_professional_interval ?? null;
+  const openDeactivateIntervalModal = (interval: ProfessionalInterval) => {
+    setDeactivateIntervalError(null);
+    setIntervalToDeactivate(interval);
+  };
+
+  const handleDeactivateInterval = async () => {
+    if (!intervalToDeactivate) return;
+
+    setDeactivateIntervalSubmitting(true);
+    setDeactivateIntervalError(null);
+    const result = await onDeactivateInterval(intervalToDeactivate.id);
+    setDeactivateIntervalSubmitting(false);
+
+    if (!result.success) {
+      setDeactivateIntervalError(result.error ?? "Não foi possível desativar o intervalo.");
+      return;
+    }
+
+    setIntervalToDeactivate(null);
+    onFeedback({ type: "success", message: "Intervalo desativado com sucesso." });
+  };
 
   return (
     <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
@@ -467,7 +533,14 @@ export function ProfessionalProfileForm({
 
       <div className="space-y-4 rounded-2xl border border-white/5 p-4">
         <div className="flex items-center justify-between gap-3">
-          <p className="px-2 text-xs uppercase tracking-wide text-white/50">Intervalos</p>
+          <div className="flex items-center gap-2 px-2">
+            <p className="text-xs uppercase tracking-wide text-white/50">Intervalos</p>
+            {userDetail.professional_profile ? (
+              <span className="flex h-6 items-center justify-center rounded-full bg-white/10 px-2.5 text-[11px] font-semibold text-white/70">
+                {activeIntervals.length} {activeIntervals.length === 1 ? "ativo" : "ativos"}
+              </span>
+            ) : null}
+          </div>
           {userDetail.professional_profile ? (
             <button
               type="button"
@@ -493,49 +566,99 @@ export function ProfessionalProfileForm({
               <Plus className="h-4 w-4 text-white/70" />
             </button>
 
-            {activeInterval ? (
-              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10">
-                      <CalendarClock className="h-5 w-5 text-white/80" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-white">Intervalo ativo</p>
-                      <p className="text-xs text-white/50">ID {activeInterval.id}</p>
-                    </div>
-                  </div>
-                  {canEditUser ? (
-                    <button
-                      type="button"
-                      onClick={openActiveIntervalModal}
-                      className="rounded-2xl p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
-                      aria-label="Editar intervalo ativo"
+            {activeIntervals.length > 0 ? (
+              <div className="space-y-3">
+                {visibleIntervals.map((interval, index) => {
+                  const createdAt = formatCreatedAt(interval.created_at);
+                  const isLatest = index === 0;
+
+                  return (
+                    <article
+                      key={interval.id}
+                      className={`space-y-3 rounded-2xl border p-4 transition ${
+                        isLatest
+                          ? "border-white/15 bg-white/[0.055]"
+                          : "border-white/8 bg-white/[0.025]"
+                      }`}
                     >
-                      <PenSquare className="h-4 w-4" />
-                    </button>
-                  ) : null}
-                </div>
-                <div className="grid gap-3 text-sm sm:grid-cols-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">Período</p>
-                    <p className="mt-1 text-white/80">
-                      {formatDisplayDate(activeInterval.date_start)} até {formatDisplayDate(activeInterval.date_finish)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">Horário</p>
-                    <p className="mt-1 text-white/80">
-                      {normalizeTime(activeInterval.hour_start)} às {normalizeTime(activeInterval.hour_finish)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-white/40">Repetição</p>
-                    <p className="mt-1 text-white/80">{formatWeekDays(activeInterval.week_days)}</p>
-                  </div>
-                </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10">
+                            <CalendarClock className="h-5 w-5 text-white/80" />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold text-white">Intervalo ativo</p>
+                              {isLatest ? (
+                                <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/65">
+                                  Mais recente
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-white/45">
+                              ID {interval.id}{createdAt ? ` • Criado em ${createdAt}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {canEditUser ? (
+                            <button
+                              type="button"
+                              onClick={() => openActiveIntervalModal(interval)}
+                              className="rounded-xl p-2 text-white/55 transition hover:bg-white/10 hover:text-white"
+                              aria-label={`Editar intervalo ${interval.id}`}
+                            >
+                              <PenSquare className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => openDeactivateIntervalModal(interval)}
+                            className="rounded-xl p-2 text-white/45 transition hover:bg-red-500/15 hover:text-red-300"
+                            aria-label={`Desativar intervalo ${interval.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid gap-3 text-sm sm:grid-cols-3">
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-white/40">Período</p>
+                          <p className="mt-1 text-white/80">{formatIntervalPeriod(interval)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-white/40">Horário</p>
+                          <p className="mt-1 text-white/80">
+                            {normalizeTime(interval.hour_start)} às {normalizeTime(interval.hour_finish)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-white/40">Repetição</p>
+                          <p className="mt-1 text-white/80">{formatWeekDays(interval.week_days)}</p>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+
+                {activeIntervals.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllIntervals((current) => !current)}
+                    className="flex w-full items-center justify-center rounded-2xl border border-white/8 bg-white/[0.025] px-4 py-3 text-sm font-medium text-white/65 transition hover:border-white/20 hover:bg-white/[0.05] hover:text-white"
+                    aria-expanded={showAllIntervals}
+                  >
+                    {showAllIntervals
+                      ? "Mostrar apenas o mais recente"
+                      : `Ver todos os ${activeIntervals.length} intervalos`}
+                  </button>
+                ) : null}
               </div>
-            ) : null}
+            ) : (
+              <p className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-white/45">
+                Nenhum intervalo ativo para este profissional.
+              </p>
+            )}
           </>
         )}
       </div>
@@ -679,7 +802,10 @@ export function ProfessionalProfileForm({
               </div>
               <button
                 type="button"
-                onClick={() => setActiveIntervalModalOpen(false)}
+                onClick={() => {
+                  setActiveIntervalModalOpen(false);
+                  setActiveIntervalToEdit(null);
+                }}
                 className="rounded-2xl p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
                 aria-label="Fechar modal"
               >
@@ -762,7 +888,10 @@ export function ProfessionalProfileForm({
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setActiveIntervalModalOpen(false)}
+                  onClick={() => {
+                    setActiveIntervalModalOpen(false);
+                    setActiveIntervalToEdit(null);
+                  }}
                   className="rounded-2xl border border-white/10 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40"
                 >
                   Cancelar
@@ -787,6 +916,69 @@ export function ProfessionalProfileForm({
           </div>
         </div>
       ) : null}
+
+      <Modal
+        open={Boolean(intervalToDeactivate)}
+        onClose={() => {
+          if (deactivateIntervalSubmitting) return;
+          setIntervalToDeactivate(null);
+          setDeactivateIntervalError(null);
+        }}
+        title="Você deseja desativar este intervalo?"
+        subtitle={intervalToDeactivate ? `Intervalo ID ${intervalToDeactivate.id}` : undefined}
+        maxWidth="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-white/60">
+            O intervalo deixará de bloquear a agenda deste profissional. Esta ação não exclui o histórico.
+          </p>
+
+          {intervalToDeactivate ? (
+            <div className="rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm">
+              <p className="font-medium text-white/85">{formatIntervalPeriod(intervalToDeactivate)}</p>
+              <p className="mt-1 text-white/50">
+                {normalizeTime(intervalToDeactivate.hour_start)} às {normalizeTime(intervalToDeactivate.hour_finish)}
+              </p>
+            </div>
+          ) : null}
+
+          {deactivateIntervalError ? (
+            <p
+              className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+              role="alert"
+            >
+              {deactivateIntervalError}
+            </p>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIntervalToDeactivate(null);
+                setDeactivateIntervalError(null);
+              }}
+              disabled={deactivateIntervalSubmitting}
+              className="rounded-2xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white/75 transition hover:border-white/30 hover:text-white disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeactivateInterval()}
+              disabled={deactivateIntervalSubmitting}
+              className="inline-flex items-center gap-2 rounded-2xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deactivateIntervalSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              {deactivateIntervalSubmitting ? "Desativando..." : "Desativar intervalo"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 }

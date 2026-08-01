@@ -25,7 +25,7 @@ export function QuickActions({ actions, onAction }: QuickActionsProps) {
         <span className="text-[11px] uppercase tracking-[0.18em] text-white/30">Fluxo</span>
       </div>
 
-      <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:grid-cols-3 lg:overflow-visible lg:px-0">
+      <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:grid-cols-2 lg:overflow-visible lg:px-0 xl:grid-cols-4">
         {actions.map((action) => (
           <button
             key={action.key}

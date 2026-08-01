@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { FileText } from "lucide-react";
-import type { RepasseDetail } from "@/src/features/repasses/types";
+import { FileText, PenSquare, Trash2 } from "lucide-react";
+import type { RepasseDetail, RepasseTransaction } from "@/src/features/repasses/types";
 import { calculateRepasseTotals, formatMonthReference, getPaymentTypeLabel } from "@/src/features/finances/utils/finances";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 import { capitalizeFirstLetter } from "@/src/features/shared/utils/string";
@@ -17,6 +17,8 @@ type RepasseDetailPanelProps = {
   onOpenPayment: () => void;
   onOpenInvoice: () => void;
   onOpenAnalytics: () => void;
+  onEditPayment: (transaction: RepasseTransaction) => void;
+  onDeletePayment: (transaction: RepasseTransaction) => void;
 };
 
 export function RepasseDetailPanel({
@@ -29,6 +31,8 @@ export function RepasseDetailPanel({
   onOpenPayment,
   onOpenInvoice,
   onOpenAnalytics,
+  onEditPayment,
+  onDeletePayment,
 }: RepasseDetailPanelProps) {
   if (!detail) {
     return <p className="rounded-3xl border border-white/10 px-4 py-6 text-center text-sm text-white/60">Detalhes indisponíveis.</p>;
@@ -118,14 +122,38 @@ export function RepasseDetailPanel({
                       </p>
                       <p className="text-xs text-white/60">{new Date(transaction.date_of_transaction).toLocaleDateString("pt-BR")}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold text-white">{formatCurrency(transaction.price)}</p>
-                      <p className="text-xs text-white/60">{getPaymentTypeLabel(transaction.transaction_payment as never)}</p>
-                      {transaction.money_resource ? (
+                    <div className="flex shrink-0 items-start gap-2">
+                      <div className="text-right">
+                        <p className="text-lg font-semibold text-white">{formatCurrency(transaction.price)}</p>
                         <p className="text-xs text-white/60">
-                          Origem: {capitalizeFirstLetter(transaction.money_resource)}
+                          {getPaymentTypeLabel(transaction.transaction_payment as never)}
                         </p>
-                      ) : null}
+                        {transaction.money_resource ? (
+                          <p className="text-xs text-white/60">
+                            Origem: {capitalizeFirstLetter(transaction.money_resource)}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onEditPayment(transaction)}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white/65 transition hover:bg-white/10 hover:text-white"
+                          aria-label={`Editar pagamento ${transaction.id}`}
+                          title="Editar pagamento"
+                        >
+                          <PenSquare className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeletePayment(transaction)}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl border border-red-400/15 bg-red-500/[0.06] text-red-300/75 transition hover:border-red-400/30 hover:bg-red-500/15 hover:text-red-200"
+                          aria-label={`Excluir pagamento ${transaction.id}`}
+                          title="Excluir pagamento"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   {transaction.payment_proof ? (

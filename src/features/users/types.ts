@@ -22,6 +22,7 @@ export type ProfessionalInterval = {
   hour_start: string;
   hour_finish: string;
   week_days: number[];
+  is_active: boolean;
   created_at?: string;
   updated_at?: string;
 };
@@ -33,7 +34,7 @@ export type ProfessionalProfileDetail = {
   commission: number;
   bio: string;
   services: number[];
-  active_professional_interval: ProfessionalInterval | null;
+  active_professional_intervals: ProfessionalInterval[];
 };
 
 export type AuthenticatedProfessionalProfile = {
@@ -53,7 +54,7 @@ export type AuthenticatedProfessionalProfile = {
   commission: number;
   bio: string;
   services: ProfessionalProfileServiceItem[];
-  active_professional_interval: ProfessionalInterval | null;
+  active_professional_intervals: ProfessionalInterval[];
   created_at: string;
   updated_at: string;
 };

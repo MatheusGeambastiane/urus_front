@@ -62,6 +62,7 @@ export function UserDetailScreen({
     updateProfessionalProfile,
     sendPasswordReset,
     addProfessionalInterval,
+    deactivateProfessionalInterval,
     sendReviewEmail,
   } = detail;
 
@@ -569,6 +570,7 @@ export function UserDetailScreen({
           canEditUser={canEditUser}
           onSaveProfile={updateProfessionalProfile}
           onAddInterval={addProfessionalInterval}
+          onDeactivateInterval={deactivateProfessionalInterval}
           onSaveActiveInterval={updateUser}
           onFeedback={setFeedback}
         />
