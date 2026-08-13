@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
 import { env } from "@/lib/env";
 
 type ApiUser = {
@@ -25,6 +26,15 @@ export const authOptions: NextAuthOptions = {
     signIn: "/dashboard/login",
   },
   providers: [
+    GoogleProvider({
+      clientId: env.googleClientId,
+      clientSecret: env.googleClientSecret,
+      authorization: {
+        params: {
+          scope: "openid email profile",
+        },
+      },
+    }),
     CredentialsProvider({
       id: "credentials",
       name: "Credentials",
@@ -71,6 +81,58 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider !== "google") {
+        return true;
+      }
+      if (!account.id_token) {
+        return "/dashboard/login?error=GoogleSignin";
+      }
+
+      try {
+        const response = await fetch(
+          `${env.apiBaseUrl}/dashboard/auth/google/`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id_token: account.id_token }),
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = (await response.json().catch(() => null)) as {
+            detail?: string;
+          } | null;
+          console.error(
+            "[dashboard-google-auth] Backend recusou o login:",
+            response.status,
+            errorData?.detail ?? "Resposta sem detalhes"
+          );
+          return "/dashboard/login?error=AccessDenied";
+        }
+
+        const payload = (await response.json()) as LoginResponse;
+        Object.assign(user, {
+          id: String(payload.user.id),
+          email: payload.user.email,
+          name: `${payload.user.first_name} ${payload.user.last_name}`.trim(),
+          firstName: payload.user.first_name,
+          lastName: payload.user.last_name,
+          role: payload.user.role,
+          profile_pic: payload.user.profile_pic ?? user.image ?? null,
+          accessToken: payload.access,
+          refreshToken: payload.refresh,
+        });
+        return true;
+      } catch (error) {
+        console.error(
+          "[dashboard-google-auth] Falha ao chamar o backend:",
+          error
+        );
+        return "/dashboard/login?error=GoogleSignin";
+      }
+    },
     async jwt({ token, user }) {
       if (user) {
         token.accessToken = user.accessToken;

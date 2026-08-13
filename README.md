@@ -16,6 +16,24 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Login Google do dashboard
+
+Configure no ambiente do backoffice:
+
+```env
+NEXTAUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=seu-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=seu-client-secret
+```
+
+Cadastre no cliente OAuth do Google a URI de callback do backoffice:
+
+- `http://localhost:3000/api/auth/callback/google`
+- `https://backoffice.urusbarbearia.com.br/api/auth/callback/google`
+
+O backend deve usar o mesmo client id em `GOOGLE_OAUTH2_CLIENT_ID`. Esse fluxo
+somente autentica e vincula contas staff existentes; ele nunca cria usuários.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
