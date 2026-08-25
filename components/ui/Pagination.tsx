@@ -28,17 +28,17 @@ export function Pagination({
   itemLabel = "resultados",
 }: PaginationProps) {
   return (
-    <div className="space-y-3">
-      <p className="text-sm text-white/60">
+    <div className="space-y-3 lg:flex lg:items-center lg:justify-between lg:gap-4 lg:space-y-0">
+      <p className="text-sm text-white/60 lg:text-white/50">
         Mostrando <span className="text-white">{currentCount}</span> de{" "}
         <span className="text-white">{totalCount}</span> {itemLabel}
       </p>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 lg:justify-end">
         <button
           type="button"
           onClick={onPrevious}
           disabled={!hasPrevious}
-          className="flex items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 disabled:opacity-40"
+          className="flex items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c6a56b]/55 hover:border-[#c6a56b]/25 hover:text-white disabled:pointer-events-none disabled:opacity-35 lg:rounded-[12px]"
         >
           <ChevronLeft className="h-4 w-4" />
           Anterior
@@ -60,7 +60,7 @@ export function Pagination({
           type="button"
           onClick={onNext}
           disabled={!hasNext}
-          className="flex items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 disabled:opacity-40"
+          className="flex items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c6a56b]/55 hover:border-[#c6a56b]/25 hover:text-white disabled:pointer-events-none disabled:opacity-35 lg:rounded-[12px]"
         >
           Próximo
           <ChevronRight className="h-4 w-4" />

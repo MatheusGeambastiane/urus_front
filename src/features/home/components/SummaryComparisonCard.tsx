@@ -72,16 +72,16 @@ export function SummaryComparisonCard({ comparison }: SummaryComparisonCardProps
   }, 0);
 
   return (
-    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card">
+    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card lg:rounded-[20px] lg:border-white/[0.07] lg:bg-[#0c0c0b]">
       <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-black">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-black lg:rounded-xl lg:bg-[#c6a56b] lg:text-[#090806]">
           <CalendarDays className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/40">
+          <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/40 lg:text-[#c6a56b]/70">
             Comparativo
           </p>
-          <p className="mt-2 text-lg font-semibold tracking-tight text-white">
+          <p className="home-display mt-2 text-lg font-semibold tracking-tight text-white lg:text-2xl">
             Média de {comparison.weekday_name ?? "dias anteriores"}
           </p>
         </div>
@@ -90,7 +90,8 @@ export function SummaryComparisonCard({ comparison }: SummaryComparisonCardProps
       <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.04] p-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/40">
-            Revenue por data
+            <span className="lg:hidden">Revenue por data</span>
+            <span className="hidden lg:inline">Faturamento por data</span>
           </p>
           <p className="text-xs font-medium text-white/55">
             Média {formatCurrency(comparison.compared_average.revenue)}
@@ -118,7 +119,7 @@ export function SummaryComparisonCard({ comparison }: SummaryComparisonCardProps
                     <div
                       className={`w-full rounded-t-[12px] transition-all duration-300 ${
                         item.isCurrent
-                          ? "bg-emerald-300 shadow-[0_0_22px_rgba(110,231,183,0.22)]"
+                          ? "bg-emerald-300 shadow-[0_0_22px_rgba(110,231,183,0.22)] lg:bg-[#c6a56b] lg:shadow-[0_0_22px_rgba(198,165,107,0.22)]"
                           : "bg-white shadow-[0_0_20px_rgba(255,255,255,0.14)]"
                       }`}
                       style={{ height: `${barHeight}%` }}
@@ -126,7 +127,7 @@ export function SummaryComparisonCard({ comparison }: SummaryComparisonCardProps
                   </div>
                   <span
                     className={`mt-3 text-center text-[10px] font-semibold uppercase tracking-[0.04em] ${
-                      item.isCurrent ? "text-emerald-200" : "text-white/45"
+                      item.isCurrent ? "text-emerald-200 lg:text-[#ddbd7a]" : "text-white/45"
                     }`}
                   >
                     {item.label}

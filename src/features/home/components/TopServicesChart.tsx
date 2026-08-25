@@ -11,12 +11,12 @@ export function TopServicesChart({ items, loading }: TopServicesChartProps) {
   const maxValue = items.reduce((current, item) => Math.max(current, item.total), 1);
 
   return (
-    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card">
+    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card lg:rounded-[20px] lg:border-white/[0.07] lg:bg-[#0c0c0b]">
       <div>
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40 lg:text-[#c6a56b]/70">
           Top serviços
         </p>
-        <p className="mt-1 text-lg font-semibold text-white">Mais executados</p>
+        <p className="home-display mt-1 text-lg font-semibold text-white lg:text-2xl">Mais executados</p>
       </div>
 
       {loading ? (
@@ -42,7 +42,7 @@ export function TopServicesChart({ items, loading }: TopServicesChartProps) {
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
                   <div
-                    className={`h-full rounded-full ${isPrimary ? "bg-white" : "bg-white/45"}`}
+                    className={`h-full rounded-full ${isPrimary ? "bg-white lg:bg-[#c6a56b] lg:shadow-[0_0_18px_rgba(198,165,107,0.18)]" : "bg-white/45"}`}
                     style={{ width: `${widthPercent}%` }}
                   />
                 </div>

@@ -69,18 +69,25 @@ export function RepasseAnalyticsPanel({
   const categoriesBreakdown = analytics?.categories_breakdown ?? [];
   const productsBreakdown = analytics?.sell_transactions_by_product ?? [];
   const weeklyRevenue = analytics?.weekly_revenue ?? [];
+  const weeklyRepass = analytics?.weekly_repass ?? [];
   const bestRevenueDay = analytics?.best_revenue_day ?? null;
   const monthLabel = analytics?.period.month ?? detail.month.slice(0, 7);
   const repassServiceValue = totals?.repass_value_service ?? detail.value_service ?? "0";
   const repassProductValue = totals?.repass_value_product ?? detail.value_product ?? "0";
   const repassTipsValue = totals?.repass_value_tips ?? detail.value_tips ?? "0";
   const repassAllowenceValue = totals?.repass_allowence ?? detail.allowence ?? "0";
-  const repassTotalValue = (
+  const internalSellTotal = totals?.internal_sell_total ?? detail.internal_sell_total ?? "0";
+  const calculatedRepassTotal = (
     parseCurrencyInput(repassServiceValue) +
     parseCurrencyInput(repassProductValue) +
     parseCurrencyInput(repassTipsValue) +
-    parseCurrencyInput(repassAllowenceValue)
+    parseCurrencyInput(repassAllowenceValue) -
+    parseCurrencyInput(internalSellTotal)
   ).toFixed(2);
+  const repassTotalValue = totals?.repass_total_to_receive
+    ?? detail.total_to_receive
+    ?? calculatedRepassTotal;
+  const repassIsNegative = parseCurrencyInput(repassTotalValue) < 0;
   const totalServicesFromBreakdown = servicesBreakdown.reduce(
     (accumulator, item) => accumulator + item.total,
     0,
@@ -98,6 +105,11 @@ export function RepasseAnalyticsPanel({
   const productSalesData = productsBreakdown.map((item) => ({
     ...item,
     total: parseCurrencyInput(item.total_value ?? "0"),
+  }));
+  const weeklyRepassData = weeklyRepass.map((item) => ({
+    ...item,
+    label: formatCompactRange(item.start_date, item.end_date),
+    range: `${formatIsoDateLabel(item.start_date)} até ${formatIsoDateLabel(item.end_date)}`,
   }));
 
   if (loading && !analytics) {
@@ -132,11 +144,17 @@ export function RepasseAnalyticsPanel({
           <div className="grid grid-cols-2 gap-3">
             <article className="rounded-[24px] border border-white/10 bg-white/[0.05] p-4 backdrop-blur-md">
               <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Total a receber</p>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-emerald-300 sm:text-3xl">
+              <p className={`mt-3 text-2xl font-semibold tracking-tight sm:text-3xl ${repassIsNegative ? "text-rose-300" : "text-emerald-300"}`}>
                 {formatCurrency(repassTotalValue)}
               </p>
               <p className="mt-2 text-xs text-white/58">
-                Serviços {formatCurrency(repassServiceValue)} • Produtos {formatCurrency(repassProductValue)}
+                Serviços {formatCurrency(repassServiceValue)} • Comissão de vendas {formatCurrency(repassProductValue)}
+              </p>
+              <p className="mt-1 text-xs text-white/58">
+                Gorjetas {formatCurrency(repassTipsValue)} • Ajuda de custo {formatCurrency(repassAllowenceValue)}
+              </p>
+              <p className="mt-1 text-xs font-medium text-rose-300/90">
+                Compras internas − {formatCurrency(internalSellTotal)}
               </p>
             </article>
 
@@ -230,6 +248,54 @@ export function RepasseAnalyticsPanel({
                       />
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-[28px] border border-emerald-200/15 bg-[linear-gradient(145deg,rgba(16,185,129,0.10),rgba(0,0,0,0.24))] p-4 backdrop-blur-md">
+              <div className="mb-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-emerald-100/55">Repasse por semana</p>
+                <p className="mt-1 text-base font-semibold">Créditos e compras do profissional</p>
+              </div>
+              {weeklyRepassData.length === 0 ? (
+                <p className="rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-white/60">
+                  Nenhum valor semanal de repasse disponível.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {weeklyRepassData.map((week) => {
+                    const weeklyTotal = parseCurrencyInput(week.total_to_receive);
+                    return (
+                      <article
+                        key={`${week.start_date}-${week.end_date}`}
+                        className="rounded-[22px] border border-white/10 bg-black/25 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.16em] text-white/40">Semana</p>
+                            <p className="mt-1 text-sm font-semibold text-white">{week.range}</p>
+                          </div>
+                          <p className={`text-lg font-semibold ${weeklyTotal < 0 ? "text-rose-300" : "text-emerald-300"}`}>
+                            {formatCurrency(week.total_to_receive)}
+                          </p>
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-2xl bg-white/[0.04] px-2 py-3">
+                            <p className="text-[10px] uppercase tracking-wide text-white/40">Serviços</p>
+                            <p className="mt-1 text-xs font-semibold text-white">{formatCurrency(week.service_commission)}</p>
+                          </div>
+                          <div className="rounded-2xl bg-white/[0.04] px-2 py-3">
+                            <p className="text-[10px] uppercase tracking-wide text-white/40">Comissão vendas</p>
+                            <p className="mt-1 text-xs font-semibold text-white">{formatCurrency(week.sales_commission)}</p>
+                          </div>
+                          <div className="rounded-2xl bg-rose-400/[0.06] px-2 py-3">
+                            <p className="text-[10px] uppercase tracking-wide text-rose-200/55">Compras</p>
+                            <p className="mt-1 text-xs font-semibold text-rose-300">− {formatCurrency(week.internal_purchases)}</p>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </div>

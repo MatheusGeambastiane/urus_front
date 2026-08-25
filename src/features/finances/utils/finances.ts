@@ -72,18 +72,22 @@ export const formatMonthReference = (value: string) => {
 
 export const calculateRepasseTotals = (detail: RepasseDetail | null) => {
   if (!detail) {
-    return { total: 0, paid: 0, remaining: 0 };
+    return { total: 0, paid: 0, remaining: 0, internalPurchases: 0 };
   }
   const serviceValue = parseCurrencyInput(detail.value_service ?? "0");
   const productValue = parseCurrencyInput(detail.value_product ?? "0");
   const tipsValue = parseCurrencyInput(detail.value_tips ?? "0");
   const allowenceValue = parseCurrencyInput(detail.allowence ?? "0");
-  const total = serviceValue + productValue + tipsValue + allowenceValue;
+  const internalPurchases = parseCurrencyInput(detail.internal_sell_total ?? "0");
+  const calculatedTotal = serviceValue + productValue + tipsValue + allowenceValue - internalPurchases;
+  const total = detail.total_to_receive == null
+    ? calculatedTotal
+    : parseCurrencyInput(detail.total_to_receive);
   const paid = detail.transactions.reduce((accumulator, transaction) => {
     return accumulator + parseCurrencyInput(transaction.price ?? "0");
   }, 0);
-  const remaining = Math.max(total - paid, 0);
-  return { total, paid, remaining };
+  const remaining = total - paid;
+  return { total, paid, remaining, internalPurchases };
 };
 
 export const priceStatusColor = (status: string) => {

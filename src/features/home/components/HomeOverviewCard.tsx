@@ -93,12 +93,12 @@ function OverviewHeader({
 
       <div className="relative z-10 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/45">
+          <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/45 lg:text-[#c6a56b]/75">
             {title}
           </p>
           <div className={`mt-4 flex items-end gap-2 ${compact ? "lg:mt-3" : ""}`}>
             <span className="text-lg font-medium text-white/35">R$</span>
-            <span className={`font-medium tracking-tight text-white ${compact ? "text-3xl" : "text-4xl sm:text-5xl"}`}>
+            <span className={`font-medium tracking-tight text-white ${compact ? "text-3xl lg:text-[2.65rem] lg:leading-none" : "text-4xl sm:text-5xl"}`}>
               {totalValue.replace(/^R\$\s?/, "")}
             </span>
           </div>
@@ -116,7 +116,7 @@ function OverviewHeader({
           <button
             type="button"
             onClick={onOpenFilters}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-white/75 transition hover:border-white/25 hover:bg-white/[0.07]"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-white/75 transition hover:border-white/25 hover:bg-white/[0.07] lg:border-[#c6a56b]/20 lg:text-[#dfc184] lg:hover:border-[#c6a56b]/45 lg:hover:bg-[#c6a56b]/10"
           >
             <Filter className="h-3.5 w-3.5" />
             Filtros
@@ -132,7 +132,7 @@ function OverviewHeader({
 
 function FilterDescription({ description, onClear, compact = false }: FilterDescriptionProps) {
   return (
-    <div className={`relative z-10 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-xs text-white/65 ${compact ? "lg:px-3 lg:py-2" : ""}`}>
+    <div className={`relative z-10 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3 text-xs text-white/65 ${compact ? "lg:rounded-xl lg:border-[#c6a56b]/15 lg:bg-[#c6a56b]/[0.045] lg:px-3 lg:py-2" : ""}`}>
       <span>{description}</span>
       <button
         type="button"
@@ -245,7 +245,7 @@ function PeriodChartBody({ chartItems, loading, error }: PeriodChartBodyProps) {
                   <div className="mb-2 min-h-[24px] text-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                     <span
                       className={`rounded-md px-2 py-1 text-[11px] font-medium ${
-                        item.isToday ? "bg-white text-black" : "bg-black text-white"
+                        item.isToday ? "bg-white text-black lg:bg-[#c6a56b]" : "bg-black text-white"
                       }`}
                     >
                       {item.displayValue}
@@ -255,7 +255,7 @@ function PeriodChartBody({ chartItems, loading, error }: PeriodChartBodyProps) {
                     <div
                       className={`block w-full rounded-t-[12px] transition-all duration-300 ${
                         item.isToday
-                          ? "bg-white shadow-[0_0_24px_rgba(255,255,255,0.18)]"
+                          ? "bg-white shadow-[0_0_24px_rgba(255,255,255,0.18)] lg:bg-[#c6a56b] lg:shadow-[0_0_28px_rgba(198,165,107,0.22)]"
                           : "bg-neutral-600 group-hover:bg-neutral-500"
                       }`}
                       style={{
@@ -266,7 +266,7 @@ function PeriodChartBody({ chartItems, loading, error }: PeriodChartBodyProps) {
                   </div>
                   <span
                     className={`mt-3 block text-center text-[10px] font-medium uppercase tracking-[0.04em] ${
-                      item.isToday ? "text-white" : "text-white/35"
+                      item.isToday ? "text-white lg:text-[#ddbd7a]" : "text-white/35"
                     }`}
                   >
                     {item.label}
@@ -336,8 +336,8 @@ export function HomeOverviewCard({
         <PeriodChartBody chartItems={chartItems} loading={loading} error={error} />
       </section>
 
-      <div className="hidden lg:contents">
-        <article className="relative overflow-hidden rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_32%),linear-gradient(180deg,#0b0b0b,#060606)] p-5 shadow-card lg:col-span-2">
+      <div className="hidden lg:col-span-12 lg:grid lg:grid-cols-12 lg:gap-5">
+        <article className="relative min-w-0 overflow-hidden rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_32%),linear-gradient(180deg,#0b0b0b,#060606)] p-5 shadow-card lg:col-span-12 lg:rounded-[20px] lg:border-[#c6a56b]/20 lg:bg-[radial-gradient(circle_at_top_right,rgba(198,165,107,0.14),transparent_38%),linear-gradient(145deg,#15130f,#090909_68%)] lg:shadow-[0_28px_70px_rgba(0,0,0,0.34)] xl:col-span-4">
           <OverviewHeader
             title={title}
             totalValue={totalValue}
@@ -351,20 +351,22 @@ export function HomeOverviewCard({
           ) : null}
         </article>
 
-        {summaryCards.map((card) => (
-          <article
-            key={`${card.title}-${card.value}`}
-            className="rounded-[26px] border border-white/8 bg-[#090909] p-5 shadow-card lg:col-span-2"
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">
-              {card.title}
-            </p>
-            <p className="mt-4 truncate text-2xl font-semibold tracking-tight text-white">
-              {card.value}
-            </p>
-            <p className="mt-2 truncate text-xs text-white/45">{card.label}</p>
-          </article>
-        ))}
+        <div className="grid min-w-0 gap-5 lg:col-span-12 lg:grid-cols-3 xl:col-span-8 xl:grid-cols-2 2xl:grid-cols-3">
+          {summaryCards.map((card) => (
+            <article
+              key={`${card.title}-${card.value}`}
+              className="group flex min-w-0 flex-col justify-center rounded-[26px] border border-white/8 bg-[#090909] p-5 shadow-card lg:rounded-[20px] lg:bg-[#0d0d0c] lg:transition lg:duration-300 lg:hover:-translate-y-0.5 lg:hover:border-[#c6a56b]/25 lg:hover:bg-[#11100d]"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">
+                {card.title}
+              </p>
+              <p className="home-display mt-4 break-words text-xl font-semibold tracking-tight text-white lg:text-[1.7rem] lg:leading-none 2xl:text-3xl">
+                {card.value}
+              </p>
+              <p className="mt-2 break-words text-xs leading-relaxed text-white/45">{card.label}</p>
+            </article>
+          ))}
+        </div>
       </div>
     </>
   );
@@ -372,12 +374,12 @@ export function HomeOverviewCard({
 
 export function PeriodChartCard({ chartItems, loading, error }: PeriodChartBodyProps) {
   return (
-    <section className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_32%),linear-gradient(180deg,#0b0b0b,#060606)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+    <section className="relative h-full overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_32%),linear-gradient(180deg,#0b0b0b,#060606)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] lg:rounded-[20px] lg:border-white/[0.07] lg:bg-[#0c0c0b]">
       <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-white/[0.03] blur-3xl" />
       <div className="relative z-10 flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/45">Período</p>
-          <h2 className="mt-1 text-lg font-semibold text-white">Gráfico do período</h2>
+          <p className="text-xs font-medium uppercase tracking-[0.22em] text-[#c6a56b]/70">Período</p>
+          <h2 className="home-display mt-1 text-2xl font-semibold tracking-tight text-white">Gráfico do período</h2>
         </div>
         <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium text-white/55">
           Últimos 7 dias

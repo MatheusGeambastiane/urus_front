@@ -33,7 +33,6 @@ export function HomePage({ firstName }: HomePageProps) {
     filters: dailySummary.weeklyFilter,
   });
   const [typedHeader, setTypedHeader] = useState("");
-
   const rotatingPhrases = useMemo(
     () => [
       `Olá, ${firstName}`,
@@ -42,6 +41,12 @@ export function HomePage({ firstName }: HomePageProps) {
     ],
     [firstName],
   );
+  const todayLabel = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    timeZone: "America/Bahia",
+  }).format(new Date());
 
   useEffect(() => {
     let phraseIndex = 0;
@@ -51,13 +56,9 @@ export function HomePage({ firstName }: HomePageProps) {
 
     const tick = () => {
       const currentPhrase = rotatingPhrases[phraseIndex] ?? "";
-
-      if (isDeleting) {
-        characterIndex = Math.max(characterIndex - 1, 0);
-      } else {
-        characterIndex = Math.min(characterIndex + 1, currentPhrase.length);
-      }
-
+      characterIndex = isDeleting
+        ? Math.max(characterIndex - 1, 0)
+        : Math.min(characterIndex + 1, currentPhrase.length);
       setTypedHeader(currentPhrase.slice(0, characterIndex));
 
       if (!isDeleting && characterIndex === currentPhrase.length) {
@@ -77,11 +78,8 @@ export function HomePage({ firstName }: HomePageProps) {
     };
 
     tick();
-
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [rotatingPhrases]);
 
@@ -141,14 +139,14 @@ export function HomePage({ firstName }: HomePageProps) {
       title: "Novo Agendamento",
       subtitle: "Abra um atendimento e comece a agenda do dia.",
       image: "/relogio_urus.png",
-      className: "border-white bg-white text-black",
+      className: "border-white bg-white text-black lg:border-[#c6a56b]/40 lg:bg-[#c6a56b] lg:text-[#090806]",
     },
     {
       key: "create-professional-interval" as const,
       title: "Criar novo intervalo",
       subtitle: "Bloqueie um período pontual ou recorrente na agenda.",
       image: "/icon_calendar.png",
-      className: "border-white/10 bg-[#151515] text-white hover:bg-[#1b1b1b]",
+      className: "border-white/10 bg-[#151515] text-white hover:bg-[#1b1b1b] lg:border-[#c6a56b]/15 lg:bg-[#15140f]",
     },
     {
       key: "create-product-sale" as const,
@@ -187,17 +185,24 @@ export function HomePage({ firstName }: HomePageProps) {
   });
 
   return (
-    <DashboardShell activeTab="home" profilePic={profilePic} userRole={userRole}>
-      <div className="space-y-5 pb-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-5 lg:space-y-0">
+    <DashboardShell activeTab="home" profilePic={profilePic} userRole={userRole} desktopVariant="luxury">
+      <div className="home-dashboard space-y-5 pb-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-5 lg:space-y-0">
         <header className="flex items-center justify-between lg:col-span-12">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.24em] text-white/35">
-              Visão Geral
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-white/35 lg:text-[#c6a56b]/80">
+              <span className="lg:hidden">Visão Geral</span>
+              <span className="hidden lg:inline">Painel operacional</span>
             </p>
-            <h1 className="mt-2 text-[2rem] font-medium tracking-tight text-white">
+            <h1 className="mt-2 text-[2rem] font-medium tracking-tight text-white lg:hidden">
               {typedHeader}
               <span className="ml-1 inline-block h-8 w-[2px] animate-pulse bg-white/70 align-[-4px]" />
             </h1>
+            <h1 className="home-display home-title-reveal mt-2 hidden font-medium tracking-tight text-white lg:block lg:text-[2.75rem] lg:leading-none lg:tracking-[-0.025em]">
+              Olá, {firstName}.
+            </h1>
+            <p className="mt-3 hidden text-sm capitalize text-white/45 lg:block">
+              {todayLabel} <span className="mx-2 text-[#c6a56b]/50">•</span> acompanhe o ritmo da barbearia.
+            </p>
           </div>
         </header>
 
@@ -217,7 +222,7 @@ export function HomePage({ firstName }: HomePageProps) {
           onClearFilters={dailySummary.handleClearSummaryFilters}
         />
 
-        <div className="hidden lg:col-span-8 lg:block">
+        <div className="hidden lg:col-span-7 lg:block xl:col-span-8">
           <PeriodChartCard
             chartItems={chartItems}
             loading={dailySummary.dailySummaryLoading || last7Days.last7DaysLoading}
@@ -225,7 +230,7 @@ export function HomePage({ firstName }: HomePageProps) {
           />
         </div>
 
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-5 xl:col-span-4">
           <NextAppointmentCard
             nextAppointment={nextAppointment}
             loading={dailySummary.dailySummaryLoading}

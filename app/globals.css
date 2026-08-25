@@ -59,3 +59,193 @@ body {
   color: transparent;
   animation: brand-sheen 3.2s linear infinite;
 }
+
+@keyframes home-title-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-panel-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 1024px) {
+  .home-dashboard {
+    --home-accent: #c6a56b;
+    position: relative;
+    isolation: isolate;
+    font-family: var(--font-dashboard-body), sans-serif;
+  }
+
+  .home-dashboard::before {
+    position: absolute;
+    z-index: -1;
+    top: -7rem;
+    right: -3rem;
+    width: 34rem;
+    height: 24rem;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(198, 165, 107, 0.075), transparent 68%);
+    content: "";
+    pointer-events: none;
+  }
+
+  .home-display {
+    font-family: var(--font-dashboard-display), sans-serif;
+  }
+
+  .home-title-reveal {
+    animation: home-title-reveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .home-dashboard > :not(header) {
+    animation: home-panel-reveal 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .home-dashboard > :nth-child(3) {
+    animation-delay: 70ms;
+  }
+
+  .home-dashboard > :nth-child(4) {
+    animation-delay: 110ms;
+  }
+
+  .home-dashboard > :nth-child(n + 5) {
+    animation-delay: 150ms;
+  }
+
+  .users-dashboard {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .users-dashboard::before {
+    position: absolute;
+    z-index: -1;
+    top: -6rem;
+    right: -2rem;
+    width: 30rem;
+    height: 22rem;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(198, 165, 107, 0.065), transparent 68%);
+    content: "";
+    pointer-events: none;
+  }
+
+  .users-dashboard > * {
+    animation: home-panel-reveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .users-dashboard > :nth-child(2) {
+    animation-delay: 70ms;
+  }
+
+  .users-dashboard > :nth-child(3) {
+    animation-delay: 110ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-title-reveal,
+  .home-dashboard > :not(header),
+  .users-dashboard > * {
+    animation: none;
+  }
+}
+
+@keyframes products-desktop-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 1024px) {
+  .products-dashboard {
+    position: relative;
+    isolation: isolate;
+    font-family: var(--font-dashboard-body), sans-serif;
+  }
+
+  .products-dashboard::before {
+    position: fixed;
+    z-index: -1;
+    top: 4rem;
+    right: -8rem;
+    width: 42rem;
+    height: 30rem;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(198, 165, 107, 0.07), transparent 68%);
+    content: "";
+    pointer-events: none;
+  }
+
+  .products-dashboard > div > div {
+    animation: products-desktop-reveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .products-dashboard .products-hero,
+  .products-dashboard > div > div > header {
+    position: relative;
+    overflow: hidden;
+    min-height: 8.75rem;
+    padding: 1.75rem 2rem;
+    border: 1px solid rgba(198, 165, 107, 0.14);
+    border-radius: 2rem;
+    background:
+      radial-gradient(circle at 88% 12%, rgba(198, 165, 107, 0.13), transparent 28%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(198, 165, 107, 0.025));
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+  }
+
+  .products-dashboard .products-hero::after,
+  .products-dashboard > div > div > header::after {
+    position: absolute;
+    right: 2rem;
+    bottom: 0;
+    width: 8rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(216, 184, 115, 0.65));
+    content: "";
+  }
+
+  .products-dashboard > div > div > section {
+    backdrop-filter: blur(14px);
+  }
+
+  .products-dashboard input,
+  .products-dashboard select,
+  .products-dashboard textarea {
+    transition: border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .products-dashboard input:focus,
+  .products-dashboard select:focus,
+  .products-dashboard textarea:focus {
+    border-color: rgba(198, 165, 107, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(198, 165, 107, 0.075);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .products-dashboard > div > div {
+    animation: none;
+  }
+}

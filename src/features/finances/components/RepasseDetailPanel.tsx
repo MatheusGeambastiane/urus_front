@@ -56,6 +56,7 @@ export function RepasseDetailPanel({
               <p>Produtos: <span className="font-semibold text-white">{formatCurrency(detail.value_product ?? "0")}</span></p>
               <p>Gorjetas: <span className="font-semibold text-white">{formatCurrency(detail.value_tips ?? "0")}</span></p>
               <p>Ajuda de custo: <span className="font-semibold text-white">{formatCurrency(detail.allowence ?? "0")}</span></p>
+              <p>Compras internas: <span className="font-semibold text-rose-300">− {formatCurrency(detail.internal_sell_total ?? "0")}</span></p>
             </div>
           </div>
         </div>

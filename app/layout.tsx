@@ -1,10 +1,23 @@
 import type { Metadata } from "next";
+import { Barlow_Condensed, IBM_Plex_Sans } from "next/font/google";
 import { getServerSession } from "next-auth";
 import "./globals.css";
 import { authOptions } from "@/lib/auth-options";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { PwaRegister } from "@/components/providers/pwa-register";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+
+const dashboardDisplay = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-dashboard-display",
+});
+
+const dashboardBody = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-dashboard-body",
+});
 
 export const metadata: Metadata = {
   title: "Urus - Backoffice",
@@ -37,7 +50,7 @@ export default async function RootLayout({
 
   return (
     <html lang="pt-BR">
-      <body className="antialiased">
+      <body className={`${dashboardDisplay.variable} ${dashboardBody.variable} antialiased`}>
         <AuthSessionProvider session={session}>{children}</AuthSessionProvider>
         <PwaRegister />
         <SpeedInsights />

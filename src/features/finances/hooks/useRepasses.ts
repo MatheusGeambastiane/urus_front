@@ -109,6 +109,8 @@ export function useRepasses({ accessToken, fetchWithAuth, month, userRole }: Use
               value_service: data.value_service,
               value_product: data.value_product,
               value_tips: data.value_tips,
+              internal_sell_total: data.internal_sell_total,
+              total_to_receive: data.total_to_receive,
             }
           : item,
       ),

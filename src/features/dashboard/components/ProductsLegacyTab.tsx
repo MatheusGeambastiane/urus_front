@@ -494,6 +494,7 @@ export function ProductsLegacyTab({
   );
   const newSaleParam = searchParams.get("nova_venda_produto");
   const newProductParam = searchParams.get("novo_produto");
+  const productDetailParam = searchParams.get("produto");
   const [usersData, setUsersData] = useState<UsersResponse | null>(null);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -5564,12 +5565,14 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     setSelectedProductId(parsedId);
     setProductDetailError(null);
     setCanEditProduct(false);
+    router.push(`/dashboard/produtos?produto=${parsedId}`, { scroll: false });
   };
 
   const handleCloseProductDetail = () => {
     setSelectedProductId(null);
     setProductDetailError(null);
     setCanEditProduct(false);
+    router.replace("/dashboard/produtos", { scroll: false });
   };
 
   const handleToggleProductEdit = () => {
@@ -6240,10 +6243,21 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       handleStartCreateProduct();
       router.replace("/dashboard/produtos", { scroll: false });
     }
+    if (activeTab === "products" && productDetailParam) {
+      const parsedProductId = Number(productDetailParam);
+      if (Number.isFinite(parsedProductId) && parsedProductId > 0) {
+        setSelectedProductSaleId(null);
+        setIsViewingProductSales(false);
+        setSelectedProductId(parsedProductId);
+        setProductDetailError(null);
+        setCanEditProduct(false);
+      }
+    }
   }, [
     activeTab,
     newSaleParam,
     newProductParam,
+    productDetailParam,
     handleStartCreateProductSale,
     handleStartCreateProduct,
     router,
@@ -8468,7 +8482,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
     return (
       <div className="flex flex-col gap-5">
-        <header className="flex items-center justify-between">
+        <header className="products-hero flex items-center justify-between">
           <button
             type="button"
             className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
@@ -8478,7 +8492,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </button>
           <div className="flex-1 text-center">
             <p className="text-sm text-white/60">Produtos</p>
-            <p className="text-2xl font-semibold">Vendas</p>
+            <p className="text-2xl font-semibold lg:text-4xl">Vendas</p>
           </div>
           <button
             type="button"
@@ -8491,7 +8505,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </button>
         </header>
 
-        <section className="overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-card backdrop-blur-sm">
+        <section className="overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-card backdrop-blur-sm lg:border-[#c6a56b]/12 lg:p-6">
           <div className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -8589,7 +8603,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
         {!productSalesLoading && totalSales > 0 ? renderSalesPagination("top") : null}
 
-        <section className="space-y-4 rounded-[30px] border border-white/6 bg-[#0b0b0b] p-5 shadow-card">
+        <section className="space-y-4 rounded-[30px] border border-white/6 bg-[#0b0b0b] p-5 shadow-card lg:border-[#c6a56b]/12 lg:bg-[linear-gradient(180deg,rgba(198,165,107,0.04),rgba(255,255,255,0.015))] lg:p-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Vendas realizadas</h3>
             <span className="text-xs text-white/60">{totalSales} itens</span>
@@ -8607,7 +8621,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               Nenhuma venda encontrada.
             </p>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
               {sales.map((sale, index) => {
                 const paymentLabel = getSellPaymentLabel(sale.payment);
                 const saleDate = sale.date ? formatIsoToDisplay(sale.date) : "--";
@@ -8756,7 +8770,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       : "—";
     return (
       <div className="flex flex-col gap-5">
-        <header className="flex items-center justify-between">
+        <header className="products-hero flex items-center justify-between">
           <button
             type="button"
             className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
@@ -8960,7 +8974,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const renderProductDetailScreen = () => {
     return (
       <div className="flex flex-col gap-5">
-        <header className="flex items-center justify-between">
+        <header className="products-hero flex items-center justify-between">
           <button
             type="button"
             className="mr-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
@@ -8970,7 +8984,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </button>
           <div className="flex-1 text-center">
             <p className="text-sm text-white/60">Produtos</p>
-            <p className="text-2xl font-semibold">Produto</p>
+            <p className="text-2xl font-semibold lg:text-4xl">Produto</p>
           </div>
         </header>
 
@@ -8980,8 +8994,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </div>
         ) : null}
 
-        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
-          <div className="flex items-center justify-between">
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:space-y-0 lg:rounded-[32px] lg:border-[#c6a56b]/12 lg:bg-[linear-gradient(145deg,rgba(198,165,107,0.045),rgba(255,255,255,0.015))] lg:p-7">
+          <div className="flex items-center justify-between lg:col-span-2">
             <div>
               <p className="text-lg font-semibold">Informações do produto</p>
               <p className="text-xs text-white/60">
@@ -9000,7 +9014,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             ) : null}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 lg:flex-col lg:items-stretch">
             <button
               type="button"
               onClick={() => {
@@ -9009,7 +9023,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 }
               }}
               disabled={!canEditProduct}
-              className={`group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5 ${
+              className={`group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5 lg:h-72 lg:w-full lg:border-[#c6a56b]/15 ${
                 canEditProduct ? "cursor-pointer" : "cursor-default"
               }`}
               aria-label="Alterar imagem do produto"
@@ -9056,7 +9070,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </div>
           </div>
 
-          <form onSubmit={handleSubmitProductDetail} className="grid gap-4 sm:grid-cols-2">
+          <form onSubmit={handleSubmitProductDetail} className="grid gap-4 sm:grid-cols-2 lg:self-start">
             <label className="text-sm text-white/70 sm:col-span-2">
               Nome
               <input
@@ -9246,24 +9260,53 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     }
     return (
       <div className="flex flex-col gap-5">
-        <header className="flex flex-col gap-3">
+        <header className="products-hero flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-white/60">Produtos</p>
-              <p className="text-2xl font-semibold">Controle de estoque</p>
-              <p className="text-xs text-white/60">{productsInventoryCount} item(ns)</p>
+              <p className="text-sm text-white/60 lg:text-xs lg:font-semibold lg:uppercase lg:tracking-[0.24em] lg:text-[#c6a56b]">Produtos</p>
+              <p className="text-2xl font-semibold lg:mt-2 lg:text-4xl lg:tracking-tight">Controle de estoque</p>
+              <p className="text-xs text-white/60 lg:mt-2 lg:text-sm">{productsInventoryCount} item(ns) cadastrados no inventário</p>
+            </div>
+            <div className="hidden items-center gap-3 lg:flex">
+              <button
+                type="button"
+                onClick={handleOpenProductSalesList}
+                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#c6a56b]/20 bg-black/20 px-4 text-sm font-semibold text-[#ead59c] transition hover:border-[#c6a56b]/45 hover:bg-[#c6a56b]/10"
+              >
+                <FileText className="h-4 w-4" />
+                Ver vendas
+              </button>
+              <button
+                type="button"
+                onClick={handleStartCreateProductSale}
+                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#c6a56b]/25 bg-[#c6a56b]/10 px-4 text-sm font-semibold text-[#f0d99e] transition hover:bg-[#c6a56b]/18"
+              >
+                <DollarSign className="h-4 w-4" />
+                Registrar venda
+              </button>
+              {canManageProducts ? (
+                <button
+                  type="button"
+                  onClick={handleStartCreateProduct}
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#d8b873] px-4 text-sm font-semibold text-[#17120b] shadow-[0_16px_36px_rgba(198,165,107,0.18)] transition hover:bg-[#e4c98c]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Novo produto
+                </button>
+              ) : null}
             </div>
           </div>
         </header>
 
-        <form onSubmit={handleProductsSearchSubmit} className="relative" role="search">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.72fr)]">
+          <form onSubmit={handleProductsSearchSubmit} className="relative lg:self-start" role="search">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
           <input
             type="search"
             value={productsSearchInput}
             onChange={(event) => setProductsSearchInput(event.target.value)}
             placeholder="Buscar por nome ou categoria"
-            className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-28 text-sm outline-none transition focus:border-white/40"
+            className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-28 text-sm outline-none transition focus:border-white/40 lg:h-14 lg:border-[#c6a56b]/15 lg:bg-black/20 lg:focus:border-[#c6a56b]/50"
           />
           {productsSearchTerm ? (
             <button
@@ -9276,13 +9319,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           ) : null}
           <button
             type="submit"
-            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black transition hover:bg-white/90"
+            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black transition hover:bg-white/90 lg:bg-[#d8b873] lg:text-[#17120b] lg:hover:bg-[#e4c98c]"
           >
             Buscar
           </button>
-        </form>
+          </form>
 
-        <div className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
+          <div className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 lg:grid lg:grid-cols-2 lg:gap-5 lg:space-y-0 lg:border-[#c6a56b]/12 lg:bg-[linear-gradient(145deg,rgba(198,165,107,0.055),rgba(255,255,255,0.018))]">
           <div>
             <p className="text-sm text-white/60">Uso</p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -9324,9 +9367,10 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               })}
             </div>
           </div>
+          </div>
         </div>
 
-        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card lg:rounded-[32px] lg:border-[#c6a56b]/12 lg:bg-[linear-gradient(180deg,rgba(198,165,107,0.045),rgba(255,255,255,0.018))] lg:p-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Estoque atualizado</h3>
             <div className="flex items-center gap-3 text-xs text-white/60">
@@ -9368,7 +9412,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </p>
           ) : (
             <>
-              <ul className="space-y-3">
+              <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 xl:grid-cols-3">
                 {productsInventory.map((product) => {
                   const showAlarm = product.quantity === product.alarm_quantity;
                   const readableType = capitalizeFirstLetter(
@@ -9379,16 +9423,16 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                       <button
                         type="button"
                         onClick={() => handleOpenProductDetail(product.id)}
-                        className="flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-black/30 p-4 text-left transition hover:border-white/20"
+                        className="group flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-black/30 p-4 text-left transition hover:border-white/20 lg:h-full lg:flex-col lg:items-stretch lg:rounded-[26px] lg:border-[#c6a56b]/10 lg:bg-[linear-gradient(155deg,rgba(255,255,255,0.045),rgba(0,0,0,0.22))] lg:hover:-translate-y-1 lg:hover:border-[#c6a56b]/35 lg:hover:shadow-[0_24px_60px_rgba(0,0,0,0.28)]"
                       >
-                        <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-white/5">
+                        <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-white/5 lg:h-44 lg:w-full lg:rounded-[20px] lg:ring-1 lg:ring-white/5">
                           {product.picture_of_product ? (
                             <Image
                               src={product.picture_of_product}
                               alt={product.name}
                               fill
-                              sizes="80px"
-                              className="object-cover"
+                              sizes="(min-width: 1280px) 280px, (min-width: 1024px) 360px, 80px"
+                              className="object-cover transition duration-500 lg:group-hover:scale-[1.035]"
                             />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-[11px] text-white/60">
@@ -9396,18 +9440,18 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                             </div>
                           )}
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 lg:flex lg:flex-col">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-base font-semibold">{product.name}</p>
+                            <p className="text-base font-semibold lg:text-lg">{product.name}</p>
                             <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] uppercase tracking-wide text-white/70">
                               {capitalizeFirstLetter(product.use_type ?? "")}
                             </span>
                           </div>
                           <p className="text-xs text-white/60">Tipo: {readableType}</p>
-                          <p className="text-xs text-white/60">
+                          <p className="text-xs text-white/60 lg:mt-3 lg:text-sm">
                             Preço de venda: {formatCurrency(product.price_to_sell ?? "0")}
                           </p>
-                          <p className="flex items-center gap-2 text-xs text-white/60">
+                          <p className="flex items-center gap-2 text-xs text-white/60 lg:mt-auto lg:pt-4">
                             Quantidade:{" "}
                             <span className="text-sm font-semibold text-white">
                               {product.quantity}
@@ -9450,7 +9494,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           )}
         </section>
 
-        <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3">
+        <div className="fixed bottom-24 right-6 z-40 flex flex-col items-end gap-3 lg:hidden">
           {showProductsFabOptions ? (
             <>
               <button
@@ -13981,12 +14025,74 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   return (
-    <div className="relative min-h-screen bg-[#050505] text-white">
-      <div className="mx-auto flex w-full max-w-md flex-col px-5 pb-28 pt-10">
-        {renderContentByTab()}
+    <div className="relative min-h-screen overflow-x-hidden bg-[#050505] text-white lg:bg-[#080807]">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 overflow-hidden border-r border-[#c6a56b]/15 bg-[radial-gradient(circle_at_10%_0%,rgba(198,165,107,0.11),transparent_30%),linear-gradient(180deg,#0b0a08_0%,#070707_55%,#050505_100%)] px-5 py-6 shadow-[24px_0_80px_rgba(0,0,0,0.24)] lg:flex lg:flex-col">
+        <div className="pointer-events-none absolute -left-24 top-1/3 h-56 w-56 rounded-full bg-[#c6a56b]/5 blur-3xl" />
+        <div className="relative flex h-28 shrink-0 items-center justify-center overflow-hidden" aria-label="Urus Barbearia">
+          <Image
+            src="/urus_logo_nobg_branca.png"
+            alt="Urus Barbearia"
+            width={500}
+            height={500}
+            sizes="224px"
+            className="h-56 w-56 max-w-none object-contain"
+            priority
+          />
+        </div>
+        <div className="relative mt-2 flex items-center gap-3 px-3">
+          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#c6a56b]/35" />
+          <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#c6a56b]/65">Gestão Urus</span>
+          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#c6a56b]/35" />
+        </div>
+
+        <nav className="relative mt-7 flex flex-1 flex-col gap-2">
+          {bottomNavItems.map((item) => {
+            const isActive = item.key === activeTab;
+            const Icon = item.icon;
+            return (
+              <button
+                key={`desktop-${item.key}`}
+                type="button"
+                onClick={() => navigateToTab(item.key)}
+                aria-current={isActive ? "page" : undefined}
+                className={`group relative flex h-13 items-center gap-3 rounded-2xl border px-3 text-sm font-semibold transition duration-300 ${
+                  isActive
+                    ? "border-[#c6a56b]/25 bg-[linear-gradient(100deg,rgba(198,165,107,0.16),rgba(198,165,107,0.055))] text-[#f0d99e] shadow-[0_16px_40px_rgba(0,0,0,0.22)] before:absolute before:-left-1 before:h-6 before:w-0.5 before:rounded-full before:bg-[#d8b873]"
+                    : "border-transparent text-white/55 hover:border-[#c6a56b]/12 hover:bg-[#c6a56b]/[0.055] hover:text-white"
+                }`}
+              >
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${isActive ? "bg-[#c6a56b]/15" : "bg-white/[0.035] group-hover:bg-[#c6a56b]/10"}`}>
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={isActive ? 2.3 : 1.8} />
+                </span>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="relative rounded-[24px] border border-[#c6a56b]/12 bg-[#c6a56b]/[0.045] px-4 py-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#c6a56b]/65">Inventário</p>
+          <p className="mt-1 text-sm font-medium text-white/75">Produtos, estoque e vendas</p>
+          <div className="mt-3 flex items-center gap-2 text-[11px] text-white/40">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.6)]" />
+            Operação disponível
+          </div>
+        </div>
+      </aside>
+
+      <div className="hidden lg:ml-72 lg:flex lg:w-[calc(100%-18rem)] lg:px-8 lg:pt-6 xl:px-10">
+        <div className="mx-auto flex w-full max-w-[1500px] items-center justify-end">
+          {renderProfileMenu()}
+        </div>
       </div>
 
-      <nav className="fixed bottom-4 left-1/2 w-full max-w-md -translate-x-1/2 px-4">
+      <div className="products-dashboard mx-auto flex w-full max-w-md flex-col px-5 pb-28 pt-10 lg:mx-0 lg:ml-72 lg:w-[calc(100%-18rem)] lg:max-w-none lg:px-8 lg:pb-10 lg:pt-5 xl:px-10">
+        <div className="mx-auto w-full lg:max-w-[1500px]">
+          {renderContentByTab()}
+        </div>
+      </div>
+
+      <nav className="fixed bottom-4 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-4 lg:hidden">
         <div className="grid grid-cols-6 gap-2 rounded-3xl border border-white/10 bg-[#0b0b0b]/80 p-2 backdrop-blur">
           {bottomNavItems.map((item) => {
             const isActive = item.key === activeTab;

@@ -14,13 +14,13 @@ export function ProfessionalBreakdownChart({
   const maxValue = items.reduce((current, item) => Math.max(current, item.total), 1);
 
   return (
-    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card">
+    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card lg:rounded-[20px] lg:border-white/[0.07] lg:bg-[#0c0c0b]">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40 lg:text-[#c6a56b]/70">
             Atendimentos por profissional
           </p>
-          <p className="mt-1 text-lg font-semibold text-white">Distribuição do dia</p>
+          <p className="home-display mt-1 text-lg font-semibold text-white lg:text-2xl">Distribuição do dia</p>
         </div>
         <span className="text-[11px] uppercase tracking-[0.18em] text-white/30">Hoje</span>
       </div>
@@ -30,22 +30,22 @@ export function ProfessionalBreakdownChart({
       ) : items.length === 0 ? (
         <p className="mt-6 text-sm text-white/60">Nenhum atendimento registrado.</p>
       ) : (
-        <div className="mt-8 flex items-end justify-between gap-3">
+        <div className="mt-8 flex items-end justify-between gap-3 lg:grid lg:grid-cols-[repeat(auto-fit,minmax(7rem,1fr))]">
           {items.map((item, index) => {
             const heightPercent = Math.max((item.total / maxValue) * 100, 12);
             const isPrimary = index === 0;
 
             return (
-              <div key={item.professional_id} className="flex flex-1 flex-col items-center">
+              <div key={item.professional_id} className="flex flex-1 flex-col items-center lg:min-w-0">
                 <div className="flex h-36 w-full items-end rounded-[20px] bg-white/[0.04] p-1.5">
                   <div
                     className={`w-full rounded-[16px] ${
-                      isPrimary ? "bg-white" : "bg-gradient-to-t from-white/55 to-white/25"
+                      isPrimary ? "bg-white lg:bg-[#c6a56b] lg:shadow-[0_0_24px_rgba(198,165,107,0.16)]" : "bg-gradient-to-t from-white/55 to-white/25"
                     }`}
                     style={{ height: `${heightPercent}%` }}
                   />
                 </div>
-                <p className="mt-3 text-center text-xs text-white/60">{item.professional_name}</p>
+                <p className="mt-3 text-center text-xs text-white/60 lg:break-words lg:leading-relaxed">{item.professional_name}</p>
                 <p className="mt-1 text-sm font-semibold text-white">{item.total}</p>
               </div>
             );
