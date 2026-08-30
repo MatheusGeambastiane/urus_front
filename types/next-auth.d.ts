@@ -14,7 +14,7 @@ declare module "next-auth" {
   interface Session {
     user?: AppUser & DefaultSession["user"];
     accessToken?: string;
-    refreshToken?: string;
+    error?: "RefreshAccessTokenError";
   }
 
   interface User extends AppUser {
@@ -28,5 +28,6 @@ declare module "next-auth/jwt" {
     user?: AppUser & DefaultSession["user"];
     accessToken?: string;
     refreshToken?: string;
+    error?: "RefreshAccessTokenError";
   }
 }

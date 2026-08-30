@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   professionalServiceSummaryEndpointBase,
+  repassesEnsureMonthEndpoint,
   repassesEndpoint,
   repassesRecalculateEndpointBase,
 } from "@/src/features/finances/services/endpoints";
@@ -51,6 +52,19 @@ export function useRepasses({ accessToken, fetchWithAuth, month, userRole }: Use
     setLoading(true);
     setError(null);
     try {
+      const ensureResponse = await fetchWithAuth(repassesEnsureMonthEndpoint, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ month }),
+      });
+      if (!ensureResponse.ok) {
+        throw new Error("Não foi possível preparar os repasses do mês.");
+      }
       const url = new URL(repassesEndpoint);
       url.searchParams.set("month", month);
 

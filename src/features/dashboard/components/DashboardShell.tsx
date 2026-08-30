@@ -4,7 +4,7 @@ import type { ComponentType, ReactNode } from "react";
 import { signOut } from "next-auth/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Calendar, Home, Scissors, ShoppingBag, Sparkles, Users, Wallet } from "lucide-react";
+import { BarChart3, Calendar, Home, Scissors, ShoppingBag, Sparkles, Users, Wallet } from "lucide-react";
 
 import { ProfileMenu } from "@/components/ui/ProfileMenu";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
@@ -44,6 +44,9 @@ export function DashboardShell({
     }
     return true;
   });
+  const desktopItems = userRole === "admin"
+    ? [...visibleItems, { key: "analytics" as const, label: "Analytics", icon: BarChart3 }]
+    : visibleItems;
   const navigateToTab = (tab: DashboardTab) => {
     router.push(`/dashboard/${dashboardTabRoutes[tab]}`);
   };
@@ -71,7 +74,7 @@ export function DashboardShell({
         </div>
 
         <nav className="mt-8 flex flex-1 flex-col gap-1.5" aria-label="Navegação principal">
-          {visibleItems.map((item) => {
+          {desktopItems.map((item) => {
             const isActive = item.key === activeTab;
             const Icon = item.icon;
 
@@ -124,6 +127,7 @@ export function DashboardShell({
             profilePicUrl={profilePic}
             onLogout={() => void signOut({ callbackUrl: "/dashboard/login" })}
             myProfileHref="/dashboard/meu-perfil"
+            analyticsHref={userRole === "admin" ? "/dashboard/analytics" : undefined}
           />
           </div>
         </div>

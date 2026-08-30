@@ -3,15 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { LogOut, UserRound, UserCircle2 } from "lucide-react";
+import { BarChart3, LogOut, UserRound, UserCircle2 } from "lucide-react";
 
 type ProfileMenuProps = {
   profilePicUrl: string | null;
   onLogout: () => void;
   myProfileHref?: string;
+  analyticsHref?: string;
 };
 
-export function ProfileMenu({ profilePicUrl, onLogout, myProfileHref }: ProfileMenuProps) {
+export function ProfileMenu({ profilePicUrl, onLogout, myProfileHref, analyticsHref }: ProfileMenuProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -62,6 +63,19 @@ export function ProfileMenu({ profilePicUrl, onLogout, myProfileHref }: ProfileM
             >
               <UserCircle2 className="h-4 w-4" />
               Meu perfil
+            </button>
+          ) : null}
+          {analyticsHref ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                router.push(analyticsHref);
+              }}
+              className="mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Analytics
             </button>
           ) : null}
           <button

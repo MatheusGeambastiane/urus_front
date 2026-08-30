@@ -1,5 +1,6 @@
 "use client";
 
+import { createElement } from "react";
 import type { ServiceItem } from "@/src/features/services/types";
 import { formatDurationLabel } from "@/src/features/appointments/utils/appointments";
 import { formatCurrency } from "@/src/features/shared/utils/money";
@@ -11,8 +12,6 @@ type ServiceCardProps = {
 };
 
 export function ServiceCard({ service, onClick }: ServiceCardProps) {
-  const Icon = getServiceIcon(service.category_name || "");
-
   return (
     <button
       type="button"
@@ -21,7 +20,7 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
     >
       <div className="flex items-center gap-3">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10">
-          <Icon className="h-5 w-5" />
+          {createElement(getServiceIcon(service.category_name || ""), { className: "h-5 w-5" })}
         </span>
         <div>
           <p className="text-base font-semibold">{service.name}</p>

@@ -1,10 +1,8 @@
 const ACCESS_TOKEN_REFRESH_MARGIN_MS = 30_000;
 
 type TokenRefreshServiceOptions = {
-  apiBaseUrl: string;
-  refreshToken: string | null;
   accessToken?: string | null;
-  onAccessToken?: (accessToken: string) => void;
+  refreshAccessToken: () => Promise<string | null>;
 };
 
 export type TokenRefreshService = {
@@ -68,42 +66,50 @@ function expiredTokenResponse(): Response {
   );
 }
 
+function omitCredentialsForCrossOriginRequest(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): RequestInit | undefined {
+  const currentOrigin = globalThis.location?.origin;
+  if (!currentOrigin) {
+    return init;
+  }
+
+  const requestUrl =
+    input instanceof Request
+      ? input.url
+      : input instanceof URL
+        ? input.href
+        : input;
+
+  try {
+    if (new URL(requestUrl, currentOrigin).origin !== currentOrigin) {
+      // Dashboard APIs authenticate with a Bearer token. Sending browser
+      // cookies cross-origin is unnecessary and forces credentialed CORS.
+      return { ...init, credentials: "omit" };
+    }
+  } catch {
+    return init;
+  }
+
+  return init;
+}
+
 export function createTokenRefreshService({
-  apiBaseUrl,
-  refreshToken: initialRefreshToken,
   accessToken: initialAccessToken,
-  onAccessToken,
+  refreshAccessToken: refreshOnServer,
 }: TokenRefreshServiceOptions): TokenRefreshService {
   let currentAccessToken = initialAccessToken ?? null;
-  let currentRefreshToken = initialRefreshToken;
   let refreshInFlight: Promise<string | null> | null = null;
 
   const performRefresh = async (): Promise<string | null> => {
-    if (!currentRefreshToken) {
-      return null;
-    }
-
     try {
-      const response = await globalThis.fetch(`${apiBaseUrl}/dashboard/auth/refresh/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh: currentRefreshToken }),
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
+      const accessToken = await refreshOnServer();
+      if (!accessToken) {
         return null;
       }
-
-      const data = (await response.json()) as { access?: string; refresh?: string };
-      if (!data.access) {
-        return null;
-      }
-
-      currentAccessToken = data.access;
-      currentRefreshToken = data.refresh ?? currentRefreshToken;
-      onAccessToken?.(data.access);
-      return data.access;
+      currentAccessToken = accessToken;
+      return accessToken;
     } catch {
       return null;
     }
@@ -120,11 +126,12 @@ export function createTokenRefreshService({
   };
 
   const fetchWithAuth = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const headers = new Headers(init?.headers);
+    const requestInit = omitCredentialsForCrossOriginRequest(input, init);
+    const headers = new Headers(requestInit?.headers);
     const suppliedAccessToken = getBearerToken(headers);
 
     if (!suppliedAccessToken) {
-      return globalThis.fetch(input, init);
+      return globalThis.fetch(input, requestInit);
     }
 
     currentAccessToken = currentAccessToken
@@ -143,7 +150,7 @@ export function createTokenRefreshService({
     }
 
     headers.set("Authorization", `Bearer ${currentAccessToken}`);
-    const response = await globalThis.fetch(input, { ...init, headers });
+    const response = await globalThis.fetch(input, { ...requestInit, headers });
     if (response.ok) {
       return response;
     }
@@ -170,7 +177,7 @@ export function createTokenRefreshService({
     }
 
     headers.set("Authorization", `Bearer ${newAccessToken}`);
-    return globalThis.fetch(input, { ...init, headers });
+    return globalThis.fetch(input, { ...requestInit, headers });
   };
 
   return { refreshAccessToken, fetchWithAuth };

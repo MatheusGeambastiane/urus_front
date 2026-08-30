@@ -18,6 +18,47 @@ type LoginResponse = {
   user: ApiUser;
 };
 
+type BackendJwt = {
+  accessToken?: string;
+  refreshToken?: string;
+  error?: "RefreshAccessTokenError";
+};
+
+function tokenExpiresSoon(accessToken?: string): boolean {
+  if (!accessToken) return true;
+  try {
+    const payload = JSON.parse(
+      Buffer.from(accessToken.split(".")[1], "base64url").toString("utf8"),
+    ) as { exp?: number };
+    return !payload.exp || payload.exp * 1000 <= Date.now() + 30_000;
+  } catch {
+    return true;
+  }
+}
+
+async function refreshBackendToken(token: BackendJwt): Promise<BackendJwt> {
+  if (!token.refreshToken) return { ...token, error: "RefreshAccessTokenError" };
+  try {
+    const response = await fetch(`${env.apiBaseUrl}/dashboard/auth/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh: token.refreshToken }),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Refresh recusado pelo backend");
+    const payload = (await response.json()) as { access?: string; refresh?: string };
+    if (!payload.access) throw new Error("Resposta de refresh inválida");
+    return {
+      ...token,
+      accessToken: payload.access,
+      refreshToken: payload.refresh ?? token.refreshToken,
+      error: undefined,
+    };
+  } catch {
+    return { ...token, accessToken: undefined, error: "RefreshAccessTokenError" };
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
@@ -147,14 +188,15 @@ export const authOptions: NextAuthOptions = {
           profile_pic: user.profile_pic ?? null,
         };
       }
-      return token;
+      if (!tokenExpiresSoon(token.accessToken as string | undefined)) return token;
+      return refreshBackendToken(token as BackendJwt);
     },
     async session({ session, token }) {
       if (token?.user) {
         session.user = token.user;
       }
       session.accessToken = token.accessToken as string | undefined;
-      session.refreshToken = token.refreshToken as string | undefined;
+      session.error = token.error as "RefreshAccessTokenError" | undefined;
       return session;
     },
   },

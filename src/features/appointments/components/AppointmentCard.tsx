@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Check, ChevronLeft, Loader2, Monitor, Scissors, UserRound } from "lucide-react";
 import { formatCurrency, parseCurrencyInput } from "@/src/features/shared/utils/money";
 import { getPaymentTypeLabel, paymentTypeOptions, priceStatusColor } from "@/src/features/finances/utils/finances";
@@ -67,21 +67,6 @@ export function AppointmentCard({
   const canSwipeRight = appointment.status !== "realizado" && appointment.status !== "cancelado";
   const canSwipeLeft = appointment.status === "realizado";
   const isSwipeEnabled = canSwipeRight || canSwipeLeft;
-
-  useEffect(() => {
-    setSelectedPaymentType(normalizeApiPaymentTypeToUi(appointment.payment_type) ?? "pix");
-  }, [appointment.payment_type]);
-
-  useEffect(() => {
-    setSelectedServiceIds(appointment.services.map((service) => service.id));
-  }, [appointment.services]);
-
-  useEffect(() => {
-    if (appointment.status === "realizado" || appointment.status === "cancelado") {
-      setShowCompleteActions(false);
-      setSelectorMode(null);
-    }
-  }, [appointment.status]);
 
   const handlePointerDown: React.PointerEventHandler<HTMLDivElement> = (event) => {
     if (!isSwipeEnabled || completing) {

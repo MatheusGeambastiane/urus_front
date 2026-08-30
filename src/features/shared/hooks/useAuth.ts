@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { env } from "@/lib/env";
 import { createTokenRefreshService, type TokenRefreshService } from "@/src/features/shared/utils/auth";
 
 export type AuthContext = {
@@ -13,16 +12,8 @@ export type AuthContext = {
 };
 
 export function useAuth(): AuthContext {
-  const { data: session } = useSession();
-  const refreshToken = session?.refreshToken ?? null;
-  const [refreshedCredentials, setRefreshedCredentials] = useState<{
-    refreshToken: string;
-    accessToken: string;
-  } | null>(null);
-  const accessToken =
-    refreshedCredentials?.refreshToken === refreshToken
-      ? refreshedCredentials.accessToken
-      : (session?.accessToken ?? null);
+  const { data: session, update } = useSession();
+  const accessToken = session?.accessToken ?? null;
 
   const userRole = (session?.user as { role?: string } | undefined)?.role;
 
@@ -36,19 +27,13 @@ export function useAuth(): AuthContext {
   const { fetchWithAuth } = useMemo(
     () =>
       createTokenRefreshService({
-        apiBaseUrl: env.apiBaseUrl,
-        refreshToken,
         accessToken: session?.accessToken ?? null,
-        onAccessToken: (newAccessToken) => {
-          if (refreshToken) {
-            setRefreshedCredentials({
-              refreshToken,
-              accessToken: newAccessToken,
-            });
-          }
+        refreshAccessToken: async () => {
+          const refreshedSession = await update();
+          return refreshedSession?.accessToken ?? null;
         },
       }),
-    [refreshToken, session?.accessToken],
+    [session?.accessToken, update],
   );
 
   return { accessToken, fetchWithAuth, userRole, profilePic };

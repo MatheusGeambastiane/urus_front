@@ -438,11 +438,10 @@ export function ProductsLegacyTab({
 }: ProductsLegacyTabProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const [accessToken, setAccessToken] = useState<string | null>(
     session?.accessToken ?? null,
   );
-  const refreshToken = session?.refreshToken ?? null;
   const userRole = session?.user?.role;
   const canManageProducts = userRole === "admin" || userRole === "staff";
   const sessionProfilePic =
@@ -459,12 +458,15 @@ export function ProductsLegacyTab({
   const { fetchWithAuth } = useMemo(
     () =>
       createTokenRefreshService({
-        apiBaseUrl: env.apiBaseUrl,
-        refreshToken,
         accessToken: session?.accessToken ?? null,
-        onAccessToken: (token) => setAccessToken(token),
+        refreshAccessToken: async () => {
+          const refreshedSession = await updateSession();
+          const token = refreshedSession?.accessToken ?? null;
+          setAccessToken(token);
+          return token;
+        },
       }),
-    [refreshToken, session?.accessToken, setAccessToken],
+    [session?.accessToken, updateSession],
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

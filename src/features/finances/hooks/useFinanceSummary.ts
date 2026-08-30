@@ -60,15 +60,15 @@ export function useFinanceSummary({ accessToken, fetchWithAuth, month }: UseFina
 
     setReportLoading(true);
     try {
-      const url = new URL(financeMonthlyReportEndpoint);
-      url.searchParams.set("month", month);
-
-      const response = await fetchWithAuth(url.toString(), {
+      const response = await fetchWithAuth(financeMonthlyReportEndpoint, {
+        method: "POST",
         credentials: "include",
         headers: {
           Accept: "application/json",
+          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
+        body: JSON.stringify({ month }),
       });
 
       if (!response.ok) {

@@ -9,6 +9,7 @@ import { PerformanceTab } from "@/src/features/dashboard/tabs/performance/Perfor
 import { ProductsTab } from "@/src/features/dashboard/tabs/products/ProductsTab";
 import { ServicesTab } from "@/src/features/dashboard/tabs/services/ServicesTab";
 import { UsersTab } from "@/src/features/dashboard/tabs/users/UsersTab";
+import { AnalyticsTab } from "@/src/features/dashboard/tabs/analytics/AnalyticsTab";
 
 const getDashboardFirstName = (session: Session) => {
   const user = session.user;
@@ -28,6 +29,7 @@ const dashboardTabComponentMap = {
   users: UsersTab,
   finances: FinancesTab,
   performance: PerformanceTab,
+  analytics: AnalyticsTab,
 } as const;
 
 export function createDashboardTabPage(tab: DashboardTab) {

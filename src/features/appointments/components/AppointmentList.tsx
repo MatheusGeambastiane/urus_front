@@ -27,11 +27,13 @@ export function AppointmentList({
   statusUpdatingId,
 }: AppointmentListProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_APPOINTMENTS);
+  const [previousAppointments, setPreviousAppointments] = useState(appointments);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  if (appointments !== previousAppointments) {
+    setPreviousAppointments(appointments);
     setVisibleCount(INITIAL_VISIBLE_APPOINTMENTS);
-  }, [appointments]);
+  }
 
   useEffect(() => {
     const target = loadMoreRef.current;
@@ -63,7 +65,7 @@ export function AppointmentList({
   return (
     <section className="space-y-0">
       {visibleAppointments.map((appointment, index) => (
-        <div key={appointment.id} className={index === visibleAppointments.length - 1 ? "last:border-0" : ""}>
+        <div key={`${appointment.id}:${appointment.status}:${appointment.payment_type}:${appointment.services.map((service) => service.id).join(",")}`} className={index === visibleAppointments.length - 1 ? "last:border-0" : ""}>
           <AppointmentCard
             appointment={appointment}
             servicesList={servicesList}
