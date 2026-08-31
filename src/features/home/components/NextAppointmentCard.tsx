@@ -17,13 +17,13 @@ export function NextAppointmentCard({
   timeLabel,
 }: NextAppointmentCardProps) {
   return (
-    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card lg:h-full lg:rounded-[20px] lg:border-[#c6a56b]/15 lg:bg-[linear-gradient(145deg,#12110e,#0a0a09)]">
+    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card lg:h-full lg:rounded-[20px] lg:border-[#e5e7eb]/15 lg:bg-[linear-gradient(145deg,#0a0a0a,#0a0a0a)]">
       <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-black lg:rounded-xl lg:bg-[#c6a56b] lg:text-[#090806] lg:shadow-[0_12px_30px_rgba(198,165,107,0.16)]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-black lg:rounded-xl lg:bg-[#e5e7eb] lg:text-[#0a0a0a] lg:shadow-[0_12px_30px_rgba(255,255,255,0.16)]">
           <CalendarClock className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/40 lg:text-[#c6a56b]/70">
+          <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/40 lg:text-[#e5e7eb]/70">
             Próximo atendimento
           </p>
           {loading ? (

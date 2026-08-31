@@ -14,10 +14,10 @@ export function ProfessionalBreakdownChart({
   const maxValue = items.reduce((current, item) => Math.max(current, item.total), 1);
 
   return (
-    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card lg:rounded-[20px] lg:border-white/[0.07] lg:bg-[#0c0c0b]">
+    <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card lg:rounded-[20px] lg:border-white/[0.07] lg:bg-[#0a0a0a]">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40 lg:text-[#c6a56b]/70">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40 lg:text-[#e5e7eb]/70">
             Atendimentos por profissional
           </p>
           <p className="home-display mt-1 text-lg font-semibold text-white lg:text-2xl">Distribuição do dia</p>
@@ -40,7 +40,7 @@ export function ProfessionalBreakdownChart({
                 <div className="flex h-36 w-full items-end rounded-[20px] bg-white/[0.04] p-1.5">
                   <div
                     className={`w-full rounded-[16px] ${
-                      isPrimary ? "bg-white lg:bg-[#c6a56b] lg:shadow-[0_0_24px_rgba(198,165,107,0.16)]" : "bg-gradient-to-t from-white/55 to-white/25"
+                      isPrimary ? "bg-white lg:bg-[#e5e7eb] lg:shadow-[0_0_24px_rgba(255,255,255,0.16)]" : "bg-gradient-to-t from-white/55 to-white/25"
                     }`}
                     style={{ height: `${heightPercent}%` }}
                   />

@@ -117,11 +117,11 @@ export function AccessAnalyticsPage() {
       <section className="space-y-6 [font-family:var(--font-dashboard-body)]">
         <header className="flex items-end justify-between gap-4">
           <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#c6a56b]">Aquisição do portal</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#e5e7eb]">Aquisição do portal</p>
             <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">Analytics de acessos</h1>
             {data ? (
               <p className="flex items-center gap-2 text-xs text-white/45">
-                <CalendarDays className="h-4 w-4 text-[#c6a56b]" />
+                <CalendarDays className="h-4 w-4 text-[#e5e7eb]" />
                 {formatDate(data.period.start)} — {formatDate(data.period.end)}
               </p>
             ) : null}
@@ -133,7 +133,7 @@ export function AccessAnalyticsPage() {
             onClick={() => setFiltersOpen((open) => !open)}
             className={`flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition ${
               filtersOpen
-                ? "border-[#c6a56b]/45 bg-[#c6a56b]/15 text-[#e4c887]"
+                ? "border-[#e5e7eb]/45 bg-[#e5e7eb]/15 text-[#f4f4f5]"
                 : "border-white/10 bg-white/[0.035] text-white/70 hover:border-white/20 hover:text-white"
             }`}
           >
@@ -155,9 +155,9 @@ export function AccessAnalyticsPage() {
         {data ? (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {cards.map(({ label, value, icon: Icon }) => (
-              <article key={label} className="relative overflow-hidden rounded-2xl border border-[#c6a56b]/15 bg-[linear-gradient(145deg,rgba(198,165,107,0.09),rgba(255,255,255,0.025)_55%)] p-4 lg:p-5">
-                <div className="absolute right-0 top-0 h-20 w-20 rounded-full bg-[#c6a56b]/[0.06] blur-2xl" />
-                <Icon className="relative h-5 w-5 text-[#c6a56b]" />
+              <article key={label} className="relative overflow-hidden rounded-2xl border border-[#e5e7eb]/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.09),rgba(255,255,255,0.025)_55%)] p-4 lg:p-5">
+                <div className="absolute right-0 top-0 h-20 w-20 rounded-full bg-[#e5e7eb]/[0.06] blur-2xl" />
+                <Icon className="relative h-5 w-5 text-[#e5e7eb]" />
                 <strong className="relative mt-3 block text-4xl font-semibold leading-none tabular-nums text-white lg:text-5xl">{value}</strong>
                 <span className="relative mt-2 block text-xs font-medium text-white/50">{label}</span>
               </article>
@@ -181,7 +181,7 @@ export function AccessAnalyticsPage() {
                 onClick={() => selectDays(days)}
                 className={`rounded-xl border px-4 py-2 text-sm font-semibold transition ${
                   activeDays === days
-                    ? "border-[#c6a56b]/50 bg-[#c6a56b]/15 text-[#e4c887]"
+                    ? "border-[#e5e7eb]/50 bg-[#e5e7eb]/15 text-[#f4f4f5]"
                     : "border-white/10 text-white/60 hover:bg-white/5 hover:text-white"
                 }`}
               >
@@ -208,7 +208,7 @@ export function AccessAnalyticsPage() {
                 className="block w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white [color-scheme:dark]"
               />
             </label>
-            <button type="submit" className="rounded-xl bg-[#c6a56b] px-5 py-2.5 text-sm font-bold text-black hover:bg-[#d6b878]">
+            <button type="submit" className="rounded-xl bg-[#e5e7eb] px-5 py-2.5 text-sm font-bold text-black hover:bg-[#f4f4f5]">
               Aplicar
             </button>
           </form>
@@ -260,10 +260,10 @@ export function AccessAnalyticsPage() {
                         tick={{ fill: "rgba(255,255,255,0.38)", fontSize: 11 }}
                       />
                       <Tooltip
-                        cursor={{ fill: "rgba(198,165,107,0.06)" }}
+                        cursor={{ fill: "rgba(255,255,255,0.06)" }}
                         contentStyle={{
-                          background: "#11110f",
-                          border: "1px solid rgba(198,165,107,0.22)",
+                          background: "#0a0a0a",
+                          border: "1px solid rgba(255,255,255,0.22)",
                           borderRadius: 12,
                           color: "white",
                           boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
@@ -275,7 +275,7 @@ export function AccessAnalyticsPage() {
                         iconSize={7}
                         wrapperStyle={{ color: "rgba(255,255,255,0.62)", fontSize: 12 }}
                       />
-                      <Bar dataKey="accesses" name="Acessos" fill="#c6a56b" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="accesses" name="Acessos" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="appointments" name="Atendimentos" fill="#5fa57d" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="errors" name="Erros" fill="#b85c62" radius={[4, 4, 0, 0]} />
                     </BarChart>

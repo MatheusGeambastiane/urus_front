@@ -57,7 +57,7 @@ export function UsersTab({ firstName }: Props) {
       <div className="users-dashboard flex flex-col gap-5 [font-family:var(--font-dashboard-body)]">
         <header className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-white/60 lg:text-xs lg:font-medium lg:uppercase lg:tracking-[0.24em] lg:text-[#c6a56b]/75">Painel</p>
+            <p className="text-sm text-white/60 lg:text-xs lg:font-medium lg:uppercase lg:tracking-[0.24em] lg:text-[#e5e7eb]/75">Painel</p>
             <p className="home-display text-2xl font-semibold lg:mt-1 lg:text-[2.75rem] lg:leading-none lg:tracking-[-0.025em]">Usuários</p>
           </div>
         </header>

@@ -154,7 +154,7 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
             </label>
           </div>
           {form.dayRestriction && !form.dayRestriction.is_all_day ? (
-            <p className="text-xs text-amber-300">
+            <p className="text-xs text-zinc-300">
               Horário bloqueado neste dia:{" "}
               {new Date(form.dayRestriction.start_datetime).toLocaleTimeString("pt-BR", {
                 hour: "2-digit",
@@ -168,7 +168,7 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
             </p>
           ) : null}
           {form.dayRestriction?.is_all_day ? (
-            <p className="text-xs text-amber-300">Existe uma restrição de dia inteiro para esta data.</p>
+            <p className="text-xs text-zinc-300">Existe uma restrição de dia inteiro para esta data.</p>
           ) : null}
         </section>
 

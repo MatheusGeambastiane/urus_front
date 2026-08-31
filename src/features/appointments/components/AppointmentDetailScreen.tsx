@@ -99,7 +99,7 @@ export function AppointmentDetailScreen({
         <div className="flex-1 text-center">
           <p className="text-sm text-white/60">Agendamento #{appointmentId ?? "-"}</p>
           <p className="text-2xl font-semibold">{clientName}</p>
-          <p className="mt-1 text-xs font-medium tracking-[0.14em] text-amber-100/70 uppercase">
+          <p className="mt-1 text-xs font-medium tracking-[0.14em] text-zinc-100/70 uppercase">
             {completedAppointmentsTotal} atendimento{completedAppointmentsTotal === 1 ? "" : "s"},{" "}
             {completedAppointmentsCurrentMonth} nesse m{"ê"}s
           </p>

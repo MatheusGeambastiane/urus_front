@@ -6,7 +6,8 @@ export type DashboardTab =
   | "users"
   | "finances"
   | "performance"
-  | "analytics";
+  | "analytics"
+  | "documents";
 
 export const dashboardTabRoutes: Record<DashboardTab, string> = {
   home: "home",
@@ -17,6 +18,7 @@ export const dashboardTabRoutes: Record<DashboardTab, string> = {
   finances: "financeiro",
   performance: "desempenho",
   analytics: "analytics",
+  documents: "documentos",
 };
 
 export const dashboardRouteToTab: Record<string, DashboardTab> = Object.entries(dashboardTabRoutes).reduce(
@@ -36,6 +38,7 @@ export const dashboardTabList: DashboardTab[] = [
   "finances",
   "performance",
   "analytics",
+  "documents",
 ];
 
 export const DEFAULT_DASHBOARD_TAB: DashboardTab = "home";

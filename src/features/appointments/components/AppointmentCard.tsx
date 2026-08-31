@@ -25,7 +25,7 @@ const getStatusDotColor = (status: string) => {
   if (normalized === "realizado") return "bg-emerald-400";
   if (normalized === "iniciado") return "bg-sky-400";
   if (normalized === "cancelado") return "bg-rose-400";
-  return "bg-amber-300";
+  return "bg-zinc-300";
 };
 
 const getTimelineColor = (status: string) => {
@@ -41,7 +41,7 @@ const getStatusBorderColor = (status: string) => {
   if (normalized === "realizado") return "border-emerald-400/60";
   if (normalized === "iniciado") return "border-sky-400/60";
   if (normalized === "cancelado") return "border-rose-400/60";
-  return "border-amber-300/60";
+  return "border-zinc-300/60";
 };
 
 export function AppointmentCard({
@@ -204,7 +204,7 @@ export function AppointmentCard({
         ) : null}
 
         {canSwipeLeft ? (
-          <div className="absolute inset-y-0 right-0 flex w-[132px] items-center justify-center rounded-[28px] bg-amber-400/20 text-xs font-semibold uppercase tracking-[0.18em] text-amber-100">
+          <div className="absolute inset-y-0 right-0 flex w-[132px] items-center justify-center rounded-[28px] bg-zinc-300/20 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-100">
             {completing ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />

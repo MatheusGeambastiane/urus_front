@@ -77,7 +77,7 @@ export function CreateUserScreen({
     passwordStrengthScore <= 2
       ? "bg-red-500"
       : passwordStrengthScore === 3
-        ? "bg-amber-400"
+        ? "bg-zinc-300"
         : "bg-emerald-500";
 
   const onSubmit = handleSubmit(async (values) => {

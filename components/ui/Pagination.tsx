@@ -38,7 +38,7 @@ export function Pagination({
           type="button"
           onClick={onPrevious}
           disabled={!hasPrevious}
-          className="flex items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c6a56b]/55 hover:border-[#c6a56b]/25 hover:text-white disabled:pointer-events-none disabled:opacity-35 lg:rounded-[12px]"
+          className="flex items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5e7eb]/55 hover:border-[#e5e7eb]/25 hover:text-white disabled:pointer-events-none disabled:opacity-35 lg:rounded-[12px]"
         >
           <ChevronLeft className="h-4 w-4" />
           Anterior
@@ -60,7 +60,7 @@ export function Pagination({
           type="button"
           onClick={onNext}
           disabled={!hasNext}
-          className="flex items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c6a56b]/55 hover:border-[#c6a56b]/25 hover:text-white disabled:pointer-events-none disabled:opacity-35 lg:rounded-[12px]"
+          className="flex items-center gap-1 rounded-2xl border border-white/10 px-4 py-2 text-sm text-white/70 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5e7eb]/55 hover:border-[#e5e7eb]/25 hover:text-white disabled:pointer-events-none disabled:opacity-35 lg:rounded-[12px]"
         >
           Próximo
           <ChevronRight className="h-4 w-4" />

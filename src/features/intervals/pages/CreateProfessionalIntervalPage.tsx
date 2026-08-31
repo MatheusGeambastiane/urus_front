@@ -289,7 +289,7 @@ export function CreateProfessionalIntervalPage() {
                 </p>
               ) : null}
               {!professionalsLoading && !professionalsError && professionals.length === 0 ? (
-                <p className="mt-3 text-sm text-amber-200/80">Nenhum perfil profissional disponível.</p>
+                <p className="mt-3 text-sm text-zinc-200/80">Nenhum perfil profissional disponível.</p>
               ) : null}
             </section>
 

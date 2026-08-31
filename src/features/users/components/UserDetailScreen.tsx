@@ -332,7 +332,7 @@ export function UserDetailScreen({
           <p
             className={`w-max rounded-full px-3 py-1 text-xs font-semibold ${
               canEditUser
-                ? "border border-amber-300/25 bg-amber-400/10 text-amber-100"
+                ? "border border-zinc-300/25 bg-zinc-300/10 text-zinc-100"
                 : "border border-white/10 bg-white/[0.06] text-white/50"
             }`}
           >

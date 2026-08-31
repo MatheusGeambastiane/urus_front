@@ -30,7 +30,7 @@ export function FabMenu({ open, onToggle, options, variant = "default" }: FabMen
                 type="button"
                 onClick={opt.onClick}
                 className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold shadow-lg ${
-                  isLuxury ? "border border-[#c6a56b]/35 bg-[#c6a56b] text-[#090806]" : "bg-white text-black"
+                  isLuxury ? "border border-[#e5e7eb]/35 bg-[#e5e7eb] text-[#0a0a0a]" : "bg-white text-black"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -44,7 +44,7 @@ export function FabMenu({ open, onToggle, options, variant = "default" }: FabMen
         onClick={onToggle}
         className={`flex h-14 w-14 items-center justify-center rounded-full shadow-xl transition duration-200 focus-visible:outline-none focus-visible:ring-2 ${
           isLuxury
-            ? "border border-[#c6a56b]/45 bg-[#c6a56b] text-[#090806] shadow-[0_15px_35px_rgba(0,0,0,0.4)] hover:scale-105 focus-visible:ring-[#c6a56b]/60"
+            ? "border border-[#e5e7eb]/45 bg-[#e5e7eb] text-[#0a0a0a] shadow-[0_15px_35px_rgba(0,0,0,0.4)] hover:scale-105 focus-visible:ring-[#e5e7eb]/60"
             : "bg-white text-black focus-visible:ring-white/50"
         }`}
         aria-label={open ? "Fechar opções" : "Abrir opções"}

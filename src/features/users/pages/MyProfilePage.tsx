@@ -305,7 +305,7 @@ export function MyProfilePage() {
             <ChevronLeft className="h-5 w-5" />
           </button>
           <div className="text-center">
-            <p className="text-sm uppercase tracking-[0.25em] text-amber-100/60">Meu perfil</p>
+            <p className="text-sm uppercase tracking-[0.25em] text-zinc-100/60">Meu perfil</p>
             <p className="text-2xl font-semibold text-white">Identidade da equipe</p>
           </div>
         </header>
@@ -329,7 +329,7 @@ export function MyProfilePage() {
                     <Camera className="h-6 w-6" />
                   </div>
                 )}
-                <span className="absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-100/90">
+                <span className="absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-100/90">
                   Foto
                 </span>
               </button>
@@ -342,7 +342,7 @@ export function MyProfilePage() {
               />
 
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-amber-200/20 bg-amber-200/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100/85">
+                <div className="inline-flex items-center gap-2 rounded-full border border-zinc-200/20 bg-zinc-200/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-100/85">
                   <Sparkles className="h-3.5 w-3.5" />
                   Perfil autenticado
                 </div>
@@ -367,7 +367,7 @@ export function MyProfilePage() {
                   type="button"
                   onClick={handleSaveImage}
                   disabled={savingImage}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {savingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                   Salvar nova foto
@@ -398,7 +398,7 @@ export function MyProfilePage() {
               type="button"
               onClick={handleSaveProfile}
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Salvar perfil
@@ -412,7 +412,7 @@ export function MyProfilePage() {
                 type="text"
                 value={form.firstName}
                 onChange={(event) => setFormField("firstName", event.target.value)}
-                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
               />
             </label>
             <label className="text-sm text-white/70">
@@ -421,7 +421,7 @@ export function MyProfilePage() {
                 type="text"
                 value={form.lastName}
                 onChange={(event) => setFormField("lastName", event.target.value)}
-                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
               />
             </label>
             <label className="text-sm text-white/70">
@@ -430,7 +430,7 @@ export function MyProfilePage() {
                 type="text"
                 value={form.cpf}
                 onChange={(event) => setFormField("cpf", event.target.value)}
-                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
               />
             </label>
             <label className="text-sm text-white/70">
@@ -439,7 +439,7 @@ export function MyProfilePage() {
                 type="text"
                 value={form.phone}
                 onChange={(event) => setFormField("phone", event.target.value)}
-                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
               />
             </label>
             <label className="text-sm text-white/70">
@@ -448,12 +448,12 @@ export function MyProfilePage() {
                 type="email"
                 value={form.email}
                 onChange={(event) => setFormField("email", event.target.value)}
-                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
               />
             </label>
             <label className="text-sm text-white/70">
               Data de nascimento
-              <div className="mt-1 flex items-center rounded-2xl border border-white/10 bg-transparent px-3 focus-within:border-amber-200/60">
+              <div className="mt-1 flex items-center rounded-2xl border border-white/10 bg-transparent px-3 focus-within:border-zinc-200/60">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -482,7 +482,7 @@ export function MyProfilePage() {
                 <select
                   value={form.professionalType}
                   onChange={(event) => setFormField("professionalType", event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                  className="mt-1 w-full rounded-2xl border border-white/10 bg-[#050505] px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
                 >
                   <option value="">Selecione</option>
                   {professionalTypeOptions.map((option) => (
@@ -500,7 +500,7 @@ export function MyProfilePage() {
                   inputMode="decimal"
                   value={form.commission}
                   onChange={(event) => setFormField("commission", event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                  className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
                 />
               </label>
 
@@ -510,7 +510,7 @@ export function MyProfilePage() {
                   type="text"
                   value={form.cnpj}
                   onChange={(event) => setFormField("cnpj", event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                  className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
                 />
               </label>
 
@@ -520,7 +520,7 @@ export function MyProfilePage() {
                   rows={4}
                   value={form.bio}
                   onChange={(event) => setFormField("bio", event.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-amber-200/60"
+                  className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-zinc-200/60"
                 />
               </label>
             </div>
@@ -548,7 +548,7 @@ export function MyProfilePage() {
                       }
                       className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
                         selected
-                          ? "border-amber-200/60 bg-amber-200/10 text-amber-50"
+                          ? "border-zinc-200/60 bg-zinc-200/10 text-zinc-50"
                           : "border-white/10 bg-black/20 text-white/75"
                       }`}
                     >
@@ -564,7 +564,7 @@ export function MyProfilePage() {
                   {selectedServiceNames.map((name) => (
                     <span
                       key={name}
-                      className="rounded-full border border-amber-200/20 bg-amber-200/10 px-3 py-1 text-xs font-medium text-amber-100"
+                      className="rounded-full border border-zinc-200/20 bg-zinc-200/10 px-3 py-1 text-xs font-medium text-zinc-100"
                     >
                       {name}
                     </span>

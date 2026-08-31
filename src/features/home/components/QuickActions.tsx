@@ -22,7 +22,7 @@ export function QuickActions({ actions, onAction }: QuickActionsProps) {
   return (
     <section>
       <div className="mb-4 flex items-center justify-between px-1">
-        <h2 className="text-sm font-medium tracking-tight text-white/55 lg:text-[#c6a56b]/75">Ações Rápidas</h2>
+        <h2 className="text-sm font-medium tracking-tight text-white/55 lg:text-[#e5e7eb]/75">Ações Rápidas</h2>
         <span className="text-[11px] uppercase tracking-[0.18em] text-white/30 lg:text-white/25">Fluxo</span>
       </div>
 

@@ -84,7 +84,7 @@ body {
 
 @media (min-width: 1024px) {
   .home-dashboard {
-    --home-accent: #c6a56b;
+    --home-accent: #e5e7eb;
     position: relative;
     isolation: isolate;
     font-family: var(--font-dashboard-body), sans-serif;
@@ -98,7 +98,7 @@ body {
     width: 34rem;
     height: 24rem;
     border-radius: 999px;
-    background: radial-gradient(circle, rgba(198, 165, 107, 0.075), transparent 68%);
+    background: radial-gradient(circle, rgba(255,255,255, 0.075), transparent 68%);
     content: "";
     pointer-events: none;
   }
@@ -140,7 +140,7 @@ body {
     width: 30rem;
     height: 22rem;
     border-radius: 999px;
-    background: radial-gradient(circle, rgba(198, 165, 107, 0.065), transparent 68%);
+    background: radial-gradient(circle, rgba(255,255,255, 0.065), transparent 68%);
     content: "";
     pointer-events: none;
   }
@@ -192,7 +192,7 @@ body {
     width: 42rem;
     height: 30rem;
     border-radius: 999px;
-    background: radial-gradient(circle, rgba(198, 165, 107, 0.07), transparent 68%);
+    background: radial-gradient(circle, rgba(255,255,255, 0.07), transparent 68%);
     content: "";
     pointer-events: none;
   }
@@ -207,11 +207,11 @@ body {
     overflow: hidden;
     min-height: 8.75rem;
     padding: 1.75rem 2rem;
-    border: 1px solid rgba(198, 165, 107, 0.14);
+    border: 1px solid rgba(255,255,255, 0.14);
     border-radius: 2rem;
     background:
-      radial-gradient(circle at 88% 12%, rgba(198, 165, 107, 0.13), transparent 28%),
-      linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(198, 165, 107, 0.025));
+      radial-gradient(circle at 88% 12%, rgba(255,255,255, 0.13), transparent 28%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255,255,255, 0.025));
     box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
   }
 
@@ -239,8 +239,8 @@ body {
   .products-dashboard input:focus,
   .products-dashboard select:focus,
   .products-dashboard textarea:focus {
-    border-color: rgba(198, 165, 107, 0.5) !important;
-    box-shadow: 0 0 0 3px rgba(198, 165, 107, 0.075);
+    border-color: rgba(255,255,255, 0.5) !important;
+    box-shadow: 0 0 0 3px rgba(255,255,255, 0.075);
   }
 }
 

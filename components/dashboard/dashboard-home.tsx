@@ -9,6 +9,7 @@ import { ProductsTab } from "@/src/features/dashboard/tabs/products/ProductsTab"
 import { ServicesTab } from "@/src/features/dashboard/tabs/services/ServicesTab";
 import { UsersTab } from "@/src/features/dashboard/tabs/users/UsersTab";
 import { AnalyticsTab } from "@/src/features/dashboard/tabs/analytics/AnalyticsTab";
+import { DocumentsTab } from "@/src/features/dashboard/tabs/documents/DocumentsTab";
 
 type DashboardHomeProps = {
   firstName: string;
@@ -24,6 +25,7 @@ const TAB_COMPONENTS = {
   finances: FinancesTab,
   performance: PerformanceTab,
   analytics: AnalyticsTab,
+  documents: DocumentsTab,
 } as const;
 
 export function DashboardHome({ firstName, activeTab }: DashboardHomeProps) {

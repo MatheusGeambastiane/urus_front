@@ -101,7 +101,7 @@ export const priceStatusColor = (status: string) => {
   if (normalized === "cancelado" || normalized === "cancelled") {
     return "text-rose-400";
   }
-  return "text-amber-300";
+  return "text-zinc-300";
 };
 
 export const billFrequencyOptions = [

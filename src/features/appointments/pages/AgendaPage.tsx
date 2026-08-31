@@ -271,9 +271,9 @@ export function AgendaPage() {
         ) : null}
 
         {agenda.dayRestriction ? (
-          <article className="rounded-3xl border border-amber-500/30 bg-amber-500/10 px-4 py-4">
+          <article className="rounded-3xl border border-zinc-400/30 bg-zinc-400/10 px-4 py-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-amber-100">
+              <p className="text-sm text-zinc-100">
                 {agenda.dayRestriction.is_all_day
                   ? "Existe uma restrição do dia inteiro para este dia"
                   : `Este dia existe restrição de horário das ${dayRestrictionStartTime} às ${dayRestrictionFinishTime}`}
@@ -281,7 +281,7 @@ export function AgendaPage() {
               <button
                 type="button"
                 onClick={agenda.handleOpenDeleteDayRestrictionModal}
-                className="rounded-full border border-amber-300/30 p-2 text-amber-100 transition hover:bg-amber-300/10"
+                className="rounded-full border border-zinc-300/30 p-2 text-zinc-100 transition hover:bg-zinc-300/10"
                 aria-label="Excluir restrição"
                 title="Excluir restrição"
               >

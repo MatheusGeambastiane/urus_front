@@ -139,14 +139,14 @@ export function HomePage({ firstName }: HomePageProps) {
       title: "Novo Agendamento",
       subtitle: "Abra um atendimento e comece a agenda do dia.",
       image: "/relogio_urus.png",
-      className: "border-white bg-white text-black lg:border-[#c6a56b]/40 lg:bg-[#c6a56b] lg:text-[#090806]",
+      className: "border-white bg-white text-black lg:border-[#e5e7eb]/40 lg:bg-[#e5e7eb] lg:text-[#0a0a0a]",
     },
     {
       key: "create-professional-interval" as const,
       title: "Criar novo intervalo",
       subtitle: "Bloqueie um período pontual ou recorrente na agenda.",
       image: "/icon_calendar.png",
-      className: "border-white/10 bg-[#151515] text-white hover:bg-[#1b1b1b] lg:border-[#c6a56b]/15 lg:bg-[#15140f]",
+      className: "border-white/10 bg-[#151515] text-white hover:bg-[#1b1b1b] lg:border-[#e5e7eb]/15 lg:bg-[#0a0a0a]",
     },
     {
       key: "create-product-sale" as const,
@@ -189,7 +189,7 @@ export function HomePage({ firstName }: HomePageProps) {
       <div className="home-dashboard space-y-5 pb-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-5 lg:space-y-0">
         <header className="flex items-center justify-between lg:col-span-12">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.24em] text-white/35 lg:text-[#c6a56b]/80">
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-white/35 lg:text-[#e5e7eb]/80">
               <span className="lg:hidden">Visão Geral</span>
               <span className="hidden lg:inline">Painel operacional</span>
             </p>
@@ -201,7 +201,7 @@ export function HomePage({ firstName }: HomePageProps) {
               Olá, {firstName}.
             </h1>
             <p className="mt-3 hidden text-sm capitalize text-white/45 lg:block">
-              {todayLabel} <span className="mx-2 text-[#c6a56b]/50">•</span> acompanhe o ritmo da barbearia.
+              {todayLabel} <span className="mx-2 text-[#e5e7eb]/50">•</span> acompanhe o ritmo da barbearia.
             </p>
           </div>
         </header>

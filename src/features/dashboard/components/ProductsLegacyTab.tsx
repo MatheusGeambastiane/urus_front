@@ -1104,7 +1104,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     passwordStrengthScore <= 2
       ? "bg-red-500"
       : passwordStrengthScore === 3
-        ? "bg-amber-400"
+        ? "bg-zinc-300"
         : passwordStrengthScore === 4
           ? "bg-emerald-400"
           : "bg-emerald-500";
@@ -8507,7 +8507,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </button>
         </header>
 
-        <section className="overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-card backdrop-blur-sm lg:border-[#c6a56b]/12 lg:p-6">
+        <section className="overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-card backdrop-blur-sm lg:border-[#e5e7eb]/12 lg:p-6">
           <div className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -8605,7 +8605,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
         {!productSalesLoading && totalSales > 0 ? renderSalesPagination("top") : null}
 
-        <section className="space-y-4 rounded-[30px] border border-white/6 bg-[#0b0b0b] p-5 shadow-card lg:border-[#c6a56b]/12 lg:bg-[linear-gradient(180deg,rgba(198,165,107,0.04),rgba(255,255,255,0.015))] lg:p-6">
+        <section className="space-y-4 rounded-[30px] border border-white/6 bg-[#0b0b0b] p-5 shadow-card lg:border-[#e5e7eb]/12 lg:bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] lg:p-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Vendas realizadas</h3>
             <span className="text-xs text-white/60">{totalSales} itens</span>
@@ -8996,7 +8996,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </div>
         ) : null}
 
-        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:space-y-0 lg:rounded-[32px] lg:border-[#c6a56b]/12 lg:bg-[linear-gradient(145deg,rgba(198,165,107,0.045),rgba(255,255,255,0.015))] lg:p-7">
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:space-y-0 lg:rounded-[32px] lg:border-[#e5e7eb]/12 lg:bg-[linear-gradient(145deg,rgba(255,255,255,0.045),rgba(255,255,255,0.015))] lg:p-7">
           <div className="flex items-center justify-between lg:col-span-2">
             <div>
               <p className="text-lg font-semibold">Informações do produto</p>
@@ -9025,7 +9025,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 }
               }}
               disabled={!canEditProduct}
-              className={`group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5 lg:h-72 lg:w-full lg:border-[#c6a56b]/15 ${
+              className={`group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-white/5 lg:h-72 lg:w-full lg:border-[#e5e7eb]/15 ${
                 canEditProduct ? "cursor-pointer" : "cursor-default"
               }`}
               aria-label="Alterar imagem do produto"
@@ -9265,7 +9265,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         <header className="products-hero flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm text-white/60 lg:text-xs lg:font-semibold lg:uppercase lg:tracking-[0.24em] lg:text-[#c6a56b]">Produtos</p>
+              <p className="text-sm text-white/60 lg:text-xs lg:font-semibold lg:uppercase lg:tracking-[0.24em] lg:text-[#e5e7eb]">Produtos</p>
               <p className="text-2xl font-semibold lg:mt-2 lg:text-4xl lg:tracking-tight">Controle de estoque</p>
               <p className="text-xs text-white/60 lg:mt-2 lg:text-sm">{productsInventoryCount} item(ns) cadastrados no inventário</p>
             </div>
@@ -9273,7 +9273,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               <button
                 type="button"
                 onClick={handleOpenProductSalesList}
-                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#c6a56b]/20 bg-black/20 px-4 text-sm font-semibold text-[#ead59c] transition hover:border-[#c6a56b]/45 hover:bg-[#c6a56b]/10"
+                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#e5e7eb]/20 bg-black/20 px-4 text-sm font-semibold text-[#f4f4f5] transition hover:border-[#e5e7eb]/45 hover:bg-[#e5e7eb]/10"
               >
                 <FileText className="h-4 w-4" />
                 Ver vendas
@@ -9281,7 +9281,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               <button
                 type="button"
                 onClick={handleStartCreateProductSale}
-                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#c6a56b]/25 bg-[#c6a56b]/10 px-4 text-sm font-semibold text-[#f0d99e] transition hover:bg-[#c6a56b]/18"
+                className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#e5e7eb]/25 bg-[#e5e7eb]/10 px-4 text-sm font-semibold text-[#f4f4f5] transition hover:bg-[#e5e7eb]/18"
               >
                 <DollarSign className="h-4 w-4" />
                 Registrar venda
@@ -9290,7 +9290,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 <button
                   type="button"
                   onClick={handleStartCreateProduct}
-                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#d8b873] px-4 text-sm font-semibold text-[#17120b] shadow-[0_16px_36px_rgba(198,165,107,0.18)] transition hover:bg-[#e4c98c]"
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#f4f4f5] px-4 text-sm font-semibold text-[#0a0a0a] shadow-[0_16px_36px_rgba(255,255,255,0.18)] transition hover:bg-[#f4f4f5]"
                 >
                   <Plus className="h-4 w-4" />
                   Novo produto
@@ -9308,7 +9308,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             value={productsSearchInput}
             onChange={(event) => setProductsSearchInput(event.target.value)}
             placeholder="Buscar por nome ou categoria"
-            className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-28 text-sm outline-none transition focus:border-white/40 lg:h-14 lg:border-[#c6a56b]/15 lg:bg-black/20 lg:focus:border-[#c6a56b]/50"
+            className="h-12 w-full rounded-2xl border border-white/10 bg-transparent pl-11 pr-28 text-sm outline-none transition focus:border-white/40 lg:h-14 lg:border-[#e5e7eb]/15 lg:bg-black/20 lg:focus:border-[#e5e7eb]/50"
           />
           {productsSearchTerm ? (
             <button
@@ -9321,13 +9321,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           ) : null}
           <button
             type="submit"
-            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black transition hover:bg-white/90 lg:bg-[#d8b873] lg:text-[#17120b] lg:hover:bg-[#e4c98c]"
+            className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-2xl bg-white px-3 py-1 text-sm font-semibold text-black transition hover:bg-white/90 lg:bg-[#f4f4f5] lg:text-[#0a0a0a] lg:hover:bg-[#f4f4f5]"
           >
             Buscar
           </button>
           </form>
 
-          <div className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 lg:grid lg:grid-cols-2 lg:gap-5 lg:space-y-0 lg:border-[#c6a56b]/12 lg:bg-[linear-gradient(145deg,rgba(198,165,107,0.055),rgba(255,255,255,0.018))]">
+          <div className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 lg:grid lg:grid-cols-2 lg:gap-5 lg:space-y-0 lg:border-[#e5e7eb]/12 lg:bg-[linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))]">
           <div>
             <p className="text-sm text-white/60">Uso</p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -9372,7 +9372,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </div>
         </div>
 
-        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card lg:rounded-[32px] lg:border-[#c6a56b]/12 lg:bg-[linear-gradient(180deg,rgba(198,165,107,0.045),rgba(255,255,255,0.018))] lg:p-6">
+        <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card lg:rounded-[32px] lg:border-[#e5e7eb]/12 lg:bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018))] lg:p-6">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Estoque atualizado</h3>
             <div className="flex items-center gap-3 text-xs text-white/60">
@@ -9425,7 +9425,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                       <button
                         type="button"
                         onClick={() => handleOpenProductDetail(product.id)}
-                        className="group flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-black/30 p-4 text-left transition hover:border-white/20 lg:h-full lg:flex-col lg:items-stretch lg:rounded-[26px] lg:border-[#c6a56b]/10 lg:bg-[linear-gradient(155deg,rgba(255,255,255,0.045),rgba(0,0,0,0.22))] lg:hover:-translate-y-1 lg:hover:border-[#c6a56b]/35 lg:hover:shadow-[0_24px_60px_rgba(0,0,0,0.28)]"
+                        className="group flex w-full items-center gap-4 rounded-3xl border border-white/10 bg-black/30 p-4 text-left transition hover:border-white/20 lg:h-full lg:flex-col lg:items-stretch lg:rounded-[26px] lg:border-[#e5e7eb]/10 lg:bg-[linear-gradient(155deg,rgba(255,255,255,0.045),rgba(0,0,0,0.22))] lg:hover:-translate-y-1 lg:hover:border-[#e5e7eb]/35 lg:hover:shadow-[0_24px_60px_rgba(0,0,0,0.28)]"
                       >
                         <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-2xl bg-white/5 lg:h-44 lg:w-full lg:rounded-[20px] lg:ring-1 lg:ring-white/5">
                           {product.picture_of_product ? (
@@ -9459,7 +9459,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                               {product.quantity}
                             </span>
                             {showAlarm ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-zinc-300/20 px-2 py-0.5 text-[11px] font-semibold text-zinc-300">
                                 <AlertTriangle className="h-3 w-3" />
                                 Atenção
                               </span>
@@ -9612,7 +9612,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </label>
           </div>
           {dayRestriction && !dayRestriction.is_all_day ? (
-            <p className="text-xs text-amber-300">
+            <p className="text-xs text-zinc-300">
               Horário bloqueado neste dia:{" "}
               {new Date(dayRestriction.start_datetime).toLocaleTimeString("pt-BR", {
                 hour: "2-digit",
@@ -10571,9 +10571,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
         ) : null}
 
         {dayRestriction ? (
-          <article className="rounded-3xl border border-amber-500/30 bg-amber-500/10 px-4 py-4">
+          <article className="rounded-3xl border border-zinc-400/30 bg-zinc-400/10 px-4 py-4">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm text-amber-100">
+              <p className="text-sm text-zinc-100">
                 {dayRestriction.is_all_day
                   ? "Existe uma restrição do dia inteiro para este dia"
                   : `Este dia existe restrição de horário das ${dayRestrictionStartTime} às ${dayRestrictionFinishTime}`}
@@ -10581,7 +10581,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               <button
                 type="button"
                 onClick={handleOpenDeleteDayRestrictionModal}
-                className="rounded-full border border-amber-300/30 p-2 text-amber-100 transition hover:bg-amber-300/10"
+                className="rounded-full border border-zinc-300/30 p-2 text-zinc-100 transition hover:bg-zinc-300/10"
                 aria-label="Excluir restrição"
                 title="Excluir restrição"
               >
@@ -12732,7 +12732,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </div>
                   <span
                     className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-                      detail.is_paid ? "bg-emerald-500/10 text-emerald-200" : "bg-amber-500/10 text-amber-200"
+                      detail.is_paid ? "bg-emerald-500/10 text-emerald-200" : "bg-zinc-400/10 text-zinc-200"
                     }`}
                   >
                     {detail.is_paid ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
@@ -12979,7 +12979,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </div>
                   <span
                     className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-                      detail.is_paid ? "bg-emerald-500/10 text-emerald-200" : "bg-amber-500/10 text-amber-200"
+                      detail.is_paid ? "bg-emerald-500/10 text-emerald-200" : "bg-zinc-400/10 text-zinc-200"
                     }`}
                   >
                     {detail.is_paid ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
@@ -14028,23 +14028,23 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#050505] text-white lg:bg-[#080807]">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 overflow-hidden border-r border-[#c6a56b]/15 bg-[radial-gradient(circle_at_10%_0%,rgba(198,165,107,0.11),transparent_30%),linear-gradient(180deg,#0b0a08_0%,#070707_55%,#050505_100%)] px-5 py-6 shadow-[24px_0_80px_rgba(0,0,0,0.24)] lg:flex lg:flex-col">
-        <div className="pointer-events-none absolute -left-24 top-1/3 h-56 w-56 rounded-full bg-[#c6a56b]/5 blur-3xl" />
-        <div className="relative flex h-28 shrink-0 items-center justify-center overflow-hidden" aria-label="Urus Barbearia">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 overflow-hidden border-r border-[#e5e7eb]/15 bg-[radial-gradient(circle_at_10%_0%,rgba(255,255,255,0.11),transparent_30%),linear-gradient(180deg,#0a0a0a_0%,#070707_55%,#050505_100%)] px-5 py-6 shadow-[24px_0_80px_rgba(0,0,0,0.24)] lg:flex lg:flex-col">
+        <div className="pointer-events-none absolute -left-24 top-1/3 h-56 w-56 rounded-full bg-[#e5e7eb]/5 blur-3xl" />
+        <div className="relative flex h-24 shrink-0 items-center justify-center overflow-hidden" aria-label="Urus Barbearia">
           <Image
             src="/urus_logo_nobg_branca.png"
             alt="Urus Barbearia"
             width={500}
             height={500}
-            sizes="224px"
-            className="h-56 w-56 max-w-none object-contain"
+            sizes="176px"
+            className="h-44 w-44 max-w-none object-contain"
             priority
           />
         </div>
         <div className="relative mt-2 flex items-center gap-3 px-3">
-          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#c6a56b]/35" />
-          <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#c6a56b]/65">Gestão Urus</span>
-          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#c6a56b]/35" />
+          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#e5e7eb]/35" />
+          <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#e5e7eb]/65">Gestão Urus</span>
+          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#e5e7eb]/35" />
         </div>
 
         <nav className="relative mt-7 flex flex-1 flex-col gap-2">
@@ -14059,11 +14059,11 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 aria-current={isActive ? "page" : undefined}
                 className={`group relative flex h-13 items-center gap-3 rounded-2xl border px-3 text-sm font-semibold transition duration-300 ${
                   isActive
-                    ? "border-[#c6a56b]/25 bg-[linear-gradient(100deg,rgba(198,165,107,0.16),rgba(198,165,107,0.055))] text-[#f0d99e] shadow-[0_16px_40px_rgba(0,0,0,0.22)] before:absolute before:-left-1 before:h-6 before:w-0.5 before:rounded-full before:bg-[#d8b873]"
-                    : "border-transparent text-white/55 hover:border-[#c6a56b]/12 hover:bg-[#c6a56b]/[0.055] hover:text-white"
+                    ? "border-[#e5e7eb]/25 bg-[linear-gradient(100deg,rgba(255,255,255,0.16),rgba(255,255,255,0.055))] text-[#f4f4f5] shadow-[0_16px_40px_rgba(0,0,0,0.22)] before:absolute before:-left-1 before:h-6 before:w-0.5 before:rounded-full before:bg-[#f4f4f5]"
+                    : "border-transparent text-white/55 hover:border-[#e5e7eb]/12 hover:bg-[#e5e7eb]/[0.055] hover:text-white"
                 }`}
               >
-                <span className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${isActive ? "bg-[#c6a56b]/15" : "bg-white/[0.035] group-hover:bg-[#c6a56b]/10"}`}>
+                <span className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${isActive ? "bg-[#e5e7eb]/15" : "bg-white/[0.035] group-hover:bg-[#e5e7eb]/10"}`}>
                   <Icon className="h-[18px] w-[18px]" strokeWidth={isActive ? 2.3 : 1.8} />
                 </span>
                 <span>{item.label}</span>
@@ -14072,8 +14072,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           })}
         </nav>
 
-        <div className="relative rounded-[24px] border border-[#c6a56b]/12 bg-[#c6a56b]/[0.045] px-4 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#c6a56b]/65">Inventário</p>
+        <div className="relative rounded-[24px] border border-[#e5e7eb]/12 bg-[#e5e7eb]/[0.045] px-4 py-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#e5e7eb]/65">Inventário</p>
           <p className="mt-1 text-sm font-medium text-white/75">Produtos, estoque e vendas</p>
           <div className="mt-3 flex items-center gap-2 text-[11px] text-white/40">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.6)]" />
