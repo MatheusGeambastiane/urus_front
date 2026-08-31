@@ -39,6 +39,7 @@ type AnalyticsData = {
   utm_origins: Array<{ origin: string; count: number }>;
   error_kinds: Array<{ kind: string; count: number }>;
   by_day: Array<{ date: string; accesses: number; appointments: number; errors: number }>;
+  by_day_hour: Array<{ date: string; hour: number; accesses: number }>;
 };
 
 type AccessError = {
@@ -330,67 +331,74 @@ export function AccessAnalyticsPage() {
               />
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
-              <div className="border-b border-white/10 px-5 py-4">
-                <h2 className="font-semibold text-white">Acessos por dia</h2>
-                <p className="mt-1 text-xs text-white/40">Distribuição diária das contagens no período selecionado.</p>
-              </div>
-              <div
-                className="overflow-x-auto px-2 pb-3 pt-5 sm:px-5"
-                role="img"
-                aria-label="Histograma diário de acessos, atendimentos marcados e erros"
-              >
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+                <div className="border-b border-white/10 px-5 py-4">
+                  <h2 className="font-semibold text-white">Acessos por dia</h2>
+                  <p className="mt-1 text-xs text-white/40">Distribuição diária das contagens no período selecionado.</p>
+                </div>
                 <div
-                  className="h-[320px]"
-                  style={{
-                    minWidth: "100%",
-                    width: data.by_day.length > 31 ? `${data.by_day.length * 20}px` : "100%",
-                  }}
+                  className="overflow-x-auto px-2 pb-3 pt-5 sm:px-5"
+                  role="img"
+                  aria-label="Histograma diário de acessos, atendimentos marcados e erros"
                 >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={data.by_day.map((row) => ({ ...row, day: formatShortDate(row.date) }))}
-                      margin={{ top: 6, right: 8, left: -18, bottom: 4 }}
-                      barCategoryGap="20%"
-                    >
-                      <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
-                      <XAxis
-                        dataKey="day"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "rgba(255,255,255,0.42)", fontSize: 11 }}
-                        interval="preserveStartEnd"
-                        minTickGap={20}
-                      />
-                      <YAxis
-                        allowDecimals={false}
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "rgba(255,255,255,0.38)", fontSize: 11 }}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "rgba(255,255,255,0.06)" }}
-                        contentStyle={{
-                          background: "#0a0a0a",
-                          border: "1px solid rgba(255,255,255,0.22)",
-                          borderRadius: 12,
-                          color: "white",
-                          boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
-                        }}
-                        labelStyle={{ color: "rgba(255,255,255,0.55)", marginBottom: 6 }}
-                      />
-                      <Legend
-                        iconType="circle"
-                        iconSize={7}
-                        wrapperStyle={{ color: "rgba(255,255,255,0.62)", fontSize: 12 }}
-                      />
-                      <Bar dataKey="accesses" name="Acessos" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="appointments" name="Atendimentos" fill="#5fa57d" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="errors" name="Erros" fill="#b85c62" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div
+                    className="h-[320px] lg:h-[405px]"
+                    style={{
+                      minWidth: "100%",
+                      width: data.by_day.length > 31 ? `${data.by_day.length * 20}px` : "100%",
+                    }}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={data.by_day.map((row) => ({ ...row, day: formatShortDate(row.date) }))}
+                        margin={{ top: 6, right: 8, left: -18, bottom: 4 }}
+                        barCategoryGap="20%"
+                      >
+                        <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
+                        <XAxis
+                          dataKey="day"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: "rgba(255,255,255,0.42)", fontSize: 11 }}
+                          interval="preserveStartEnd"
+                          minTickGap={20}
+                        />
+                        <YAxis
+                          allowDecimals={false}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: "rgba(255,255,255,0.38)", fontSize: 11 }}
+                        />
+                        <Tooltip
+                          cursor={{ fill: "rgba(255,255,255,0.06)" }}
+                          contentStyle={{
+                            background: "#0a0a0a",
+                            border: "1px solid rgba(255,255,255,0.22)",
+                            borderRadius: 12,
+                            color: "white",
+                            boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
+                          }}
+                          labelStyle={{ color: "rgba(255,255,255,0.55)", marginBottom: 6 }}
+                        />
+                        <Legend
+                          iconType="circle"
+                          iconSize={7}
+                          wrapperStyle={{ color: "rgba(255,255,255,0.62)", fontSize: 12 }}
+                        />
+                        <Bar dataKey="accesses" name="Acessos" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="appointments" name="Atendimentos" fill="#5fa57d" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="errors" name="Erros" fill="#b85c62" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
+
+              <AccessHeatmap
+                days={data.by_day.map((row) => row.date)}
+                entries={data.by_day_hour}
+              />
             </div>
           </>
         ) : null}
@@ -471,6 +479,119 @@ export function AccessAnalyticsPage() {
 }
 
 type CountRow = { label: string; count: number };
+
+function AccessHeatmap({
+  days,
+  entries,
+}: {
+  days: string[];
+  entries: AnalyticsData["by_day_hour"];
+}) {
+  const accessByCell = new Map(
+    entries.map((entry) => [`${entry.date}-${entry.hour}`, entry.accesses]),
+  );
+  const maxAccesses = Math.max(0, ...entries.map((entry) => entry.accesses));
+  const totalAccesses = entries.reduce((total, entry) => total + entry.accesses, 0);
+  const hourLabels = Array.from({ length: 24 }, (_, hour) => hour);
+  const cellSize = days.length > 90 ? 9 : days.length > 31 ? 11 : 14;
+  const cellGap = 3;
+  const heatmapWidth = days.length * (cellSize + cellGap);
+
+  const intensityLevel = (accesses: number) => {
+    if (accesses === 0 || maxAccesses === 0) return 0;
+    const ratio = accesses / maxAccesses;
+    if (ratio <= 0.25) return 1;
+    if (ratio <= 0.5) return 2;
+    if (ratio <= 0.75) return 3;
+    return 4;
+  };
+
+  const intensityClasses = [
+    "border-white/[0.055] bg-white/[0.035]",
+    "border-emerald-300/10 bg-emerald-950",
+    "border-emerald-300/15 bg-emerald-800",
+    "border-emerald-200/20 bg-emerald-600",
+    "border-emerald-100/25 bg-emerald-400",
+  ];
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+      <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-semibold text-white">Acessos por dia e hora</h2>
+          <p className="mt-1 text-xs text-white/40">Quanto mais clara a célula, maior o volume de acessos naquele horário.</p>
+        </div>
+        <p className="text-xs text-white/45"><strong className="font-semibold tabular-nums text-white/75">{totalAccesses}</strong> acessos no período</p>
+      </div>
+
+      <div className="overflow-x-auto px-4 pb-5 pt-4 sm:px-5">
+        <div className="min-w-max">
+          <div className="mb-2 ml-10 flex" style={{ gap: cellGap }} aria-hidden="true">
+            {days.map((day, index) => (
+              <span
+                key={day}
+                className="block shrink-0 text-center text-[9px] text-white/35"
+                style={{ width: cellSize }}
+              >
+                {index === 0 || index === days.length - 1 || index % Math.max(1, Math.ceil(days.length / 8)) === 0
+                  ? formatShortDate(day)
+                  : ""}
+              </span>
+            ))}
+          </div>
+
+          <div className="flex gap-2.5">
+            <div className="grid shrink-0" style={{ gap: cellGap }} aria-hidden="true">
+              {hourLabels.map((hour) => (
+                <span
+                  key={hour}
+                  className="flex w-7 items-center justify-end text-[9px] tabular-nums text-white/30"
+                  style={{ height: cellSize }}
+                >
+                  {hour % 3 === 0 ? `${String(hour).padStart(2, "0")}h` : ""}
+                </span>
+              ))}
+            </div>
+
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: `repeat(${days.length}, ${cellSize}px)`,
+                gridTemplateRows: `repeat(24, ${cellSize}px)`,
+                gridAutoFlow: "column",
+                gap: cellGap,
+                width: heatmapWidth,
+              }}
+              role="img"
+              aria-label="Mapa de calor da quantidade de acessos por dia e hora"
+            >
+              {days.flatMap((day) => hourLabels.map((hour) => {
+                const accesses = accessByCell.get(`${day}-${hour}`) ?? 0;
+                const label = `${formatDate(day)}, ${String(hour).padStart(2, "0")}:00 — ${accesses} ${accesses === 1 ? "acesso" : "acessos"}`;
+                return (
+                  <span
+                    key={`${day}-${hour}`}
+                    className={`block rounded-[3px] border transition duration-150 hover:scale-125 hover:ring-1 hover:ring-white/70 ${intensityClasses[intensityLevel(accesses)]}`}
+                    title={label}
+                    aria-label={label}
+                  />
+                );
+              }))}
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-end gap-1.5 text-[10px] text-white/35" aria-hidden="true">
+            <span>Menos</span>
+            {intensityClasses.map((className, level) => (
+              <span key={level} className={`h-3 w-3 rounded-[3px] border ${className}`} />
+            ))}
+            <span>Mais</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function CountTable({
   title,

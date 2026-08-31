@@ -1,6 +1,6 @@
 "use client";
 
-import { DollarSign, Scissors } from "lucide-react";
+import { DollarSign, Repeat2, Scissors, UserPlus } from "lucide-react";
 import type { FinanceSummary } from "@/src/features/finances/types";
 
 type FinanceSummaryCardsProps = {
@@ -12,6 +12,8 @@ const cards = [
   // { key: "expenses", label: "Despesas", description: "Saídas do mês", icon: Wallet, accent: "text-rose-300" },
   { key: "appointments_count", label: "Serviços", description: "Total executados", icon: Scissors, accent: "text-white" },
   { key: "sell_transactions_count", label: "Vendas", description: "Produtos vendidos", icon: DollarSign, accent: "text-white" },
+  { key: "new_clients_count", label: "Novos clientes", description: "Primeiro atendimento", icon: UserPlus, accent: "text-white" },
+  { key: "returning_clients_count", label: "Recorrentes", description: "Voltaram no mês", icon: Repeat2, accent: "text-white" },
 ] as const;
 
 export function FinanceSummaryCards({ summary }: FinanceSummaryCardsProps) {
@@ -19,10 +21,7 @@ export function FinanceSummaryCards({ summary }: FinanceSummaryCardsProps) {
     <section className="grid grid-cols-2 gap-3">
       {cards.map((card) => {
         const Icon = card.icon;
-        const value =
-          card.key === "appointments_count"
-            ? summary?.appointments_count ?? 0
-            : summary?.sell_transactions_count ?? 0;
+        const value = summary?.[card.key] ?? 0;
 
         return (
           <article

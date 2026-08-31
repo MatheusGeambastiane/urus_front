@@ -1,13 +1,15 @@
 "use client";
 
 import {
-  Cell,
-  Pie,
-  PieChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
   ResponsiveContainer,
   Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { pieChartColors } from "@/src/features/finances/utils/finances";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 
 type PaymentDistributionItem = {
@@ -17,72 +19,84 @@ type PaymentDistributionItem = {
 };
 
 type PaymentDistributionCardProps = {
-  title: string;
-  subtitle: string;
-  data: PaymentDistributionItem[];
+  servicesData: PaymentDistributionItem[];
+  salesData: PaymentDistributionItem[];
 };
 
 export function PaymentDistributionCard({
-  title,
-  subtitle,
-  data,
+  servicesData,
+  salesData,
 }: PaymentDistributionCardProps) {
-  if (data.length === 0) {
-    return (
-      <article className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5 text-sm text-white/60">
-        <p className="text-base font-semibold text-white">{title}</p>
-        <p>{subtitle}</p>
-        <p className="mt-4 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-xs">
-          Nenhum dado disponível para o período.
-        </p>
-      </article>
-    );
-  }
+  const payments = new Map<string, { payment: string; services: number; sales: number }>();
+
+  servicesData.forEach((item) => {
+    payments.set(item.name.toLocaleLowerCase("pt-BR"), { payment: item.name, services: item.value, sales: 0 });
+  });
+  salesData.forEach((item) => {
+    const paymentKey = item.name.toLocaleLowerCase("pt-BR");
+    const current = payments.get(paymentKey);
+    payments.set(paymentKey, {
+      payment: current?.payment ?? item.name,
+      services: current?.services ?? 0,
+      sales: item.value,
+    });
+  });
+
+  const data = Array.from(payments.values());
 
   return (
-    <article className="relative overflow-hidden rounded-[30px] border border-white/8 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5">
+    <section className="relative overflow-hidden rounded-[30px] border border-white/8 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5 shadow-card">
       <div className="pointer-events-none absolute right-0 top-0 h-28 w-28 rounded-full bg-white/[0.03] blur-3xl" />
       <div>
-        <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">{subtitle}</p>
-        <p className="text-lg font-semibold text-white">{title}</p>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Distribuição por forma</p>
+        <h2 className="mt-1 text-lg font-semibold text-white">Pagamentos de serviços e vendas</h2>
+        <p className="mt-1 text-xs text-white/40">Comparativo do valor recebido por forma de pagamento.</p>
       </div>
-      <div className="relative mt-4 grid gap-4 sm:grid-cols-2">
-        <div className="h-48">
+
+      {data.length === 0 ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-center text-xs text-white/60">
+          Nenhum dado disponível para o período.
+        </p>
+      ) : (
+        <div className="mt-5 h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={4}>
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${entry.raw}`} fill={pieChartColors[index % pieChartColors.length]} />
-                ))}
-              </Pie>
+            <BarChart data={data} barGap={5} barCategoryGap="24%">
+              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
+              <XAxis
+                dataKey="payment"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "rgba(255,255,255,0.48)", fontSize: 11 }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                width={72}
+                tick={{ fill: "rgba(255,255,255,0.38)", fontSize: 10 }}
+                tickFormatter={(value: number) => `R$ ${value}`}
+              />
               <Tooltip
-                formatter={(value: number) => formatCurrency(Number(value).toFixed(2))}
+                cursor={{ fill: "rgba(255,255,255,0.035)" }}
+                formatter={(value: number, name: string) => [
+                  formatCurrency(Number(value).toFixed(2)),
+                  name === "services" ? "Serviços" : "Vendas",
+                ]}
                 contentStyle={{
                   backgroundColor: "#111",
-                  borderRadius: 12,
-                  border: "1px solid #333",
+                  borderRadius: 14,
+                  border: "1px solid rgba(255,255,255,0.12)",
                 }}
               />
-            </PieChart>
+              <Legend
+                formatter={(value: string) => value === "services" ? "Serviços" : "Vendas"}
+                wrapperStyle={{ color: "rgba(255,255,255,0.72)", fontSize: 12 }}
+              />
+              <Bar dataKey="services" fill="#6ee7b7" radius={[7, 7, 2, 2]} maxBarSize={46} />
+              <Bar dataKey="sales" fill="#d4d4d8" radius={[7, 7, 2, 2]} maxBarSize={46} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="space-y-3 text-sm text-white/80">
-          {data.map((item, index) => (
-            <div key={item.raw} className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/10 px-3 py-2">
-              <div className="flex items-center gap-3">
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: pieChartColors[index % pieChartColors.length] }}
-                />
-                <p>{item.name}</p>
-              </div>
-              <span className="font-semibold text-white">
-                {formatCurrency(item.value.toFixed(2))}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </article>
+      )}
+    </section>
   );
 }

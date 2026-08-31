@@ -15,6 +15,8 @@ export type FinanceSummary = {
   previous_month_period_revenue?: string;
   revenue_difference_previous_month_period?: string;
   appointments_count: number;
+  new_clients_count?: number;
+  returning_clients_count?: number;
   sell_transactions_count: number;
   appointments_average_per_day?: string;
   appointments_ticket_average?: string;
@@ -25,6 +27,11 @@ export type FinanceSummary = {
     count: number;
   }[];
   appointments_by_payment_type: PaymentBreakdown[];
+  appointments_by_day_hour?: {
+    date: string;
+    hour: number;
+    count: number;
+  }[];
   sell_by_payment_type: SellBreakdown[];
 };
 

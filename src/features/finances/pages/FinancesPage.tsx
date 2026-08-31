@@ -15,6 +15,7 @@ import { RepasseList } from "@/src/features/finances/components/RepasseList";
 import { BillList } from "@/src/features/finances/components/BillList";
 import { MonthSelectorModal } from "@/src/features/finances/components/MonthSelectorModal";
 import { PaymentDistributionCard } from "@/src/features/finances/components/PaymentDistributionCard";
+import { AppointmentsHeatmap } from "@/src/features/finances/components/AppointmentsHeatmap";
 import { ResourceDistributionChart } from "@/src/features/finances/components/ResourceDistributionChart";
 import { ServicesProfessionalDistributionCard } from "@/src/features/finances/components/ServicesProfessionalDistributionCard";
 import { ServicesSummaryTable } from "@/src/features/finances/components/ServicesSummaryTable";
@@ -201,6 +202,11 @@ export function FinancesPage({ firstName }: Props) {
           monthlyTicketAverage={monthlyTicketAverage}
         />
 
+        <AppointmentsHeatmap
+          month={month}
+          entries={finance.summary?.appointments_by_day_hour ?? []}
+        />
+
         <section className="rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5 shadow-card text-white lg:hidden">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-white/40">Médias</p>
@@ -242,20 +248,10 @@ export function FinancesPage({ firstName }: Props) {
           />
         </section>
 
-        <section className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <PaymentDistributionCard
-              title="Pagamentos dos serviços"
-              subtitle="Distribuição por forma"
-              data={appointmentPaymentData}
-            />
-            <PaymentDistributionCard
-              title="Pagamentos das vendas"
-              subtitle="Distribuição por forma"
-              data={sellPaymentData}
-            />
-          </div>
-        </section>
+        <PaymentDistributionCard
+          servicesData={appointmentPaymentData}
+          salesData={sellPaymentData}
+        />
 
         <section className="space-y-4 lg:hidden">
           <ServicesProfessionalDistributionCard
@@ -268,26 +264,28 @@ export function FinancesPage({ firstName }: Props) {
           />
         </section>
 
-        <RepasseList
-          repasses={repasses.repasses}
-          recalculating={repasses.recalculating}
-          onRecalculate={async () => {
-            try {
-              await repasses.recalculate();
-              setFeedback({ type: "success", message: "Repasses atualizados com sucesso." });
-            } catch (err) {
-              setFeedback({ type: "error", message: err instanceof Error ? err.message : "Erro ao recalcular repasses." });
-            }
-          }}
-          onRepasseClick={(id) => router.push(`/dashboard/financeiro/repasses/${id}`)}
-        />
+        <section className="grid gap-5 lg:grid-cols-2">
+          <RepasseList
+            repasses={repasses.repasses}
+            recalculating={repasses.recalculating}
+            onRecalculate={async () => {
+              try {
+                await repasses.recalculate();
+                setFeedback({ type: "success", message: "Repasses atualizados com sucesso." });
+              } catch (err) {
+                setFeedback({ type: "error", message: err instanceof Error ? err.message : "Erro ao recalcular repasses." });
+              }
+            }}
+            onRepasseClick={(id) => router.push(`/dashboard/financeiro/repasses/${id}`)}
+          />
 
-        <BillList
-          bills={bills.bills}
-          showAll={showAllBills}
-          onToggleShowAll={() => setShowAllBills((previous) => !previous)}
-          onBillClick={(id) => router.push(`/dashboard/financeiro/contas/${id}`)}
-        />
+          <BillList
+            bills={bills.bills}
+            showAll={showAllBills}
+            onToggleShowAll={() => setShowAllBills((previous) => !previous)}
+            onBillClick={(id) => router.push(`/dashboard/financeiro/contas/${id}`)}
+          />
+        </section>
 
         <ResourceDistributionChart items={paymentResourceData} />
 

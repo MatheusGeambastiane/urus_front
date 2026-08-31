@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Package, Scissors } from "lucide-react";
+import { Activity, Package, Repeat2, Scissors, UserPlus } from "lucide-react";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 import type { FinanceSummary } from "@/src/features/finances/types";
 
@@ -42,6 +42,22 @@ export function FinanceDesktopIndicators({
       detail: "Atendimentos concluídos",
       icon: Scissors,
     },
+    {
+      key: "new-clients",
+      title: "Novos clientes",
+      value: String(summary?.new_clients_count ?? 0),
+      label: "Primeiro atendimento no mês",
+      detail: "Clientes conquistados no período",
+      icon: UserPlus,
+    },
+    {
+      key: "returning-clients",
+      title: "Clientes recorrentes",
+      value: String(summary?.returning_clients_count ?? 0),
+      label: "Voltaram no mesmo mês",
+      detail: "Dois ou mais atendimentos",
+      icon: Repeat2,
+    },
   ];
 
   return (
@@ -55,7 +71,7 @@ export function FinanceDesktopIndicators({
           Mês selecionado
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-4 xl:grid-cols-5">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
