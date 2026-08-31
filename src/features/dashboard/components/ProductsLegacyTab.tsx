@@ -37,7 +37,6 @@ import {
   EyeOff,
   Filter,
   Gem,
-  Home,
   Loader2,
   LogOut,
   Package,
@@ -50,7 +49,6 @@ import {
   QrCode,
   Scissors,
   Search,
-  Sparkles,
   X,
   FileText,
   UserRound,
@@ -68,6 +66,7 @@ import {
 import { env } from "@/lib/env";
 import { dashboardTabRoutes, type DashboardTab } from "@/components/dashboard/dashboard-tabs";
 import { Modal } from "@/components/ui/Modal";
+import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { createTokenRefreshService } from "@/src/features/shared/utils/auth";
 import { getApiErrorMessage } from "@/src/features/shared/utils/api-errors";
 import {
@@ -470,23 +469,6 @@ export function ProductsLegacyTab({
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const bottomNavItems = useMemo(() => {
-    const items: { key: DashboardTab; label: string; icon: LucideIcon }[] = [
-      { key: "home", label: "Home", icon: Home },
-      { key: "agenda", label: "Agenda", icon: Calendar },
-      { key: "services", label: "Serviços", icon: Scissors },
-      { key: "products", label: "Produtos", icon: Package },
-      { key: "users", label: "Usuários", icon: Users },
-    ];
-
-    if (userRole === "admin") {
-      items.push({ key: "finances", label: "Financeiro", icon: Wallet });
-    } else if (userRole === "professional") {
-      items.push({ key: "performance", label: "Desempenho", icon: Sparkles });
-    }
-
-    return items;
-  }, [userRole]);
   const navigateToTab = useCallback(
     (tab: DashboardTab) => {
       const segment = dashboardTabRoutes[tab];
@@ -14027,94 +14009,13 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#050505] text-white lg:bg-[#080807]">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 overflow-hidden border-r border-[#e5e7eb]/15 bg-[radial-gradient(circle_at_10%_0%,rgba(255,255,255,0.11),transparent_30%),linear-gradient(180deg,#0a0a0a_0%,#070707_55%,#050505_100%)] px-5 py-6 shadow-[24px_0_80px_rgba(0,0,0,0.24)] lg:flex lg:flex-col">
-        <div className="pointer-events-none absolute -left-24 top-1/3 h-56 w-56 rounded-full bg-[#e5e7eb]/5 blur-3xl" />
-        <div className="relative flex h-24 shrink-0 items-center justify-center overflow-hidden" aria-label="Urus Barbearia">
-          <Image
-            src="/urus_logo_nobg_branca.png"
-            alt="Urus Barbearia"
-            width={500}
-            height={500}
-            sizes="176px"
-            className="h-44 w-44 max-w-none object-contain"
-            priority
-          />
-        </div>
-        <div className="relative mt-2 flex items-center gap-3 px-3">
-          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#e5e7eb]/35" />
-          <span className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#e5e7eb]/65">Gestão Urus</span>
-          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#e5e7eb]/35" />
-        </div>
-
-        <nav className="relative mt-7 flex flex-1 flex-col gap-2">
-          {bottomNavItems.map((item) => {
-            const isActive = item.key === activeTab;
-            const Icon = item.icon;
-            return (
-              <button
-                key={`desktop-${item.key}`}
-                type="button"
-                onClick={() => navigateToTab(item.key)}
-                aria-current={isActive ? "page" : undefined}
-                className={`group relative flex h-13 items-center gap-3 rounded-2xl border px-3 text-sm font-semibold transition duration-300 ${
-                  isActive
-                    ? "border-[#e5e7eb]/25 bg-[linear-gradient(100deg,rgba(255,255,255,0.16),rgba(255,255,255,0.055))] text-[#f4f4f5] shadow-[0_16px_40px_rgba(0,0,0,0.22)] before:absolute before:-left-1 before:h-6 before:w-0.5 before:rounded-full before:bg-[#f4f4f5]"
-                    : "border-transparent text-white/55 hover:border-[#e5e7eb]/12 hover:bg-[#e5e7eb]/[0.055] hover:text-white"
-                }`}
-              >
-                <span className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${isActive ? "bg-[#e5e7eb]/15" : "bg-white/[0.035] group-hover:bg-[#e5e7eb]/10"}`}>
-                  <Icon className="h-[18px] w-[18px]" strokeWidth={isActive ? 2.3 : 1.8} />
-                </span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="relative rounded-[24px] border border-[#e5e7eb]/12 bg-[#e5e7eb]/[0.045] px-4 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#e5e7eb]/65">Inventário</p>
-          <p className="mt-1 text-sm font-medium text-white/75">Produtos, estoque e vendas</p>
-          <div className="mt-3 flex items-center gap-2 text-[11px] text-white/40">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(74,222,128,0.6)]" />
-            Operação disponível
-          </div>
-        </div>
-      </aside>
-
-      <div className="hidden lg:ml-72 lg:flex lg:w-[calc(100%-18rem)] lg:px-8 lg:pt-6 xl:px-10">
-        <div className="mx-auto flex w-full max-w-[1500px] items-center justify-end">
-          {renderProfileMenu()}
-        </div>
-      </div>
-
-      <div className="products-dashboard mx-auto flex w-full max-w-md flex-col px-5 pb-28 pt-10 lg:mx-0 lg:ml-72 lg:w-[calc(100%-18rem)] lg:max-w-none lg:px-8 lg:pb-10 lg:pt-5 xl:px-10">
-        <div className="mx-auto w-full lg:max-w-[1500px]">
-          {renderContentByTab()}
-        </div>
-      </div>
-
-      <nav className="fixed bottom-4 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-4 lg:hidden">
-        <div className="grid grid-cols-6 gap-2 rounded-3xl border border-white/10 bg-[#0b0b0b]/80 p-2 backdrop-blur">
-          {bottomNavItems.map((item) => {
-            const isActive = item.key === activeTab;
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => navigateToTab(item.key)}
-                className={`flex flex-col items-center rounded-2xl px-2 py-2 text-[11px] font-medium transition ${
-                  isActive ? "bg-white text-black shadow-inner" : "text-white/70"
-                }`}
-              >
-                <Icon className="h-5 w-5" strokeWidth={isActive ? 2.4 : 2} />
-                <span className="mt-1">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+    <DashboardShell
+      activeTab={activeTab}
+      profilePic={sessionProfilePic}
+      userRole={userRole}
+      desktopVariant="luxury"
+    >
+      <div className="products-dashboard">{renderContentByTab()}</div>
 
       {productsModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
@@ -15850,6 +15751,6 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           </div>
         </div>
       ) : null}
-    </div>
+    </DashboardShell>
   );
 }

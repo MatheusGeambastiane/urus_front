@@ -1,7 +1,17 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, BarChart3, CalendarDays, CheckCircle2, MousePointerClick, SlidersHorizontal } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  FileWarning,
+  MousePointerClick,
+  SlidersHorizontal,
+} from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -16,6 +26,7 @@ import {
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { env } from "@/lib/env";
+import { Modal } from "@/components/ui/Modal";
 
 type AnalyticsData = {
   period: { start: string; end: string };
@@ -28,6 +39,23 @@ type AnalyticsData = {
   utm_origins: Array<{ origin: string; count: number }>;
   error_kinds: Array<{ kind: string; count: number }>;
   by_day: Array<{ date: string; accesses: number; appointments: number; errors: number }>;
+};
+
+type AccessError = {
+  id: number;
+  visit_id: string;
+  path: string;
+  kind: string;
+  message: string;
+  status_code: number | null;
+  log: unknown;
+  created_at: string;
+};
+
+type PaginatedErrors = {
+  count: number;
+  next: string | null;
+  results: AccessError[];
 };
 
 const quickFilters = [7, 30, 90] as const;
@@ -47,6 +75,27 @@ const formatOrigin = (origin: string) => {
     .replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase("pt-BR"));
 };
 
+const formatCapturedAt = (date: string) => {
+  const parsedDate = new Date(date);
+  if (Number.isNaN(parsedDate.getTime())) return date;
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  }).format(parsedDate);
+};
+
+const formatLog = (log: unknown) => {
+  if (log === null || log === undefined || log === "") return "Nenhum log detalhado foi enviado.";
+  if (typeof log === "string") return log;
+
+  try {
+    return JSON.stringify(log, null, 2);
+  } catch {
+    return String(log);
+  }
+};
+
 export function AccessAnalyticsPage() {
   const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -57,6 +106,13 @@ export function AccessAnalyticsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedErrorKind, setSelectedErrorKind] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<AccessError[]>([]);
+  const [errorDetailsCount, setErrorDetailsCount] = useState(0);
+  const [errorDetailsNext, setErrorDetailsNext] = useState<string | null>(null);
+  const [errorDetailsLoading, setErrorDetailsLoading] = useState(false);
+  const [errorDetailsError, setErrorDetailsError] = useState<string | null>(null);
+  const errorDetailsRequestId = useRef(0);
 
   const loadAnalytics = useCallback(async () => {
     if (!accessToken) return;
@@ -85,6 +141,53 @@ export function AccessAnalyticsPage() {
   useEffect(() => {
     void loadAnalytics();
   }, [loadAnalytics]);
+
+  const loadErrorDetails = useCallback(async (kind: string, pageUrl?: string) => {
+    if (!accessToken) return;
+
+    const requestId = ++errorDetailsRequestId.current;
+    const append = Boolean(pageUrl);
+    setErrorDetailsLoading(true);
+    setErrorDetailsError(null);
+
+    try {
+      const url = pageUrl ?? `${env.apiBaseUrl}/dashboard/analytics/accesses/errors/?${query}&kind=${encodeURIComponent(kind)}&page_size=20`;
+      const response = await fetchWithAuth(url, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      if (!response.ok) throw new Error("Não foi possível carregar os logs deste erro.");
+
+      const payload = (await response.json()) as PaginatedErrors;
+      if (requestId !== errorDetailsRequestId.current) return;
+      setErrorDetails((current) => append ? [...current, ...payload.results] : payload.results);
+      setErrorDetailsCount(payload.count);
+      setErrorDetailsNext(payload.next);
+    } catch (loadError) {
+      if (requestId !== errorDetailsRequestId.current) return;
+      setErrorDetailsError(loadError instanceof Error ? loadError.message : "Falha ao carregar os logs.");
+    } finally {
+      if (requestId === errorDetailsRequestId.current) setErrorDetailsLoading(false);
+    }
+  }, [accessToken, fetchWithAuth, query]);
+
+  const openErrorDetails = (kind: string) => {
+    setSelectedErrorKind(kind);
+    setErrorDetails([]);
+    setErrorDetailsCount(0);
+    setErrorDetailsNext(null);
+    void loadErrorDetails(kind);
+  };
+
+  const closeErrorDetails = () => {
+    errorDetailsRequestId.current += 1;
+    setSelectedErrorKind(null);
+    setErrorDetailsLoading(false);
+    setErrorDetailsError(null);
+  };
 
   const selectDays = (days: number) => {
     setActiveDays(days);
@@ -218,7 +321,13 @@ export function AccessAnalyticsPage() {
           <>
             <div className="grid gap-5 xl:grid-cols-2">
               <CountTable title="Origem / UTM" empty="Nenhuma origem no período" rows={data.utm_origins.map((row) => ({ label: formatOrigin(row.origin), count: row.count }))} />
-              <CountTable title="Erros por tipo" empty="Nenhum erro no período" rows={data.error_kinds.map((row) => ({ label: row.kind, count: row.count }))} />
+              <CountTable
+                title="Erros por tipo"
+                description="Clique em um tipo para consultar os logs capturados."
+                empty="Nenhum erro no período"
+                rows={data.error_kinds.map((row) => ({ label: row.kind, count: row.count }))}
+                onRowClick={(row) => openErrorDetails(row.label)}
+              />
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
@@ -285,21 +394,124 @@ export function AccessAnalyticsPage() {
             </div>
           </>
         ) : null}
+
+        <Modal
+          open={selectedErrorKind !== null}
+          onClose={closeErrorDetails}
+          title={selectedErrorKind ?? "Logs de erro"}
+          subtitle={errorDetailsCount === 1 ? "1 erro capturado" : `${errorDetailsCount} erros capturados`}
+          maxWidth="lg"
+        >
+          <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+            {errorDetails.map((item) => (
+              <article key={item.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
+                <div className="flex items-start gap-3 border-b border-white/[0.07] px-4 py-3">
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-300/15 bg-red-400/10 text-red-200">
+                    <FileWarning className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm font-semibold leading-5 text-white">{item.message}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-[11px] text-white/45">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      Capturado em {formatCapturedAt(item.created_at)}
+                    </p>
+                  </div>
+                  {item.status_code ? (
+                    <span className="shrink-0 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-[11px] font-semibold tabular-nums text-white/60">
+                      HTTP {item.status_code}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="space-y-3 px-4 py-3">
+                  <p className="truncate text-xs text-white/45" title={item.path}>Página: <span className="text-white/70">{item.path}</span></p>
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/35">Log</p>
+                    <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-white/[0.07] bg-black/35 p-3 font-mono text-[11px] leading-5 text-white/65">
+                      {formatLog(item.log)}
+                    </pre>
+                  </div>
+                </div>
+              </article>
+            ))}
+
+            {errorDetailsLoading && errorDetails.length === 0 ? (
+              <div className="space-y-3" aria-label="Carregando logs">
+                {Array.from({ length: 2 }, (_, index) => <div key={index} className="h-40 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.025]" />)}
+              </div>
+            ) : null}
+
+            {errorDetailsError ? (
+              <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+                <p>{errorDetailsError}</p>
+                <button type="button" onClick={() => selectedErrorKind && void loadErrorDetails(selectedErrorKind)} className="mt-2 font-semibold underline">
+                  Tentar novamente
+                </button>
+              </div>
+            ) : null}
+
+            {!errorDetailsLoading && !errorDetailsError && errorDetails.length === 0 ? (
+              <p className="py-8 text-center text-sm text-white/40">Nenhum log encontrado para este tipo.</p>
+            ) : null}
+
+            {errorDetailsNext ? (
+              <button
+                type="button"
+                disabled={errorDetailsLoading}
+                onClick={() => selectedErrorKind && void loadErrorDetails(selectedErrorKind, errorDetailsNext)}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.07] hover:text-white disabled:cursor-wait disabled:opacity-50"
+              >
+                {errorDetailsLoading ? "Carregando..." : "Carregar mais logs"}
+              </button>
+            ) : null}
+          </div>
+        </Modal>
       </section>
     </DashboardShell>
   );
 }
 
-function CountTable({ title, rows, empty }: { title: string; rows: Array<{ label: string; count: number }>; empty: string }) {
+type CountRow = { label: string; count: number };
+
+function CountTable({
+  title,
+  description,
+  rows,
+  empty,
+  onRowClick,
+}: {
+  title: string;
+  description?: string;
+  rows: CountRow[];
+  empty: string;
+  onRowClick?: (row: CountRow) => void;
+}) {
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
-      <h2 className="border-b border-white/10 px-5 py-4 font-semibold text-white">{title}</h2>
+      <div className="border-b border-white/10 px-5 py-4">
+        <h2 className="font-semibold text-white">{title}</h2>
+        {description ? <p className="mt-1 text-xs text-white/40">{description}</p> : null}
+      </div>
       {rows.length ? (
         <ul className="divide-y divide-white/[0.06]">
           {rows.map((row) => (
-            <li key={row.label} className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
-              <span className="truncate text-white/65">{row.label}</span>
-              <strong className="tabular-nums text-white">{row.count}</strong>
+            <li key={row.label}>
+              {onRowClick ? (
+                <button
+                  type="button"
+                  onClick={() => onRowClick(row)}
+                  className="group flex w-full items-center gap-4 px-5 py-3 text-left text-sm transition hover:bg-white/[0.045] focus-visible:bg-white/[0.045] focus-visible:outline-none"
+                  aria-label={`Ver ${row.count} ${row.count === 1 ? "erro" : "erros"} do tipo ${row.label}`}
+                >
+                  <span className="min-w-0 flex-1 truncate text-white/65 transition group-hover:text-white">{row.label}</span>
+                  <strong className="tabular-nums text-white">{row.count}</strong>
+                  <ChevronRight className="h-4 w-4 text-white/25 transition group-hover:translate-x-0.5 group-hover:text-white/65" />
+                </button>
+              ) : (
+                <div className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
+                  <span className="truncate text-white/65">{row.label}</span>
+                  <strong className="tabular-nums text-white">{row.count}</strong>
+                </div>
+              )}
             </li>
           ))}
         </ul>

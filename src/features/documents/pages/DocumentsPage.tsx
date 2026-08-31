@@ -120,6 +120,7 @@ export function DocumentsPage() {
   const [uploadName, setUploadName] = useState("");
   const [comment, setComment] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [pageDragging, setPageDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<DocumentItem | null>(null);
@@ -197,6 +198,15 @@ export function DocumentsPage() {
     event.preventDefault();
     setDragging(false);
     addFiles(Array.from(event.dataTransfer.files));
+  };
+
+  const handlePageDrop = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setPageDragging(false);
+    const droppedFiles = Array.from(event.dataTransfer.files);
+    if (droppedFiles.length === 0) return;
+    addFiles(droppedFiles);
+    setUploadOpen(true);
   };
 
   const closeUpload = (force = false) => {
@@ -287,7 +297,34 @@ export function DocumentsPage() {
 
   return (
     <DashboardShell activeTab="documents" profilePic={profilePic} userRole={userRole} desktopVariant="luxury">
-      <section className="space-y-4 [font-family:var(--font-dashboard-body)]">
+      <section
+        className="relative space-y-4 [font-family:var(--font-dashboard-body)]"
+        onDragEnter={(event) => {
+          if (!event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault();
+          setPageDragging(true);
+        }}
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes("Files")) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) setPageDragging(false);
+        }}
+        onDrop={handlePageDrop}
+      >
+        {pageDragging ? (
+          <div className="pointer-events-none absolute inset-0 z-30 flex min-h-[32rem] items-center justify-center rounded-[24px] border-2 border-dashed border-white/55 bg-[#080807]/95 backdrop-blur-sm">
+            <div className="flex flex-col items-center px-6 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/15 bg-white/10 shadow-[0_18px_50px_rgba(0,0,0,0.4)]">
+                <UploadCloud className="h-7 w-7 text-white/80" />
+              </div>
+              <p className="mt-4 text-lg font-semibold text-white">Solte para adicionar</p>
+              <p className="mt-1 text-sm text-white/45">Os arquivos serão preparados para envio.</p>
+            </div>
+          </div>
+        ) : null}
         <div className="flex justify-end">
           <button type="button" onClick={() => setUploadOpen(true)} className="flex items-center justify-center gap-2 rounded-xl bg-[#f3f3f1] px-4 py-2.5 text-sm font-bold text-[#090909] transition hover:bg-white">
             <Plus className="h-4 w-4" /> Adicionar
@@ -341,7 +378,7 @@ export function DocumentsPage() {
       </section>
 
       {uploadOpen ? <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="upload-title"><form onSubmit={(event) => void uploadFiles(event)} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-[28px] border border-white/12 bg-[#11110f] p-5 shadow-[0_30px_100px_rgba(0,0,0,0.8)] sm:rounded-[28px] sm:p-6"><div className="flex items-start justify-between"><div><p className="text-[10px] font-semibold uppercase tracking-[0.27em] text-white/38">Novo envio</p><h2 id="upload-title" className="mt-1 text-2xl font-semibold tracking-tight text-white">Adicionar documentos</h2></div><button type="button" onClick={() => closeUpload()} aria-label="Fechar" className="rounded-xl border border-white/10 p-2 text-white/50 hover:bg-white/10 hover:text-white"><X className="h-5 w-5" /></button></div>
-        <input ref={fileInputRef} type="file" multiple className="sr-only" onChange={handleFileInput} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.xml,.zip" />
+        <input ref={fileInputRef} type="file" multiple className="sr-only" onChange={handleFileInput} accept=".pdf,.pfx,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.xml,.zip" />
         <div onDragEnter={(event) => { event.preventDefault(); setDragging(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragging(false); }} onDrop={handleDrop} className={`mt-6 flex min-h-48 flex-col items-center justify-center rounded-[22px] border border-dashed px-6 text-center transition ${dragging ? "border-white/55 bg-white/[0.09]" : "border-white/16 bg-black/20 hover:border-white/30"}`}><div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.07]"><UploadCloud className="h-6 w-6 text-white/65" /></div><p className="mt-4 text-sm font-semibold text-white">Arraste os arquivos para cá</p><p className="mt-1 text-xs text-white/38">ou selecione no dispositivo · até 25 MB cada</p><button type="button" onClick={() => fileInputRef.current?.click()} className="mt-4 rounded-xl border border-white/12 bg-white/[0.055] px-4 py-2 text-xs font-semibold text-white/75 hover:bg-white/10">Selecionar arquivos</button></div>
         {files.length > 0 ? <div className="mt-4 space-y-2"><div className="flex items-center justify-between text-xs"><span className="font-semibold text-white/65">{files.length} {files.length === 1 ? "arquivo selecionado" : "arquivos selecionados"}</span><button type="button" onClick={() => { setFiles([]); setFileCategories({}); }} className="text-white/38 underline hover:text-white">Limpar</button></div>
           {files.length > 1 ? <label className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-xs font-medium text-white/55"><span>Categoria para todos</span><select value={uploadCategory} onChange={(event) => applyCategoryToAll(event.target.value)} className="h-9 min-w-40 rounded-lg border border-white/10 bg-[#171715] px-2 text-xs text-white outline-none focus:border-white/30">{choices.categories.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label> : null}
