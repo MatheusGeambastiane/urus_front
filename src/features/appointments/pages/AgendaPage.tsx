@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock3, Eye, EyeOff, Filter, Plus, Trash2, Waves } from "lucide-react";
+import { Calendar, Clock3, Columns3, Eye, EyeOff, Filter, List, Plus, Trash2, Waves } from "lucide-react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatDateParam } from "@/src/features/shared/utils/date";
@@ -36,6 +36,17 @@ const DeleteDayRestrictionModal = dynamic(
   { ssr: false },
 );
 
+const AppointmentScheduleGrid = dynamic(
+  () =>
+    import("@/src/features/appointments/components/AppointmentScheduleGrid").then((module) => ({
+      default: module.AppointmentScheduleGrid,
+    })),
+  {
+    ssr: false,
+    loading: () => <div className="h-96 animate-pulse rounded-[30px] border border-white/8 bg-white/[0.03]" />,
+  },
+);
+
 function SummarySkeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-full bg-white/10 ${className}`.trim()} />;
 }
@@ -46,6 +57,7 @@ export function AgendaPage() {
   const agenda = useAppointments({ accessToken, fetchWithAuth });
   const appointmentsDateListRef = useRef<HTMLDivElement>(null);
   const [showSummaryValues, setShowSummaryValues] = useState(false);
+  const [agendaView, setAgendaView] = useState<"list" | "schedule">("list");
 
   useEffect(() => {
     const list = appointmentsDateListRef.current;
@@ -305,15 +317,48 @@ export function AgendaPage() {
           </div>
         ) : null}
 
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/35">Visualização</p>
+            <p className="mt-1 text-sm text-white/60">
+              {agendaView === "list" ? "Atendimentos em sequência" : "Horários por profissional"}
+            </p>
+          </div>
+          <div className="inline-flex rounded-2xl border border-white/10 bg-white/[0.04] p-1" role="group" aria-label="Visualização da agenda">
+            <button
+              type="button"
+              onClick={() => setAgendaView("list")}
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                agendaView === "list" ? "bg-white text-black" : "text-white/55 hover:text-white"
+              }`}
+              aria-pressed={agendaView === "list"}
+            >
+              <List className="h-3.5 w-3.5" />
+              Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgendaView("schedule")}
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                agendaView === "schedule" ? "bg-white text-black" : "text-white/55 hover:text-white"
+              }`}
+              aria-pressed={agendaView === "schedule"}
+            >
+              <Columns3 className="h-3.5 w-3.5" />
+              Grade
+            </button>
+          </div>
+        </div>
+
         {agenda.appointmentsLoading ? (
           <div className="flex items-center justify-center py-10">
             <Calendar className="h-6 w-6 animate-pulse text-white/70" />
           </div>
-        ) : agenda.appointments.length === 0 ? (
+        ) : agendaView === "list" && agenda.appointments.length === 0 ? (
           <p className="rounded-3xl border border-white/5 bg-[#0b0b0b] px-4 py-6 text-center text-sm text-white/60">
             Nenhum agendamento para o período selecionado.
           </p>
-        ) : (
+        ) : agendaView === "list" ? (
           <AppointmentList
             appointments={agenda.appointments}
             servicesList={agenda.servicesList}
@@ -325,6 +370,14 @@ export function AgendaPage() {
             onReopen={async (appointmentId) => {
               await agenda.updateAppointmentStatus(appointmentId, "agendado");
             }}
+          />
+        ) : (
+          <AppointmentScheduleGrid
+            appointments={agenda.appointments}
+            professionals={agenda.professionalsList}
+            selectedDate={agenda.selectedDate}
+            professionalFilterId={agenda.filterProfessionalId}
+            onOpen={(appointmentId) => router.push(`/dashboard/agenda/${appointmentId}`)}
           />
         )}
 

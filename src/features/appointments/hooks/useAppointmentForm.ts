@@ -12,6 +12,8 @@ import {
   normalizeAppointmentPaymentTypeForApi,
 } from "@/src/features/appointments/utils/appointments";
 import type {
+  AppointmentConflict,
+  AppointmentConflictResponse,
   AppointmentItem,
   AppointmentProfessionalSlot,
   AppointmentStatus,
@@ -92,6 +94,7 @@ export function useAppointmentForm({
   const [loadingExistingAppointmentError, setLoadingExistingAppointmentError] = useState<string | null>(null);
 
   const [createAppointmentError, setCreateAppointmentError] = useState<string | null>(null);
+  const [appointmentConflicts, setAppointmentConflicts] = useState<AppointmentConflict[]>([]);
   const [isSavingAppointment, setIsSavingAppointment] = useState(false);
   const [selectedAppointmentStatus, setSelectedAppointmentStatus] = useState<AppointmentStatus>("agendado");
   const [selectedClient, setSelectedClient] = useState<UserItem | null>(null);
@@ -182,6 +185,7 @@ export function useAppointmentForm({
     setTipsInput("0.00");
     setAppointmentObservations("");
     setCreateAppointmentError(null);
+    setAppointmentConflicts([]);
     setAddedSales([]);
     setSaleModalOpen(false);
     setSelectedSaleProductId(null);
@@ -1289,8 +1293,11 @@ export function useAppointmentForm({
     }
   };
 
-  const handleSubmitAppointment = async () => {
+  const submitAppointment = async (confirmOverbooking: boolean) => {
     setCreateAppointmentError(null);
+    if (!confirmOverbooking) {
+      setAppointmentConflicts([]);
+    }
     if (!accessToken) {
       setCreateAppointmentError("Sessão expirada. Faça login novamente.");
       return;
@@ -1411,6 +1418,12 @@ export function useAppointmentForm({
           appointment_origin: "presencial",
         };
       }
+      if (confirmOverbooking) {
+        payload = {
+          ...payload,
+          confirm_overbooking: true,
+        };
+      }
 
       const endpoint = isEditingExistingAppointment
         ? `${appointmentsEndpointBase}${appointmentId}/`
@@ -1433,6 +1446,15 @@ export function useAppointmentForm({
           : "Não foi possível criar o agendamento.";
         try {
           const errorData = await response.json();
+          if (
+            response.status === 409 &&
+            errorData?.code === "appointment_conflict" &&
+            Array.isArray(errorData?.conflicts)
+          ) {
+            const conflictData = errorData as AppointmentConflictResponse;
+            setAppointmentConflicts(conflictData.conflicts);
+            return;
+          }
           if (errorData?.detail) {
             errorMessage = errorData.detail;
           }
@@ -1457,11 +1479,26 @@ export function useAppointmentForm({
     }
   };
 
+  const handleSubmitAppointment = () => {
+    void submitAppointment(false);
+  };
+
+  const handleConfirmOverbooking = () => {
+    void submitAppointment(true);
+  };
+
+  const handleCloseAppointmentConflict = () => {
+    if (!isSavingAppointment) {
+      setAppointmentConflicts([]);
+    }
+  };
+
   return {
     isEditingExistingAppointment,
     loadingExistingAppointment,
     loadingExistingAppointmentError,
     createAppointmentError,
+    appointmentConflicts,
     isSavingAppointment,
     selectedAppointmentStatus,
     setSelectedAppointmentStatus,
@@ -1572,6 +1609,8 @@ export function useAppointmentForm({
     setSalePriceInput,
     handleAddSaleProduct,
     handleSubmitAppointment,
+    handleConfirmOverbooking,
+    handleCloseAppointmentConflict,
     resetAppointmentForm,
   };
 }

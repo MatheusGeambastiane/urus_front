@@ -19,6 +19,21 @@ export type AppointmentService = {
   category_name: string;
 };
 
+export type AppointmentConflict = {
+  id: number;
+  date_time: string;
+  start_datetime: string;
+  finish_datetime: string;
+  client_name: string | null;
+  services: Array<Pick<AppointmentService, "id" | "name">>;
+};
+
+export type AppointmentConflictResponse = {
+  code: "appointment_conflict";
+  detail: string;
+  conflicts: AppointmentConflict[];
+};
+
 export type AppointmentProfessionalService = {
   professional: number;
   professional_name?: string;
@@ -50,6 +65,8 @@ export type AppointmentSell = {
 export type AppointmentItem = {
   id: number;
   date_time: string;
+  start_datetime?: string | null;
+  finish_datetime?: string | null;
   client: number | null;
   professional: number | null;
   services: AppointmentService[];

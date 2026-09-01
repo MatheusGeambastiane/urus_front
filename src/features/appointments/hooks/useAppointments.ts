@@ -137,7 +137,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
   const [dayRestrictionSubmitting, setDayRestrictionSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!accessToken || !showAppointmentsFilterModal || filterOptionsLoaded) {
+    if (!accessToken || filterOptionsLoaded) {
       return;
     }
     const controller = new AbortController();
@@ -202,7 +202,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
 
     void fetchFilterOptions();
     return () => controller.abort();
-  }, [accessToken, fetchWithAuth, filterOptionsLoaded, showAppointmentsFilterModal]);
+  }, [accessToken, fetchWithAuth, filterOptionsLoaded]);
 
   useEffect(() => {
     if (!accessToken) {
