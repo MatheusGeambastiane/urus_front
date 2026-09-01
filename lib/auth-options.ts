@@ -24,17 +24,9 @@ type BackendJwt = {
   error?: "RefreshAccessTokenError";
 };
 
-function tokenExpiresSoon(accessToken?: string): boolean {
-  if (!accessToken) return true;
-  try {
-    const payload = JSON.parse(
-      Buffer.from(accessToken.split(".")[1], "base64url").toString("utf8"),
-    ) as { exp?: number };
-    return !payload.exp || payload.exp * 1000 <= Date.now() + 30_000;
-  } catch {
-    return true;
-  }
-}
+type SessionUpdate = {
+  forceRefresh?: boolean;
+};
 
 async function refreshBackendToken(token: BackendJwt): Promise<BackendJwt> {
   if (!token.refreshToken) return { ...token, error: "RefreshAccessTokenError" };
@@ -174,7 +166,7 @@ export const authOptions: NextAuthOptions = {
         return "/dashboard/login?error=GoogleSignin";
       }
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
@@ -187,8 +179,18 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           profile_pic: user.profile_pic ?? null,
         };
+
+        return token;
       }
-      if (!tokenExpiresSoon(token.accessToken as string | undefined)) return token;
+      const forceRefresh =
+        trigger === "update" &&
+        (session as SessionUpdate | undefined)?.forceRefresh === true;
+      if (!forceRefresh) {
+        // Server Components call getServerSession with a read-only cookie store.
+        // Rotating here would blacklist the browser's refresh token without
+        // persisting its replacement. Refresh only through the session route.
+        return token;
+      }
       return refreshBackendToken(token as BackendJwt);
     },
     async session({ session, token }) {

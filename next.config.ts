@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Keep Playwright's development artifacts isolated from a developer's
+  // already-running `next dev` process.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  agentRules: false,
   async headers() {
     return [{
       source: "/(.*)",

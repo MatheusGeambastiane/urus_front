@@ -14,6 +14,11 @@ type JwtPayload = {
   exp?: number;
 };
 
+// A dashboard screen can start several authenticated requests at once. Keep a
+// single refresh request in flight because the backend rotates and blacklists
+// refresh tokens after every use.
+let refreshInFlight: Promise<string | null> | null = null;
+
 function getTokenExpiration(token: string): number | null {
   const payloadPart = token.split(".")[1];
   if (!payloadPart) {
@@ -100,7 +105,6 @@ export function createTokenRefreshService({
   refreshAccessToken: refreshOnServer,
 }: TokenRefreshServiceOptions): TokenRefreshService {
   let currentAccessToken = initialAccessToken ?? null;
-  let refreshInFlight: Promise<string | null> | null = null;
 
   const performRefresh = async (): Promise<string | null> => {
     try {
@@ -115,14 +119,18 @@ export function createTokenRefreshService({
     }
   };
 
-  const refreshAccessToken = (): Promise<string | null> => {
+  const refreshAccessToken = async (): Promise<string | null> => {
     if (!refreshInFlight) {
       refreshInFlight = performRefresh().finally(() => {
         refreshInFlight = null;
       });
     }
 
-    return refreshInFlight;
+    const accessToken = await refreshInFlight;
+    if (accessToken) {
+      currentAccessToken = accessToken;
+    }
+    return accessToken;
   };
 
   const fetchWithAuth = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -151,18 +159,7 @@ export function createTokenRefreshService({
 
     headers.set("Authorization", `Bearer ${currentAccessToken}`);
     const response = await globalThis.fetch(input, { ...requestInit, headers });
-    if (response.ok) {
-      return response;
-    }
-
-    let payload: { code?: string } | null = null;
-    try {
-      payload = (await response.clone().json()) as { code?: string };
-    } catch {
-      payload = null;
-    }
-
-    if (payload?.code !== "token_not_valid") {
+    if (response.status !== 401) {
       return response;
     }
 
@@ -176,6 +173,7 @@ export function createTokenRefreshService({
       return response;
     }
 
+    currentAccessToken = newAccessToken;
     headers.set("Authorization", `Bearer ${newAccessToken}`);
     return globalThis.fetch(input, { ...requestInit, headers });
   };

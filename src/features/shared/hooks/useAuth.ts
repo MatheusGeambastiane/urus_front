@@ -29,7 +29,7 @@ export function useAuth(): AuthContext {
       createTokenRefreshService({
         accessToken: session?.accessToken ?? null,
         refreshAccessToken: async () => {
-          const refreshedSession = await update();
+          const refreshedSession = await update({ forceRefresh: true });
           return refreshedSession?.accessToken ?? null;
         },
       }),

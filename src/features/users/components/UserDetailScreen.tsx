@@ -285,6 +285,11 @@ export function UserDetailScreen({
                   <span className="inline-flex items-center rounded-full border border-emerald-300/25 bg-emerald-400/10 px-3 py-1.5 text-sm font-semibold text-emerald-100">
                     {roleLabel}
                   </span>
+                  {userDetail.is_unregistered_client ? (
+                    <span className="inline-flex items-center rounded-full border border-amber-300/25 bg-amber-400/10 px-3 py-1.5 text-sm font-semibold text-amber-100">
+                      Cliente sem cadastro
+                    </span>
+                  ) : null}
                   <span
                     className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-semibold ${
                       userDetail.is_active
@@ -309,14 +314,14 @@ export function UserDetailScreen({
                   <PenSquare className="h-4 w-4" />
                   {canEditUser ? "Editando" : "Editar"}
                 </button>
-                <button
+                {!userDetail.is_unregistered_client ? <button
                   type="button"
                   onClick={() => setShowReviewEmailModal(true)}
                   className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.07] px-4 py-2 text-sm font-semibold text-white/78 transition hover:border-white/25 hover:bg-white/[0.1]"
                 >
                   <Mail className="h-4 w-4" />
                   Avaliação
-                </button>
+                </button> : null}
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -11,7 +11,7 @@ import { RepasseDetailPanel } from "@/src/features/finances/components/RepasseDe
 import { RepassePaymentModal } from "@/src/features/finances/components/RepassePaymentModal";
 import { RepassePaymentEditModal } from "@/src/features/finances/components/RepassePaymentEditModal";
 import { RepasseInvoiceModal } from "@/src/features/finances/components/RepasseInvoiceModal";
-import { formatMonthParam } from "@/src/features/finances/utils/finances";
+import { calculateRepasseTotals, formatMonthParam } from "@/src/features/finances/utils/finances";
 import { formatMoneyFromDecimalString, formatMoneyInputValue, parseCurrencyInput } from "@/src/features/shared/utils/money";
 import type { RepasseDetail, RepasseTransaction } from "@/src/features/repasses/types";
 
@@ -51,6 +51,11 @@ export function RepasseDetailPage({ id }: { id: string }) {
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
+
+  const remainingAmount = useMemo(
+    () => Math.max(calculateRepasseTotals(detail).remaining, 0),
+    [detail],
+  );
 
   const formatAllowanceField = (value: string | null | undefined) => {
     const parsed = parseCurrencyInput(value ?? "0");
@@ -229,6 +234,7 @@ export function RepasseDetailPage({ id }: { id: string }) {
       <RepassePaymentModal
         open={paymentOpen}
         form={paymentForm}
+        remainingAmount={remainingAmount}
         error={paymentError}
         submitting={paymentSubmitting}
         onClose={() => setPaymentOpen(false)}

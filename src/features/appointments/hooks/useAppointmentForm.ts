@@ -37,6 +37,7 @@ type ClientRegistrationForm = {
   cpf: string;
   phone: string;
   dateOfBirth: string;
+  isUnregisteredClient: boolean;
 };
 
 type DayRestriction = {
@@ -128,6 +129,7 @@ export function useAppointmentForm({
     cpf: "",
     phone: "",
     dateOfBirth: "",
+    isUnregisteredClient: false,
   });
   const [clientRegistrationSubmitting, setClientRegistrationSubmitting] = useState(false);
   const [clientRegistrationError, setClientRegistrationError] = useState<string | null>(null);
@@ -861,16 +863,17 @@ export function useAppointmentForm({
       cpf: "",
       phone: "",
       dateOfBirth: "",
+      isUnregisteredClient: false,
     });
     setClientRegistrationError(null);
     setShowClientRegistrationModal(true);
   };
 
   const handleClientRegistrationInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
+    const { checked, name, type, value } = event.target;
     setClientRegistrationForm((previous) => ({
       ...previous,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
     if (name === "email") {
       setShowClientEmailSuggestions(Boolean(value.trim()));
@@ -898,8 +901,13 @@ export function useAppointmentForm({
     const trimmedCpf = clientRegistrationForm.cpf.trim();
     const trimmedPhone = clientRegistrationForm.phone.trim();
     const birthDate = clientRegistrationForm.dateOfBirth;
+    const isUnregisteredClient = clientRegistrationForm.isUnregisteredClient;
 
-    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !trimmedPhone) {
+    if (
+      !trimmedFirstName ||
+      !trimmedLastName ||
+      (!isUnregisteredClient && (!trimmedEmail || !trimmedPhone || !birthDate))
+    ) {
       setClientRegistrationError("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -917,10 +925,11 @@ export function useAppointmentForm({
         body: JSON.stringify({
           first_name: trimmedFirstName,
           last_name: trimmedLastName,
-          email: trimmedEmail,
+          email: isUnregisteredClient ? undefined : trimmedEmail,
           cpf: trimmedCpf || null,
-          phone: trimmedPhone,
-          date_of_birth: birthDate || null,
+          phone: isUnregisteredClient ? undefined : trimmedPhone,
+          date_of_birth: isUnregisteredClient ? null : birthDate,
+          is_unregistered_client: isUnregisteredClient,
         }),
       });
 
@@ -947,6 +956,7 @@ export function useAppointmentForm({
         cpf: "",
         phone: "",
         dateOfBirth: "",
+        isUnregisteredClient: false,
       });
     } catch (err) {
       setClientRegistrationError(

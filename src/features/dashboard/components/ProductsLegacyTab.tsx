@@ -240,6 +240,7 @@ const createUserDefaultValues = {
   cpf: "",
   phone: "",
   role: "",
+  isUnregisteredClient: false,
   dateOfBirth: "",
   password: "",
   confirmPassword: "",
@@ -459,7 +460,7 @@ export function ProductsLegacyTab({
       createTokenRefreshService({
         accessToken: session?.accessToken ?? null,
         refreshAccessToken: async () => {
-          const refreshedSession = await updateSession();
+          const refreshedSession = await updateSession({ forceRefresh: true });
           const token = refreshedSession?.accessToken ?? null;
           setAccessToken(token);
           return token;

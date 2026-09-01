@@ -2,6 +2,11 @@
 
 import { Modal } from "@/components/ui/Modal";
 import { moneyResourceOptions, paymentTypeOptions } from "@/src/features/finances/utils/finances";
+import {
+  formatCurrency,
+  formatMoneyInputValue,
+  parseCurrencyInput,
+} from "@/src/features/shared/utils/money";
 
 type RepassePaymentModalProps = {
   open: boolean;
@@ -11,6 +16,7 @@ type RepassePaymentModalProps = {
     money_resource: string;
     payment_proof: File | null;
   };
+  remainingAmount: number;
   error: string | null;
   submitting: boolean;
   onClose: () => void;
@@ -25,6 +31,7 @@ export function RepassePaymentModal(props: RepassePaymentModalProps) {
 function BillPaymentModalLike({
   open,
   form,
+  remainingAmount,
   error,
   submitting,
   onClose,
@@ -32,17 +39,37 @@ function BillPaymentModalLike({
   onChange,
   subtitle,
 }: RepassePaymentModalProps & { subtitle: string }) {
+  const remainingAfterPayment = Math.max(
+    remainingAmount - parseCurrencyInput(form.price),
+    0,
+  );
+
   return (
     <Modal open={open} onClose={onClose} title="Registrar pagamento" subtitle={subtitle}>
       <div className="space-y-4">
         <label className="block">
           <span className="mb-1 block text-sm text-white/60">Valor</span>
-          <input
-            type="text"
-            value={form.price}
-            onChange={(event) => onChange("price", event.target.value)}
-            className="h-11 w-full rounded-2xl border border-white/10 bg-transparent px-4 text-sm outline-none focus:border-white/40"
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/45">
+              R$
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.price}
+              onChange={(event) =>
+                onChange(
+                  "price",
+                  formatMoneyInputValue(event.target.value).replace(/^R\$\s?/, ""),
+                )
+              }
+              className="h-11 w-full rounded-2xl border border-white/10 bg-transparent pl-12 pr-4 text-sm outline-none placeholder:text-white/25 focus:border-white/40"
+              placeholder="0,00"
+            />
+          </div>
+          <p className="mt-1 text-xs text-white/60">
+            Total para quitar: {formatCurrency(remainingAfterPayment.toFixed(2))}
+          </p>
         </label>
         <label className="block">
           <span className="mb-1 block text-sm text-white/60">Forma</span>

@@ -8,6 +8,10 @@ import { buildDateTimeISOString } from "@/src/features/shared/utils/date";
 import { capitalizeFirstLetter } from "@/src/features/shared/utils/string";
 import { getPaymentTypeLabel, paymentTypeOptions } from "@/src/features/finances/utils/finances";
 import { useAppointmentForm } from "@/src/features/appointments/hooks/useAppointmentForm";
+import {
+  buildUnregisteredClientEmail,
+  UNREGISTERED_CLIENT_PHONE_DISPLAY,
+} from "@/src/features/users/utils/unregistered-client";
 import type { PaymentType } from "@/src/shared/types/payment";
 
 type AppointmentFormScreenProps = {
@@ -52,6 +56,9 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
     : "Defina data e hora";
 
   const emailSuggestions = (() => {
+    if (form.clientRegistrationForm.isUnregisteredClient) {
+      return [];
+    }
     const email = form.clientRegistrationForm.email.trim();
     const [local] = email.split("@");
     if (!form.showClientEmailSuggestions || !local || email.includes(" ")) {
@@ -1067,6 +1074,21 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
 
       <Modal open={form.showClientRegistrationModal} onClose={() => form.setShowClientRegistrationModal(false)} title="Registrar cliente" subtitle="Cliente">
         <form onSubmit={form.handleSubmitClientRegistration} className="space-y-3">
+          <label className="flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/80">
+            <input
+              type="checkbox"
+              name="isUnregisteredClient"
+              checked={form.clientRegistrationForm.isUnregisteredClient}
+              onChange={form.handleClientRegistrationInputChange}
+              className="h-4 w-4 rounded border-white/20 bg-transparent"
+            />
+            <span>
+              Cliente sem cadastro
+              <span className="mt-0.5 block text-xs text-white/45">
+                Gera e-mail e telefone automaticamente, sem data de nascimento.
+              </span>
+            </span>
+          </label>
           <label className="block text-sm text-white/70">
             Nome
             <input
@@ -1095,9 +1117,17 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
               <input
                 type="email"
                 name="email"
-                value={form.clientRegistrationForm.email}
+                value={
+                  form.clientRegistrationForm.isUnregisteredClient
+                    ? buildUnregisteredClientEmail(
+                        form.clientRegistrationForm.firstName,
+                        form.clientRegistrationForm.lastName,
+                      )
+                    : form.clientRegistrationForm.email
+                }
                 onChange={form.handleClientRegistrationInputChange}
-                className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                disabled={form.clientRegistrationForm.isUnregisteredClient}
+                className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 disabled:opacity-60"
                 placeholder="joao.silva@example.com"
               />
               {emailSuggestions.length > 0 ? (
@@ -1135,9 +1165,14 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
             <input
               type="tel"
               name="phone"
-              value={form.clientRegistrationForm.phone}
+              value={
+                form.clientRegistrationForm.isUnregisteredClient
+                  ? UNREGISTERED_CLIENT_PHONE_DISPLAY
+                  : form.clientRegistrationForm.phone
+              }
               onChange={form.handleClientRegistrationInputChange}
-              className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              disabled={form.clientRegistrationForm.isUnregisteredClient}
+              className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 disabled:opacity-60"
               placeholder="71988887777"
             />
           </label>
@@ -1146,9 +1181,14 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
             <input
               type="date"
               name="dateOfBirth"
-              value={form.clientRegistrationForm.dateOfBirth}
+              value={
+                form.clientRegistrationForm.isUnregisteredClient
+                  ? ""
+                  : form.clientRegistrationForm.dateOfBirth
+              }
               onChange={form.handleClientRegistrationInputChange}
-              className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+              disabled={form.clientRegistrationForm.isUnregisteredClient}
+              className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 disabled:opacity-60"
             />
           </label>
           {form.clientRegistrationError ? (

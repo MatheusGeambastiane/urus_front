@@ -82,7 +82,8 @@ export type UserDetail = {
   role: string;
   role_display: string;
   is_active: boolean;
-  date_of_birth: string;
+  is_unregistered_client: boolean;
+  date_of_birth: string | null;
   profile_pic: string | null;
   professional_profile: ProfessionalProfileDetail | null;
 };
@@ -97,7 +98,8 @@ export type AuthenticatedUserProfile = {
   role: string;
   role_display: string;
   is_active: boolean;
-  date_of_birth: string;
+  is_unregistered_client: boolean;
+  date_of_birth: string | null;
   profile_pic: string | null;
   created_at: string;
   updated_at: string;
@@ -111,6 +113,7 @@ export type UserItem = {
   role: string;
   email: string;
   phone: string;
+  is_unregistered_client?: boolean;
   profile_pic: string | null;
   professional_profile?: ProfessionalProfile | null;
 };

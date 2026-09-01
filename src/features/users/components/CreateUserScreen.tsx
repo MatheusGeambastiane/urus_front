@@ -10,6 +10,10 @@ import { usersEndpointBase } from "@/src/features/users/services/endpoints";
 import type { RoleOption } from "@/src/features/users/types";
 import { convertDisplayDateToIso, formatDisplayDate, formatIsoToDisplay } from "@/src/features/shared/utils/date";
 import { passwordRequirementCheck, passwordRequirementLabels } from "@/src/features/users/utils/password";
+import {
+  buildUnregisteredClientEmail,
+  UNREGISTERED_CLIENT_PHONE_DISPLAY,
+} from "@/src/features/users/utils/unregistered-client";
 
 type CreateUserScreenProps = {
   accessToken: string | null;
@@ -28,6 +32,7 @@ const defaultValues: CreateUserFormValues = {
   phone: "",
   cpf: "",
   role: "",
+  isUnregisteredClient: false,
   dateOfBirth: "",
   password: "",
   confirmPassword: "",
@@ -62,12 +67,32 @@ export function CreateUserScreen({
   const confirmPasswordValue = watch("confirmPassword") ?? "";
   const dateOfBirthValue = watch("dateOfBirth") ?? "";
   const role = watch("role") ?? "";
+  const isUnregisteredClient = watch("isUnregisteredClient") ?? false;
+  const firstName = watch("firstName") ?? "";
+  const lastName = watch("lastName") ?? "";
 
   useEffect(() => {
-    if (role !== "client") return;
-    setValue("password", "Urus123?", { shouldDirty: true, shouldValidate: true });
-    setValue("confirmPassword", "Urus123?", { shouldDirty: true, shouldValidate: true });
-  }, [role, setValue]);
+    if (role !== "client") {
+      if (isUnregisteredClient) {
+        setValue("isUnregisteredClient", false, { shouldValidate: true });
+      }
+      return;
+    }
+    if (!isUnregisteredClient) {
+      setValue("password", "Urus123?", { shouldDirty: true, shouldValidate: true });
+      setValue("confirmPassword", "Urus123?", { shouldDirty: true, shouldValidate: true });
+    }
+  }, [isUnregisteredClient, role, setValue]);
+
+  useEffect(() => {
+    if (!isUnregisteredClient) return;
+
+    setValue("email", buildUnregisteredClientEmail(firstName, lastName));
+    setValue("phone", UNREGISTERED_CLIENT_PHONE_DISPLAY);
+    setValue("dateOfBirth", "");
+    setValue("password", "");
+    setValue("confirmPassword", "");
+  }, [firstName, isUnregisteredClient, lastName, setValue]);
 
   const passwordChecks = passwordRequirementCheck(passwordValue);
   const totalPasswordRequirements = Object.keys(passwordRequirementLabels).length;
@@ -106,12 +131,13 @@ export function CreateUserScreen({
         body: JSON.stringify({
           first_name: values.firstName.trim(),
           last_name: values.lastName?.trim() || null,
-          email: values.email.trim(),
-          password: values.password,
+          email: values.isUnregisteredClient ? undefined : values.email.trim(),
+          password: values.isUnregisteredClient ? undefined : values.password,
           cpf: values.cpf?.trim() || null,
-          phone: values.phone?.trim() || "",
+          phone: values.isUnregisteredClient ? undefined : values.phone?.trim() || "",
           role: values.role,
-          date_of_birth: isoDate,
+          is_unregistered_client: values.isUnregisteredClient,
+          date_of_birth: values.isUnregisteredClient ? null : isoDate,
         }),
       });
 
@@ -178,6 +204,7 @@ export function CreateUserScreen({
               <input
                 type="email"
                 {...register("email")}
+                disabled={isUnregisteredClient}
                 className={`mt-1 w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 ${
                   errors.email ? "border-red-500/60" : "border-white/10"
                 }`}
@@ -190,7 +217,8 @@ export function CreateUserScreen({
               <input
                 type="tel"
                 {...register("phone")}
-                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
+                disabled={isUnregisteredClient}
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40 disabled:opacity-60"
               />
             </label>
 
@@ -223,6 +251,22 @@ export function CreateUserScreen({
               {errors.role ? <p className="mt-1 text-xs text-red-400">{errors.role.message}</p> : null}
             </label>
 
+            {role === "client" ? (
+              <label className="flex items-center gap-3 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/80 sm:col-span-2">
+                <input
+                  type="checkbox"
+                  {...register("isUnregisteredClient")}
+                  className="h-4 w-4 rounded border-white/20 bg-transparent"
+                />
+                <span>
+                  Cliente sem cadastro
+                  <span className="mt-0.5 block text-xs text-white/45">
+                    O e-mail e o telefone serão preenchidos automaticamente, sem data de nascimento.
+                  </span>
+                </span>
+              </label>
+            ) : null}
+
             <label className="text-sm text-white/70">
               Data de nascimento
               <div
@@ -234,6 +278,7 @@ export function CreateUserScreen({
                   type="text"
                   inputMode="numeric"
                   value={dateOfBirthValue}
+                  disabled={isUnregisteredClient}
                   onChange={(event) =>
                     setValue("dateOfBirth", formatDisplayDate(event.target.value), {
                       shouldDirty: true,
@@ -246,6 +291,7 @@ export function CreateUserScreen({
                 />
                 <button
                   type="button"
+                  disabled={isUnregisteredClient}
                   onClick={() => datePickerRef.current?.showPicker?.()}
                   className="rounded-xl p-2 text-white/70 transition hover:bg-white/5 hover:text-white"
                   aria-label="Abrir calendário"
@@ -255,6 +301,7 @@ export function CreateUserScreen({
                 <input
                   ref={datePickerRef}
                   type="date"
+                  disabled={isUnregisteredClient}
                   value={convertDisplayDateToIso(dateOfBirthValue) ?? ""}
                   className="sr-only"
                   tabIndex={-1}
@@ -269,7 +316,7 @@ export function CreateUserScreen({
               {errors.dateOfBirth ? <p className="mt-1 text-xs text-red-400">{errors.dateOfBirth.message}</p> : null}
             </label>
 
-            <label className="text-sm text-white/70">
+            {!isUnregisteredClient ? <label className="text-sm text-white/70">
               Senha
               <div
                 className={`mt-1 flex items-center rounded-2xl border bg-transparent px-1 focus-within:border-white/40 ${
@@ -319,9 +366,9 @@ export function CreateUserScreen({
                 </ul>
               </div>
               {errors.password ? <p className="mt-1 text-xs text-red-400">{errors.password.message}</p> : null}
-            </label>
+            </label> : null}
 
-            <label className="text-sm text-white/70">
+            {!isUnregisteredClient ? <label className="text-sm text-white/70">
               Digite novamente a senha
               <div
                 className={`mt-1 flex items-center rounded-2xl border bg-transparent px-1 focus-within:border-white/40 ${
@@ -347,7 +394,7 @@ export function CreateUserScreen({
               ) : confirmPasswordValue && passwordValue !== confirmPasswordValue ? (
                 <p className="mt-1 text-xs text-red-400">As senhas não conferem.</p>
               ) : null}
-            </label>
+            </label> : null}
           </div>
 
           {roleOptionsError ? <p className="text-sm text-red-300">{roleOptionsError}</p> : null}

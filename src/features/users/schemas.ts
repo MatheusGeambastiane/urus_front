@@ -10,31 +10,31 @@ export const createUserSchema = z
   .object({
     firstName: z.string().min(1, "Informe o primeiro nome."),
     lastName: z.string().optional(),
-    email: z.string().email("Informe um e-mail válido."),
+    email: z.string(),
     phone: z.string().optional(),
     cpf: z.string().optional(),
     role: z.string().min(1, "Selecione uma função."),
+    isUnregisteredClient: z.boolean().default(false),
     dateOfBirth: z.string().optional(),
-    password: z
-      .string()
-      .min(8, "A senha deve ter pelo menos 8 caracteres.")
-      .refine(
-        (value) => /[A-Z]/.test(value),
-        "Inclua pelo menos uma letra maiúscula.",
-      )
-      .refine(
-        (value) => /[a-z]/.test(value),
-        "Inclua pelo menos uma letra minúscula.",
-      )
-      .refine((value) => /\d/.test(value), "Inclua pelo menos um número.")
-      .refine(
-        (value) => /[^A-Za-z0-9]/.test(value),
-        "Inclua pelo menos um caractere especial.",
-      ),
-    confirmPassword: z.string().min(1, "Confirme a senha."),
+    password: z.string(),
+    confirmPassword: z.string(),
   })
   .superRefine((data, ctx) => {
     const isClient = data.role === "client";
+    if (data.isUnregisteredClient && !isClient) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["isUnregisteredClient"],
+        message: "A opção é válida apenas para clientes.",
+      });
+    }
+    if (data.isUnregisteredClient && !data.lastName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["lastName"],
+        message: "Informe o segundo nome do cliente.",
+      });
+    }
     if (!isClient && !data.lastName?.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -57,14 +57,28 @@ export const createUserSchema = z
         });
       }
     }
-    if (data.password !== data.confirmPassword) {
+    if (!data.isUnregisteredClient && !z.string().email().safeParse(data.email).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["email"],
+        message: "Informe um e-mail válido.",
+      });
+    }
+    if (!data.isUnregisteredClient && data.password.length < 8) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["password"],
+        message: "A senha deve ter pelo menos 8 caracteres.",
+      });
+    }
+    if (!data.isUnregisteredClient && data.password !== data.confirmPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["confirmPassword"],
         message: "As senhas não conferem.",
       });
     }
-    if (!meetsAllPasswordRequirements(data.password)) {
+    if (!data.isUnregisteredClient && !meetsAllPasswordRequirements(data.password)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["password"],

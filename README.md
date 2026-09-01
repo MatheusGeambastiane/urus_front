@@ -16,6 +16,33 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Testes automáticos do frontend
+
+A suíte E2E usa Playwright e inicia sozinha uma instância isolada do Next.js e
+uma API simulada. Ela não grava dados no backend real.
+
+Na primeira execução, instale o Chromium e as dependências do sistema:
+
+```bash
+npx playwright install --with-deps chromium
+```
+
+Para executar todos os testes em modo headless:
+
+```bash
+npm run test:e2e
+```
+
+Para abrir a interface do Playwright e acompanhar os testes no navegador:
+
+```bash
+npm run test:e2e:ui
+```
+
+Também é possível executar diretamente em uma janela visível com
+`npm run test:e2e:headed`. Em falhas, vídeos, screenshots e traces ficam em
+`test-results/`, e o relatório HTML em `playwright-report/`.
+
 ## Login Google do dashboard
 
 Configure no ambiente do backoffice:
