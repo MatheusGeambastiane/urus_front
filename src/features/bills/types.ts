@@ -24,6 +24,14 @@ export type BillTransaction = {
   updated_at: string;
 };
 
+export type BillRecurrence = {
+  id: number;
+  name: string;
+  value: string;
+  date_of_payment: string;
+  is_paid: boolean;
+};
+
 export type BillDetail = BillItem & {
   type: string;
   type_display?: string | null;
@@ -31,4 +39,6 @@ export type BillDetail = BillItem & {
   created_at: string;
   updated_at: string;
   transactions: BillTransaction[];
+  is_recurring: boolean;
+  recurrences: BillRecurrence[];
 };

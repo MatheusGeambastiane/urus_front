@@ -17,6 +17,18 @@ test.describe("Agenda", () => {
     await login(page);
   });
 
+  test("mostra quando o profissional tem intervalo no dia", async ({ page }) => {
+    await page.goto("/dashboard/agenda");
+
+    const intervalSection = page.getByRole("heading", { name: "Intervalos dos profissionais" }).locator("xpath=../..");
+    await expect(intervalSection.getByText("Profissional Teste", { exact: true })).toBeVisible();
+    await expect(intervalSection.getByText("12:00–13:30", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Grade" }).click();
+    await expect(page.getByText("Com intervalo", { exact: true })).toBeVisible();
+    await expect(page.getByTitle("Intervalo das 12:00 às 13:30")).toBeVisible();
+  });
+
   test("cria um agendamento e envia o contrato esperado", async ({ page, request }) => {
     await completeRequiredAppointmentFields(page);
     await page.getByRole("button", { name: "Salvar agendamento" }).click();

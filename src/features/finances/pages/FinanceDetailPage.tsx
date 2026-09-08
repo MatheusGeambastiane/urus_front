@@ -7,6 +7,7 @@ import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { useBills } from "@/src/features/finances/hooks/useBills";
 import { BillDetailPanel } from "@/src/features/finances/components/BillDetailPanel";
 import { BillPaymentModal } from "@/src/features/finances/components/BillPaymentModal";
+import { DeleteBillModal } from "@/src/features/finances/components/DeleteBillModal";
 import { formatMonthParam } from "@/src/features/finances/utils/finances";
 import { formatMoneyFromDecimalString, parseCurrencyInput } from "@/src/features/shared/utils/money";
 import type { BillDetail } from "@/src/features/bills/types";
@@ -15,7 +16,7 @@ export function FinanceDetailPage({ id }: { id: string }) {
   const router = useRouter();
   const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
   const bills = useBills({ accessToken, fetchWithAuth, month: formatMonthParam(new Date()) });
-  const { fetchDetail, updateBill, registerPayment } = bills;
+  const { fetchDetail, updateBill, deleteBill, registerPayment } = bills;
   const [detail, setDetail] = useState<BillDetail | null>(null);
   const [editing, setEditing] = useState({
     name: "",
@@ -32,6 +33,9 @@ export function FinanceDetailPage({ id }: { id: string }) {
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     price: "",
     transaction_payment: "pix",
@@ -161,6 +165,18 @@ export function FinanceDetailPage({ id }: { id: string }) {
     }
   };
 
+  const handleDelete = async () => {
+    setDeleteSubmitting(true);
+    setDeleteError(null);
+    try {
+      await deleteBill(Number(id));
+      router.replace("/dashboard/financeiro");
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Erro ao excluir conta.");
+      setDeleteSubmitting(false);
+    }
+  };
+
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
@@ -197,6 +213,13 @@ export function FinanceDetailPage({ id }: { id: string }) {
           onSave={handleSave}
           onOpenPayment={handleOpenPayment}
           onToggleEdit={handleToggleEdit}
+          onDelete={() => {
+            setDeleteError(null);
+            setDeleteOpen(true);
+          }}
+          onNavigateRecurrence={(recurrenceId) =>
+            router.push(`/dashboard/financeiro/contas/${recurrenceId}`)
+          }
         />
       </div>
 
@@ -211,6 +234,20 @@ export function FinanceDetailPage({ id }: { id: string }) {
         onChange={(field, value) =>
           setPaymentForm((previous) => ({ ...previous, [field]: value }))
         }
+      />
+      <DeleteBillModal
+        open={deleteOpen}
+        billName={detail?.name ?? "esta conta"}
+        isRecurring={detail?.is_recurring ?? false}
+        error={deleteError}
+        submitting={deleteSubmitting}
+        onClose={() => {
+          if (!deleteSubmitting) {
+            setDeleteOpen(false);
+            setDeleteError(null);
+          }
+        }}
+        onConfirm={handleDelete}
       />
     </DashboardShell>
   );

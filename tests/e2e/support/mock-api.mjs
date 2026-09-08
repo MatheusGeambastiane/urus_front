@@ -71,6 +71,27 @@ const userDetail = {
   cpf: "12345678901",
 };
 
+const billDetail = {
+  id: 43,
+  name: "Aluguel",
+  type: "fixed",
+  type_display: "Fixo",
+  bill_type: "maintenance",
+  bill_type_display: "Manutenção",
+  value: "3000.00",
+  finish_month: "2030-01-25",
+  date_of_payment: "2027-02-25",
+  is_paid: false,
+  is_recurring: true,
+  recurrences: [
+    { id: 42, name: "Aluguel", value: "3000.00", date_of_payment: "2027-01-25", is_paid: true },
+    { id: 44, name: "Aluguel", value: "3000.00", date_of_payment: "2027-03-25", is_paid: false },
+  ],
+  transactions: [],
+  created_at: "2026-01-22T03:49:47Z",
+  updated_at: "2026-01-22T03:49:47Z",
+};
+
 let requests = [];
 let conflictNextAppointment = false;
 let nextAppointmentId = 100;
@@ -202,6 +223,18 @@ const server = createServer(async (request, response) => {
       completed_total_price: "0.00",
       completed_total_count: 0,
       day_restriction: null,
+      professional_intervals: [
+        {
+          id: 81,
+          professional_id: professional.id,
+          professional_name: professional.user_name,
+          hour_start: "12:00",
+          hour_finish: "13:30",
+          date_start: url.searchParams.get("interval_date"),
+          date_finish: url.searchParams.get("interval_date"),
+          is_recurring: false,
+        },
+      ],
     });
   }
   if (url.pathname === "/dashboard/appointments/" && request.method === "POST") {
@@ -278,6 +311,12 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === "/dashboard/repasses/ensure-month/") return send(request, response, 200, { ok: true });
   if (url.pathname === "/dashboard/repasses/") return send(request, response, 200, []);
+  if (url.pathname === "/dashboard/bills/43/" && request.method === "GET") {
+    return send(request, response, 200, billDetail);
+  }
+  if (url.pathname === "/dashboard/bills/43/" && request.method === "DELETE") {
+    return send(request, response, 204, undefined);
+  }
   if (url.pathname === "/dashboard/bills/") return send(request, response, 200, []);
   if (url.pathname === "/dashboard/summary/daily/") {
     return send(request, response, 200, { revenue: "0", total_services_performed: 0, appointments_by_professional: [], top_services: [] });

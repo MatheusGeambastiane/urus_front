@@ -9,7 +9,7 @@ import { serviceCategoriesEndpoint } from "@/src/features/services/services/endp
 import { normalizeAppointmentPaymentTypeForApi } from "@/src/features/appointments/utils/appointments";
 import { servicesSimpleListEndpoint } from "@/src/features/users/services/endpoints";
 import type { ProfessionalSimple, ServiceCategoryOption, ServiceOption, ServiceSimpleOption } from "@/src/features/services/types";
-import type { AppointmentsResponse, AppointmentItem, AppointmentStatus } from "@/src/features/appointments/types";
+import type { AppointmentsResponse, AppointmentItem, AppointmentStatus, ProfessionalIntervalForDay } from "@/src/features/appointments/types";
 import type { PaymentType } from "@/src/shared/types/payment";
 
 type UseAppointmentsParams = {
@@ -63,6 +63,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
   const [appointmentsError, setAppointmentsError] = useState<string | null>(null);
   const [appointmentsRefreshToken, setAppointmentsRefreshToken] = useState(0);
   const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
+  const [professionalIntervals, setProfessionalIntervals] = useState<ProfessionalIntervalForDay[]>([]);
 
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [startDateFilter, setStartDateFilter] = useState<string | null>(null);
@@ -230,6 +231,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
         if (filterCategoryId) {
           url.searchParams.set("service_category_id", filterCategoryId);
         }
+        url.searchParams.set("interval_date", formatDateParam(selectedDate));
         const response = await fetchWithAuth(url.toString(), {
           credentials: "include",
           headers: {
@@ -247,6 +249,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
         setAppointments(data.results);
         setAppointmentsCount(data.count);
         setDayRestriction(data.day_restriction ?? null);
+        setProfessionalIntervals(data.professional_intervals ?? []);
         setAppointmentsSummary({
           completed_total_price: data.completed_total_price ?? "0",
           completed_total_count: data.completed_total_count ?? 0,
@@ -258,6 +261,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
       } catch (err) {
         if (!controller.signal.aborted) {
           setDayRestriction(null);
+          setProfessionalIntervals([]);
           setAppointmentsError(
             err instanceof Error ? err.message : "Erro inesperado ao carregar agendamentos.",
           );
@@ -643,6 +647,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
     pendingProfessionalId,
     pendingCategoryId,
     professionalsList,
+    professionalIntervals,
     professionalsError,
     serviceCategories,
     serviceCategoriesError,

@@ -161,6 +161,33 @@ export function useBills({ accessToken, fetchWithAuth, month }: UseBillsParams) 
     return fetchDetail(billId, true);
   }, [accessToken, fetchDetail, fetchWithAuth]);
 
+  const deleteBill = useCallback(async (billId: number) => {
+    if (!accessToken) {
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+
+    const response = await fetchWithAuth(`${billsEndpointBase}${billId}/`, {
+      method: "DELETE",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.detail ?? "Não foi possível excluir a conta.");
+    }
+
+    setBills((previous) => previous.filter((item) => item.id !== billId));
+    setDetailCache((previous) => {
+      const next = { ...previous };
+      delete next[billId];
+      return next;
+    });
+  }, [accessToken, fetchWithAuth]);
+
   const registerPayment = useCallback(async (billId: number, payload: BillPaymentInput) => {
     if (!accessToken) {
       throw new Error("Sessão expirada. Faça login novamente.");
@@ -206,6 +233,7 @@ export function useBills({ accessToken, fetchWithAuth, month }: UseBillsParams) 
     fetchDetail,
     createBill,
     updateBill,
+    deleteBill,
     registerPayment,
   };
 }

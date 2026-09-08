@@ -1,13 +1,14 @@
 "use client";
 
-import { Clock3, Scissors, UserRound } from "lucide-react";
-import type { AppointmentItem } from "@/src/features/appointments/types";
+import { Clock3, Coffee, Scissors, UserRound } from "lucide-react";
+import type { AppointmentItem, ProfessionalIntervalForDay } from "@/src/features/appointments/types";
 import type { ServiceOption } from "@/src/features/services/types";
 import { formatDateParam } from "@/src/features/shared/utils/date";
 
 type AppointmentScheduleGridProps = {
   appointments: AppointmentItem[];
   professionals: ServiceOption[];
+  professionalIntervals: ProfessionalIntervalForDay[];
   selectedDate: Date;
   professionalFilterId: string | null;
   onOpen: (appointmentId: number) => void;
@@ -27,6 +28,11 @@ const PROFESSIONAL_COLUMN_WIDTH = 190;
 const TIME_COLUMN_WIDTH = 72;
 
 const minutesFromStartOfDay = (date: Date) => date.getHours() * 60 + date.getMinutes();
+
+const minutesFromTime = (value: string) => {
+  const [hours = "0", minutes = "0"] = value.split(":");
+  return Number(hours) * 60 + Number(minutes);
+};
 
 const appointmentBounds = (appointment: AppointmentItem) => {
   const start = new Date(appointment.start_datetime ?? appointment.date_time);
@@ -91,6 +97,7 @@ const formatTime = (date: Date) => date.toLocaleTimeString("pt-BR", {
 export function AppointmentScheduleGrid({
   appointments,
   professionals,
+  professionalIntervals,
   selectedDate,
   professionalFilterId,
   onOpen,
@@ -123,11 +130,18 @@ export function AppointmentScheduleGrid({
   }
 
   const bounds = dayAppointments.map(appointmentBounds);
+  const intervalStarts = professionalIntervals.map((interval) => minutesFromTime(interval.hour_start));
+  const intervalFinishes = professionalIntervals.map((interval) => minutesFromTime(interval.hour_finish));
   const defaultFinish = selectedDate.getDay() === 6 ? 18 * 60 : 20 * 60;
-  const scheduleStart = Math.min(9 * 60, ...bounds.map(({ start }) => Math.floor(minutesFromStartOfDay(start) / 60) * 60));
+  const scheduleStart = Math.min(
+    9 * 60,
+    ...bounds.map(({ start }) => Math.floor(minutesFromStartOfDay(start) / 60) * 60),
+    ...intervalStarts.map((start) => Math.floor(start / 60) * 60),
+  );
   const scheduleFinish = Math.max(
     defaultFinish,
     ...bounds.map(({ finish }) => Math.ceil(minutesFromStartOfDay(finish) / 60) * 60),
+    ...intervalFinishes.map((finish) => Math.ceil(finish / 60) * 60),
   );
   const durationMinutes = Math.max(scheduleFinish - scheduleStart, 60);
   const scheduleHeight = durationMinutes * PIXELS_PER_MINUTE;
@@ -169,7 +183,14 @@ export function AppointmentScheduleGrid({
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/8 text-white/60">
                   <UserRound className="h-4 w-4" />
                 </span>
-                <span className="truncate text-sm font-semibold text-white">{professional.name}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-white">{professional.name}</span>
+                  {professionalIntervals.some((interval) => interval.professional_id === professional.id) ? (
+                    <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.1em] text-orange-200/65">
+                      Com intervalo
+                    </span>
+                  ) : null}
+                </span>
               </div>
             ))}
           </div>
@@ -196,6 +217,9 @@ export function AppointmentScheduleGrid({
               const professionalAppointments = positionOverlappingAppointments(
                 dayAppointments.filter((appointment) => appointment.professional === professional.id),
               );
+              const intervals = professionalIntervals.filter(
+                (interval) => interval.professional_id === professional.id,
+              );
               return (
                 <div
                   key={professional.id}
@@ -204,6 +228,30 @@ export function AppointmentScheduleGrid({
                     backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent ${MINUTES_PER_SLOT * PIXELS_PER_MINUTE - 1}px, rgba(255,255,255,0.07) ${MINUTES_PER_SLOT * PIXELS_PER_MINUTE - 1}px, rgba(255,255,255,0.07) ${MINUTES_PER_SLOT * PIXELS_PER_MINUTE}px)`,
                   }}
                 >
+                  {intervals.map((interval) => {
+                    const intervalStart = minutesFromTime(interval.hour_start);
+                    const intervalFinish = minutesFromTime(interval.hour_finish);
+                    const top = Math.max(0, (intervalStart - scheduleStart) * PIXELS_PER_MINUTE);
+                    const height = Math.max(34, (intervalFinish - intervalStart) * PIXELS_PER_MINUTE - 3);
+                    return (
+                      <div
+                        key={interval.id}
+                        className="absolute left-1 right-1 overflow-hidden rounded-xl border border-orange-200/25 bg-[repeating-linear-gradient(135deg,rgba(251,146,60,0.14)_0,rgba(251,146,60,0.14)_7px,rgba(251,146,60,0.07)_7px,rgba(251,146,60,0.07)_14px)] px-2.5 py-2 text-orange-50 shadow-lg"
+                        style={{ top, height }}
+                        title={`Intervalo das ${interval.hour_start} às ${interval.hour_finish}`}
+                      >
+                        <p className="flex items-center gap-1.5 truncate text-[11px] font-semibold tabular-nums">
+                          <Coffee className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          {interval.hour_start}–{interval.hour_finish}
+                        </p>
+                        {height >= 54 ? (
+                          <p className="mt-1 truncate text-[10px] uppercase tracking-[0.12em] text-orange-100/65">
+                            Intervalo
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                   {professionalAppointments.map(({ appointment, start, finish, lane, laneCount }) => {
                     const top = Math.max(0, (minutesFromStartOfDay(start) - scheduleStart) * PIXELS_PER_MINUTE);
                     const height = Math.max(34, (finish.getTime() - start.getTime()) / 60_000 * PIXELS_PER_MINUTE - 3);
@@ -214,7 +262,7 @@ export function AppointmentScheduleGrid({
                         type="button"
                         key={appointment.id}
                         onClick={() => onOpen(appointment.id)}
-                        className={`absolute overflow-hidden rounded-xl border px-2.5 py-2 text-left shadow-lg transition hover:z-20 hover:brightness-125 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${statusClasses(appointment.status)}`}
+                        className={`absolute z-10 overflow-hidden rounded-xl border px-2.5 py-2 text-left shadow-lg transition hover:z-20 hover:brightness-125 focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${statusClasses(appointment.status)}`}
                         style={{
                           top,
                           height,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { PenSquare } from "lucide-react";
+import { CalendarDays, ChevronRight, PenSquare, Repeat2, Trash2 } from "lucide-react";
 import {
   billFrequencyOptions,
   billTypeOptions,
@@ -14,6 +14,7 @@ import {
   formatMoneyInputValue,
   parseCurrencyInput,
 } from "@/src/features/shared/utils/money";
+import { formatIsoToDisplay } from "@/src/features/shared/utils/date";
 
 type BillDetailPanelProps = {
   detail: BillDetail | null;
@@ -33,6 +34,8 @@ type BillDetailPanelProps = {
   onSave: () => void;
   onOpenPayment: () => void;
   onToggleEdit: () => void;
+  onDelete: () => void;
+  onNavigateRecurrence: (id: number) => void;
 };
 
 export function BillDetailPanel({
@@ -45,6 +48,8 @@ export function BillDetailPanel({
   onSave,
   onOpenPayment,
   onToggleEdit,
+  onDelete,
+  onNavigateRecurrence,
 }: BillDetailPanelProps) {
   const billType = useMemo(() => getBillTypeDefinition(detail?.bill_type), [detail?.bill_type]);
   const billTypeLabel = detail?.bill_type_display?.trim() || billType.label;
@@ -76,6 +81,69 @@ export function BillDetailPanel({
             <p className="text-xs text-white/60">Falta para quitar: {formatCurrency(remainingAmount.toFixed(2))}</p>
           </div>
         </div>
+      </section>
+
+      <section className="overflow-hidden rounded-3xl border border-white/5 bg-[#0b0b0b] shadow-card">
+        <div className="flex items-start gap-4 border-b border-white/[0.07] p-5">
+          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${detail.is_recurring ? "border-amber-300/20 bg-amber-300/10 text-amber-200" : "border-white/10 bg-white/[0.04] text-white/45"}`}>
+            <Repeat2 className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">Recorrência</h2>
+              <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${detail.is_recurring ? "bg-amber-300/10 text-amber-200" : "bg-white/[0.06] text-white/45"}`}>
+                {detail.is_recurring ? "Conta recorrente" : "Conta avulsa"}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-white/55">
+              {detail.is_recurring
+                ? `${detail.recurrences.length + 1} ocorrências vinculadas a esta série.`
+                : "Esta conta não está vinculada a uma série recorrente."}
+            </p>
+          </div>
+        </div>
+
+        {detail.is_recurring ? (
+          <div className="p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/40">
+                Outras recorrências
+              </p>
+              <p className="text-xs text-white/35">{detail.recurrences.length} contas</p>
+            </div>
+            {detail.recurrences.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-white/10 px-4 py-4 text-center text-sm text-white/55">
+                Não há outras ocorrências nesta série.
+              </p>
+            ) : (
+              <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                {detail.recurrences.map((recurrence) => (
+                  <li key={recurrence.id}>
+                    <button
+                      type="button"
+                      onClick={() => onNavigateRecurrence(recurrence.id)}
+                      className="group flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-black/25 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.04]"
+                    >
+                      <CalendarDays className="h-4 w-4 shrink-0 text-white/35" aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-white/85">
+                          {formatIsoToDisplay(recurrence.date_of_payment)}
+                        </span>
+                        <span className={`mt-0.5 block text-xs ${recurrence.is_paid ? "text-emerald-300/70" : "text-amber-200/60"}`}>
+                          {recurrence.is_paid ? "Paga" : "Pendente"}
+                        </span>
+                      </span>
+                      <span className="text-sm font-semibold text-white/75">
+                        {formatCurrency(recurrence.value)}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-white/25 transition group-hover:translate-x-0.5 group-hover:text-white/60" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5 shadow-card">
@@ -150,6 +218,25 @@ export function BillDetailPanel({
           </ul>
         )}
       </fieldset>
+
+      <section className="flex flex-col gap-4 rounded-3xl border border-red-400/15 bg-red-400/[0.035] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-white">Excluir esta conta</h2>
+          <p className="mt-1 text-sm text-white/45">
+            {detail.is_recurring
+              ? "Remove somente esta ocorrência; as demais continuam cadastradas."
+              : "A exclusão é permanente e não poderá ser desfeita."}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-red-400/30 px-4 py-2.5 text-sm font-semibold text-red-200 transition hover:border-red-300/50 hover:bg-red-400/10"
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+          Excluir conta
+        </button>
+      </section>
     </div>
   );
 }

@@ -34,4 +34,24 @@ test.describe("Financeiro", () => {
       calls.some((call) => call.pathname === "/dashboard/bills/" && call.search.includes("month=2026-01")),
     ).toBe(true);
   });
+
+  test("exibe recorrências e permite excluir somente a conta aberta", async ({ page, request }) => {
+    await page.goto("/dashboard/financeiro/contas/43");
+
+    await expect(page.getByText("Conta recorrente", { exact: true })).toBeVisible();
+    await expect(page.getByText("3 ocorrências vinculadas a esta série.")).toBeVisible();
+    await expect(page.getByText("25/01/2027", { exact: true })).toBeVisible();
+    await expect(page.getByText("25/03/2027", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Excluir conta" }).click();
+    const dialog = page.getByRole("dialog", { name: "Excluir conta" });
+    await expect(dialog.getByText("As demais contas desta recorrência não serão excluídas.", { exact: false })).toBeVisible();
+    await dialog.getByRole("button", { name: "Excluir conta" }).click();
+
+    await expect(page).toHaveURL(/\/dashboard\/financeiro$/);
+    const calls = await mockRequests(request);
+    expect(
+      calls.some((call) => call.pathname === "/dashboard/bills/43/" && call.method === "DELETE"),
+    ).toBe(true);
+  });
 });

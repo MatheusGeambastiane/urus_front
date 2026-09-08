@@ -90,6 +90,17 @@ export type AppointmentItem = {
   client_last_completed_appointment_date?: string | null;
 };
 
+export type ProfessionalIntervalForDay = {
+  id: number;
+  professional_id: number;
+  professional_name: string;
+  hour_start: string;
+  hour_finish: string;
+  date_start: string | null;
+  date_finish: string | null;
+  is_recurring: boolean;
+};
+
 export type AppointmentsResponse = {
   count: number;
   next: string | null;
@@ -105,6 +116,7 @@ export type AppointmentsResponse = {
     name: string;
     total: number;
   }>;
+  professional_intervals?: ProfessionalIntervalForDay[];
   day_restriction: {
     id: number;
     start_datetime: string;

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock3, Columns3, Eye, EyeOff, Filter, List, Plus, Trash2, Waves } from "lucide-react";
+import { Calendar, Clock3, Coffee, Columns3, Eye, EyeOff, Filter, List, Plus, Trash2, Waves } from "lucide-react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatDateParam } from "@/src/features/shared/utils/date";
@@ -303,6 +303,30 @@ export function AgendaPage() {
           </article>
         ) : null}
 
+        {agenda.professionalIntervals.length > 0 ? (
+          <section className="rounded-3xl border border-orange-200/15 bg-orange-300/[0.055] p-4" aria-labelledby="professional-intervals-title">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-orange-200/15 bg-orange-200/10 text-orange-100">
+                <Coffee className="h-4.5 w-4.5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 id="professional-intervals-title" className="text-sm font-semibold text-white">
+                  Intervalos dos profissionais
+                </h2>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {agenda.professionalIntervals.map((interval) => (
+                    <li key={interval.id} className="rounded-full border border-orange-100/15 bg-black/20 px-3 py-1.5 text-xs text-orange-50/80">
+                      <span className="font-semibold text-orange-50">{interval.professional_name}</span>
+                      <span className="mx-1.5 text-orange-100/35">·</span>
+                      <span className="tabular-nums">{interval.hour_start}–{interval.hour_finish}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         {!agenda.appointmentsLoading ? (
           <div className="flex items-center gap-3 rounded-2xl border border-neutral-900 bg-neutral-900/50 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black">
@@ -375,6 +399,7 @@ export function AgendaPage() {
           <AppointmentScheduleGrid
             appointments={agenda.appointments}
             professionals={agenda.professionalsList}
+            professionalIntervals={agenda.professionalIntervals}
             selectedDate={agenda.selectedDate}
             professionalFilterId={agenda.filterProfessionalId}
             onOpen={(appointmentId) => router.push(`/dashboard/agenda/${appointmentId}`)}

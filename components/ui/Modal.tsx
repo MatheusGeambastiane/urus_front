@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 type ModalProps = {
@@ -19,17 +19,22 @@ const maxWidthClasses = {
 };
 
 export function Modal({ open, onClose, title, subtitle, children, maxWidth = "md" }: ModalProps) {
+  const titleId = useId();
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
       <div
         className={`w-full ${maxWidthClasses[maxWidth]} rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
       >
         <div className="mb-4 flex items-center justify-between">
           <div>
             {subtitle ? <p className="text-sm text-white/60">{subtitle}</p> : null}
-            <h2 className="text-xl font-semibold">{title}</h2>
+            <h2 id={titleId} className="text-xl font-semibold">{title}</h2>
           </div>
           <button
             type="button"
