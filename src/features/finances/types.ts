@@ -56,3 +56,32 @@ export type FinanceServicesSummary = {
   services: ServiceSummaryItem[];
   professionals: ServiceProfessionalDistribution[];
 };
+
+export type FinanceClientGroup = "new" | "returning";
+
+export type FinanceClientAppointment = {
+  id: number;
+  date_time: string;
+  professional_id: number | null;
+  professional_name: string | null;
+  services: string[];
+  price_paid: string;
+};
+
+export type FinanceClientWithAppointments = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  appointments_count: number;
+  total_spent: string;
+  appointments: FinanceClientAppointment[];
+};
+
+export type FinanceClientAppointmentsResponse = {
+  month: string;
+  client_group: FinanceClientGroup;
+  clients_count: number;
+  appointments_count: number;
+  clients: FinanceClientWithAppointments[];
+};

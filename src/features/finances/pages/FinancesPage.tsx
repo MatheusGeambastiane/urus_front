@@ -7,6 +7,7 @@ import { DashboardShell } from "@/src/features/dashboard/components/DashboardShe
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { useFinanceSummary } from "@/src/features/finances/hooks/useFinanceSummary";
 import { useFinanceServicesSummary } from "@/src/features/finances/hooks/useFinanceServicesSummary";
+import { useFinanceClientAppointments } from "@/src/features/finances/hooks/useFinanceClientAppointments";
 import { useBills } from "@/src/features/finances/hooks/useBills";
 import { useRepasses } from "@/src/features/finances/hooks/useRepasses";
 import { FinanceSummaryCards } from "@/src/features/finances/components/FinanceSummaryCards";
@@ -14,6 +15,7 @@ import { FinanceDesktopIndicators } from "@/src/features/finances/components/Fin
 import { RepasseList } from "@/src/features/finances/components/RepasseList";
 import { BillList } from "@/src/features/finances/components/BillList";
 import { MonthSelectorModal } from "@/src/features/finances/components/MonthSelectorModal";
+import { FinanceClientAppointmentsModal } from "@/src/features/finances/components/FinanceClientAppointmentsModal";
 import { PaymentDistributionCard } from "@/src/features/finances/components/PaymentDistributionCard";
 import { AppointmentsHeatmap } from "@/src/features/finances/components/AppointmentsHeatmap";
 import { ResourceDistributionChart } from "@/src/features/finances/components/ResourceDistributionChart";
@@ -25,6 +27,7 @@ import { FeedbackBanner } from "@/components/ui/FeedbackBanner";
 import { getSellPaymentLabel } from "@/src/features/products/utils/products";
 import { capitalizeFirstLetter } from "@/src/features/shared/utils/string";
 import { formatCurrency } from "@/src/features/shared/utils/money";
+import type { FinanceClientGroup } from "@/src/features/finances/types";
 
 type Props = { firstName: string };
 
@@ -40,10 +43,12 @@ export function FinancesPage({ firstName }: Props) {
   const [showFabOptions, setShowFabOptions] = useState(false);
   const [showAllBills, setShowAllBills] = useState(false);
   const [showPreviousRevenueInfo, setShowPreviousRevenueInfo] = useState(false);
+  const [clientGroup, setClientGroup] = useState<FinanceClientGroup | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const finance = useFinanceSummary({ accessToken, fetchWithAuth, month });
   const servicesSummary = useFinanceServicesSummary({ accessToken, fetchWithAuth, month });
+  const clientAppointments = useFinanceClientAppointments({ accessToken, fetchWithAuth });
   const bills = useBills({ accessToken, fetchWithAuth, month });
   const repasses = useRepasses({ accessToken, fetchWithAuth, month, userRole });
   const appointmentPaymentData =
@@ -108,6 +113,11 @@ export function FinancesPage({ firstName }: Props) {
     } catch (err) {
       setFeedback({ type: "error", message: err instanceof Error ? err.message : "Erro ao gerar relatório." });
     }
+  };
+
+  const openClientAppointments = (group: FinanceClientGroup) => {
+    setClientGroup(group);
+    void clientAppointments.load(group, month);
   };
 
   return (
@@ -185,14 +195,18 @@ export function FinancesPage({ firstName }: Props) {
                 {finance.reportLoading ? "Gerando..." : "Relatório"}
               </button>
               <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium text-white/55">
-                {finance.summary?.appointments_count ?? 0} serviços
+                {finance.summary?.appointments_count ?? 0} atendimentos
               </span>
             </div>
           </div>
         </section>
 
         <div className="lg:hidden">
-          <FinanceSummaryCards summary={finance.summary} />
+          <FinanceSummaryCards
+            summary={finance.summary}
+            onNewClientsClick={() => openClientAppointments("new")}
+            onReturningClientsClick={() => openClientAppointments("returning")}
+          />
         </div>
 
         <FinanceDesktopIndicators
@@ -200,6 +214,8 @@ export function FinancesPage({ firstName }: Props) {
           averageAppointmentsPerDay={averageAppointmentsPerDay}
           appointmentTicketAverage={appointmentTicketAverage}
           monthlyTicketAverage={monthlyTicketAverage}
+          onNewClientsClick={() => openClientAppointments("new")}
+          onReturningClientsClick={() => openClientAppointments("returning")}
         />
 
         <AppointmentsHeatmap
@@ -308,6 +324,15 @@ export function FinancesPage({ firstName }: Props) {
           onApply={applyMonth}
           onYearChange={setMonthYearInput}
           onMonthChange={setMonthValueInput}
+        />
+
+        <FinanceClientAppointmentsModal
+          open={clientGroup !== null}
+          group={clientGroup}
+          data={clientAppointments.data}
+          loading={clientAppointments.loading}
+          error={clientAppointments.error}
+          onClose={() => setClientGroup(null)}
         />
       </div>
     </DashboardShell>

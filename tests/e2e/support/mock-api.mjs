@@ -301,6 +301,66 @@ const server = createServer(async (request, response) => {
       payment_transactions_by_resource: [{ money_resource: "caixa", total: 320, count: 2 }],
     });
   }
+  if (url.pathname === "/dashboard/summary/clients/new/") {
+    const month = url.searchParams.get("month") ?? "2026-09";
+    return send(request, response, 200, {
+      month,
+      client_group: "new",
+      clients_count: 1,
+      appointments_count: 1,
+      clients: [{
+        id: 31,
+        name: "Ana Nova",
+        email: "ana@example.com",
+        phone: "71999990001",
+        appointments_count: 1,
+        total_spent: "65.00",
+        appointments: [{
+          id: 701,
+          date_time: `${month}-05T10:00:00-03:00`,
+          professional_id: 20,
+          professional_name: "João Barbeiro",
+          services: ["Corte"],
+          price_paid: "65.00",
+        }],
+      }],
+    });
+  }
+  if (url.pathname === "/dashboard/summary/clients/returning/") {
+    const month = url.searchParams.get("month") ?? "2026-09";
+    return send(request, response, 200, {
+      month,
+      client_group: "returning",
+      clients_count: 1,
+      appointments_count: 2,
+      clients: [{
+        id: 32,
+        name: "Bruno Recorrente",
+        email: "bruno@example.com",
+        phone: "71999990002",
+        appointments_count: 2,
+        total_spent: "130.00",
+        appointments: [
+          {
+            id: 702,
+            date_time: `${month}-06T11:00:00-03:00`,
+            professional_id: 20,
+            professional_name: "João Barbeiro",
+            services: ["Corte"],
+            price_paid: "65.00",
+          },
+          {
+            id: 703,
+            date_time: `${month}-20T14:00:00-03:00`,
+            professional_id: 20,
+            professional_name: "João Barbeiro",
+            services: ["Barba"],
+            price_paid: "65.00",
+          },
+        ],
+      }],
+    });
+  }
   if (url.pathname === "/dashboard/summary/services/") {
     return send(request, response, 200, {
       month: url.searchParams.get("month") ?? "2026-09",

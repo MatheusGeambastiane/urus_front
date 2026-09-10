@@ -9,6 +9,8 @@ type FinanceDesktopIndicatorsProps = {
   averageAppointmentsPerDay: number;
   appointmentTicketAverage: string;
   monthlyTicketAverage: string;
+  onNewClientsClick: () => void;
+  onReturningClientsClick: () => void;
 };
 
 export function FinanceDesktopIndicators({
@@ -16,6 +18,8 @@ export function FinanceDesktopIndicators({
   averageAppointmentsPerDay,
   appointmentTicketAverage,
   monthlyTicketAverage,
+  onNewClientsClick,
+  onReturningClientsClick,
 }: FinanceDesktopIndicatorsProps) {
   const cards = [
     {
@@ -25,6 +29,7 @@ export function FinanceDesktopIndicators({
       label: "Média diária de atendimentos",
       detail: `${formatCurrency(appointmentTicketAverage)} ticket médio`,
       icon: Activity,
+      onClick: null,
     },
     {
       key: "products",
@@ -33,6 +38,7 @@ export function FinanceDesktopIndicators({
       label: "Vendas registradas no mês",
       detail: `${formatCurrency(monthlyTicketAverage)} ticket total`,
       icon: Package,
+      onClick: null,
     },
     {
       key: "services",
@@ -41,6 +47,7 @@ export function FinanceDesktopIndicators({
       label: "Serviços realizados no período",
       detail: "Atendimentos concluídos",
       icon: Scissors,
+      onClick: null,
     },
     {
       key: "new-clients",
@@ -49,6 +56,7 @@ export function FinanceDesktopIndicators({
       label: "Primeiro atendimento no mês",
       detail: "Clientes conquistados no período",
       icon: UserPlus,
+      onClick: onNewClientsClick,
     },
     {
       key: "returning-clients",
@@ -57,6 +65,7 @@ export function FinanceDesktopIndicators({
       label: "Voltaram no mesmo mês",
       detail: "Dois ou mais atendimentos",
       icon: Repeat2,
+      onClick: onReturningClientsClick,
     },
   ];
 
@@ -74,14 +83,11 @@ export function FinanceDesktopIndicators({
       <div className="grid grid-cols-3 gap-4 xl:grid-cols-5">
         {cards.map((card) => {
           const Icon = card.icon;
-          return (
-            <article
-              key={card.key}
-              className="relative overflow-hidden rounded-[26px] border border-white/8 bg-black/18 p-5"
-            >
+          const content = (
+            <>
               <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 rounded-full bg-white/[0.035] blur-2xl" />
               <div className="relative flex items-start justify-between gap-4">
-                <div className="min-w-0">
+                <div className="min-w-0 text-left">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
                     {card.title}
                   </p>
@@ -90,11 +96,36 @@ export function FinanceDesktopIndicators({
                   </p>
                   <p className="mt-2 text-sm text-white/58">{card.label}</p>
                   <p className="mt-1 text-xs text-white/38">{card.detail}</p>
+                  {card.onClick ? (
+                    <p className="mt-3 text-[11px] font-medium text-white/48">Ver atendimentos</p>
+                  ) : null}
                 </div>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/78">
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
+            </>
+          );
+
+          if (card.onClick) {
+            return (
+              <button
+                key={card.key}
+                type="button"
+                onClick={card.onClick}
+                className="relative overflow-hidden rounded-[26px] border border-white/8 bg-black/18 p-5 transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.045] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70"
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <article
+              key={card.key}
+              className="relative overflow-hidden rounded-[26px] border border-white/8 bg-black/18 p-5"
+            >
+              {content}
             </article>
           );
         })}

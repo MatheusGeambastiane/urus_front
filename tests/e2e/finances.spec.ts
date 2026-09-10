@@ -21,7 +21,7 @@ test.describe("Financeiro", () => {
     await expect(page.getByText("janeiro de 2026", { exact: true })).toBeVisible();
     await expect(page.getByText("4.321,00", { exact: true })).toBeVisible();
     await expect(page.getByText("+R$ 3.321,00")).toBeVisible();
-    await expect(page.getByText("42 serviços")).toBeVisible();
+    await expect(page.getByText("42 atendimentos")).toBeVisible();
 
     const calls = await mockRequests(request);
     expect(
@@ -32,6 +32,30 @@ test.describe("Financeiro", () => {
     ).toBe(true);
     expect(
       calls.some((call) => call.pathname === "/dashboard/bills/" && call.search.includes("month=2026-01")),
+    ).toBe(true);
+  });
+
+  test("abre os clientes recorrentes e novos com seus atendimentos", async ({ page, request }) => {
+    await page.goto("/dashboard/financeiro");
+
+    await page.getByRole("button", { name: /Clientes recorrentes/ }).click();
+    const returningDialog = page.getByRole("dialog", { name: "Clientes recorrentes" });
+    await expect(returningDialog.getByText("Bruno Recorrente")).toBeVisible();
+    await expect(returningDialog.getByText("Corte · João Barbeiro")).toBeVisible();
+    await expect(returningDialog.getByText("Barba · João Barbeiro")).toBeVisible();
+    await returningDialog.getByRole("button", { name: "Fechar" }).click();
+
+    await page.getByRole("button", { name: /Novos clientes/ }).click();
+    const newDialog = page.getByRole("dialog", { name: "Novos clientes" });
+    await expect(newDialog.getByText("Ana Nova")).toBeVisible();
+    await expect(newDialog.getByText("ana@example.com")).toBeVisible();
+
+    const calls = await mockRequests(request);
+    expect(
+      calls.some((call) => call.pathname === "/dashboard/summary/clients/returning/" && call.search.includes("month=")),
+    ).toBe(true);
+    expect(
+      calls.some((call) => call.pathname === "/dashboard/summary/clients/new/" && call.search.includes("month=")),
     ).toBe(true);
   });
 
