@@ -110,7 +110,7 @@ export type AppointmentsResponse = {
   completed_total_count: number;
   total?: number;
   total_scheduled?: string;
-  scheduled_status_total?: number;
+  scheduled_status_total?: string;
   scheduled_by_professional?: Array<{
     id: number;
     name: string;

@@ -29,8 +29,19 @@ test.describe("Agenda", () => {
     await expect(page.getByTitle("Intervalo das 12:00 às 13:30")).toBeVisible();
   });
 
+  test("soma agendados e iniciados no total pendente", async ({ page, request }) => {
+    await request.post(`${mockApiUrl}/__control`, { data: { includeInitiatedAppointment: true } });
+    await page.goto("/dashboard/agenda");
+
+    await page.getByRole("button", { name: "Mostrar valores" }).click();
+    await page.getByRole("button", { name: "Ver detalhes" }).click();
+    const pendingCard = page.getByText("Total pendente", { exact: true }).locator("..");
+    await expect(pendingCard.getByText("R$ 80,00", { exact: true })).toBeVisible();
+  });
+
   test("cria um agendamento e envia o contrato esperado", async ({ page, request }) => {
     await completeRequiredAppointmentFields(page);
+    await expect(page.getByRole("radio", { name: "Sem desconto" })).toBeChecked();
     await page.getByRole("button", { name: "Salvar agendamento" }).click();
     await page.waitForURL(/\/dashboard\/agenda\/\d+$/);
 
@@ -44,6 +55,40 @@ test.describe("Agenda", () => {
       appointment_origin: "presencial",
       status: "agendado",
     });
+  });
+
+  test("aplica desconto percentual ao valor pago enquanto o usuário digita", async ({ page, request }) => {
+    await completeRequiredAppointmentFields(page);
+
+    await page.getByRole("radio", { name: "Porcentagem" }).click();
+    const discountInput = page.getByLabel("Desconto (%)");
+    await expect(discountInput).toBeEnabled();
+    await discountInput.fill("10");
+    await expect(page.getByText("R$ 45,00", { exact: true }).last()).toBeVisible();
+
+    await page.getByRole("button", { name: "Salvar agendamento" }).click();
+    await page.waitForURL(/\/dashboard\/agenda\/\d+$/);
+
+    const calls = await mockRequests(request);
+    const creation = calls.find((call) => call.method === "POST" && call.pathname === "/dashboard/appointments/");
+    expect(creation?.json).toMatchObject({ discount: 10, price_paid: "45.00" });
+  });
+
+  test("aplica desconto financeiro e converte o percentual para o contrato da API", async ({ page, request }) => {
+    await completeRequiredAppointmentFields(page);
+
+    const discountInput = page.getByLabel("Desconto", { exact: true });
+    await expect(discountInput).toBeDisabled();
+    await page.getByRole("radio", { name: "Valor fixo" }).click();
+    await page.getByLabel("Desconto (R$)").fill("12,50");
+    await expect(page.getByText("R$ 37,50", { exact: true }).last()).toBeVisible();
+
+    await page.getByRole("button", { name: "Salvar agendamento" }).click();
+    await page.waitForURL(/\/dashboard\/agenda\/\d+$/);
+
+    const calls = await mockRequests(request);
+    const creation = calls.find((call) => call.method === "POST" && call.pathname === "/dashboard/appointments/");
+    expect(creation?.json).toMatchObject({ discount: 25, price_paid: "37.50" });
   });
 
   test("detecta mesmo horário e permite confirmar a sobreposição", async ({ page, request }) => {
@@ -86,6 +131,21 @@ test.describe("Agenda", () => {
     expect(clientCreation?.json).toMatchObject({ first_name: "Maria", last_name: "E2E" });
     const appointmentCreation = calls.find((call) => call.pathname === "/dashboard/appointments/" && call.method === "POST");
     expect(appointmentCreation?.json?.client).toBe(200);
+  });
+
+  test("filtra provedores de e-mail e oferece contato genérico como switch", async ({ page }) => {
+    await openAppointmentForm(page);
+    const clientSection = page.locator("section").filter({ hasText: "Registrar cliente" });
+    await clientSection.getByRole("button", { name: "Registrar cliente" }).click();
+    const modal = page.getByRole("heading", { name: "Registrar cliente" }).locator("xpath=../../..");
+
+    await expect(modal.getByRole("checkbox", { name: "Contato genérico" })).toBeVisible();
+    const emailInput = modal.getByLabel("Email");
+    await emailInput.fill("maria@g");
+    await expect(modal.getByRole("button", { name: "maria@gmail.com" })).toBeVisible();
+    await expect(modal.getByRole("button", { name: "maria@outlook.com" })).toHaveCount(0);
+    await emailInput.fill("maria@provedor.local");
+    await expect(modal.getByRole("button", { name: /maria@/ })).toHaveCount(0);
   });
 
   test("cria agendamentos com todas as formas de pagamento", async ({ page, request }) => {

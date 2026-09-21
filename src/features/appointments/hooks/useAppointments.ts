@@ -41,6 +41,12 @@ const sumAppointmentPricesByStatus = (items: AppointmentItem[], status: Appointm
     .reduce((total, appointment) => total + parseCurrencyInput(appointment.price_paid ?? "0"), 0);
 };
 
+const sumPendingAppointmentPrices = (items: AppointmentItem[]) => {
+  return items
+    .filter((appointment) => appointment.status === "agendado" || appointment.status === "iniciado")
+    .reduce((total, appointment) => total + parseCurrencyInput(appointment.price_paid ?? "0"), 0);
+};
+
 const sumServicesPrice = (services: ServiceSimpleOption[], serviceIds: number[]) => {
   return services
     .filter((service) => serviceIds.includes(service.id))
@@ -55,7 +61,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
     completed_total_count: 0,
     total: 0,
     total_scheduled: "0",
-    scheduled_status_total: 0,
+    scheduled_status_total: "0",
     scheduled_by_professional: [] as AppointmentsResponse["scheduled_by_professional"],
   });
   const [showAppointmentsSummaryDetails, setShowAppointmentsSummaryDetails] = useState(false);
@@ -255,7 +261,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
           completed_total_count: data.completed_total_count ?? 0,
           total: data.total ?? data.count ?? 0,
           total_scheduled: data.total_scheduled ?? "0",
-          scheduled_status_total: data.scheduled_status_total ?? 0,
+          scheduled_status_total: sumPendingAppointmentPrices(data.results).toFixed(2),
           scheduled_by_professional: data.scheduled_by_professional ?? [],
         });
       } catch (err) {
@@ -601,9 +607,7 @@ export function useAppointments({ accessToken, fetchWithAuth }: UseAppointmentsP
             : appointment,
         );
         const completedTotalCount = nextAppointments.filter((appointment) => appointment.status === "realizado").length;
-        const scheduledStatusTotal = nextAppointments.filter(
-          (appointment) => appointment.status !== "realizado" && appointment.status !== "cancelado",
-        ).length;
+        const scheduledStatusTotal = sumPendingAppointmentPrices(nextAppointments).toFixed(2);
         const completedTotalPrice = sumAppointmentPricesByStatus(nextAppointments, "realizado").toFixed(2);
 
         setAppointments(nextAppointments);

@@ -612,7 +612,7 @@ export function ProductsLegacyTab({
     completed_total_count: 0,
     total: 0,
     total_scheduled: "0",
-    scheduled_status_total: 0,
+    scheduled_status_total: "0",
     scheduled_by_professional: [] as AppointmentsResponse["scheduled_by_professional"],
   });
   const [showAppointmentsSummaryDetails, setShowAppointmentsSummaryDetails] = useState(false);
@@ -2743,7 +2743,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           completed_total_count: data.completed_total_count ?? 0,
           total: data.total ?? data.count ?? 0,
           total_scheduled: data.total_scheduled ?? "0",
-          scheduled_status_total: data.scheduled_status_total ?? 0,
+          scheduled_status_total: data.scheduled_status_total ?? "0",
           scheduled_by_professional: data.scheduled_by_professional ?? [],
         });
       } catch (err) {
@@ -6842,9 +6842,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
           : "Não foi possível criar o agendamento.";
         try {
           const errorData = await response.json();
-          if (errorData?.detail) {
-            errorMessage = errorData.detail;
-          }
+          errorMessage = getApiErrorMessage(errorData, errorMessage);
         } catch {
           /* noop */
         }
@@ -10495,7 +10493,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 <div className="rounded-2xl border border-white/5 bg-black/30 p-3">
                   <p className="text-xs text-white/60">Total pendente</p>
                   <p className="mt-1 text-base font-semibold text-white">
-                    {appointmentsSummary.scheduled_status_total ?? 0}
+                    {formatCurrency(appointmentsSummary.scheduled_status_total ?? "0")}
                   </p>
                 </div>
               </div>

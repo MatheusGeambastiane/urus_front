@@ -24,14 +24,14 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = "md
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-4">
       <div
-        className={`w-full ${maxWidthClasses[maxWidth]} rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card`}
+        className={`flex max-h-[calc(100dvh-2rem)] w-full ${maxWidthClasses[maxWidth]} flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           <div>
             {subtitle ? <p className="text-sm text-white/60">{subtitle}</p> : null}
             <h2 id={titleId} className="text-xl font-semibold">{title}</h2>
@@ -45,7 +45,9 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = "md
             <X className="h-4 w-4" />
           </button>
         </div>
-        {children}
+        <div className="no-scrollbar min-h-0 overflow-y-auto overscroll-contain pr-1">
+          {children}
+        </div>
       </div>
     </div>
   );

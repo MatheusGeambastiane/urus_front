@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type { TokenRefreshService } from "@/src/features/shared/utils/auth";
+import { getApiErrorMessage } from "@/src/features/shared/utils/api-errors";
 import { buildDateTimeISOString, formatDateParam, formatTimeInputValue } from "@/src/features/shared/utils/date";
 import { parseCurrencyInput } from "@/src/features/shared/utils/money";
 import { appointmentsEndpointBase, professionalProfilesSimpleListEndpoint } from "@/src/features/appointments/services/endpoints";
@@ -39,6 +40,8 @@ type ClientRegistrationForm = {
   dateOfBirth: string;
   isUnregisteredClient: boolean;
 };
+
+export type AppointmentDiscountType = "percentage" | "fixed" | "";
 
 type DayRestriction = {
   id: number;
@@ -107,7 +110,8 @@ export function useAppointmentForm({
   const [selectedPaymentType, setSelectedPaymentType] = useState<PaymentType | null>(null);
   const [priceInput, setPriceInput] = useState("");
   const [priceManuallyEdited, setPriceManuallyEdited] = useState(false);
-  const [discountInput, setDiscountInput] = useState("0");
+  const [discountType, setDiscountType] = useState<AppointmentDiscountType>("");
+  const [discountInput, setDiscountInput] = useState("");
   const [tipsInput, setTipsInput] = useState("0.00");
   const [appointmentObservations, setAppointmentObservations] = useState("");
   const [appointmentDateInput, setAppointmentDateInput] = useState(() => formatDateParam(new Date()));
@@ -151,8 +155,6 @@ export function useAppointmentForm({
   const [professionalPickerLoading, setProfessionalPickerLoading] = useState(false);
   const [professionalPickerError, setProfessionalPickerError] = useState<string | null>(null);
 
-  const [showPaymentTypeModal, setShowPaymentTypeModal] = useState(false);
-
   const [saleModalOpen, setSaleModalOpen] = useState(false);
   const [saleProductsList, setSaleProductsList] = useState<ProductItem[]>([]);
   const [saleProductsLoading, setSaleProductsLoading] = useState(false);
@@ -183,7 +185,8 @@ export function useAppointmentForm({
     setSelectedPaymentType(null);
     setPriceInput("");
     setPriceManuallyEdited(false);
-    setDiscountInput("0");
+    setDiscountType("");
+    setDiscountInput("");
     setTipsInput("0.00");
     setAppointmentObservations("");
     setCreateAppointmentError(null);
@@ -200,7 +203,6 @@ export function useAppointmentForm({
     setShowServicesPickerModal(false);
     setShowProfessionalPickerModal(false);
     setShowClientRegistrationModal(false);
-    setShowPaymentTypeModal(false);
   }, []);
 
   const appointmentServicesSubtotal = useMemo(() => {
@@ -218,20 +220,6 @@ export function useAppointmentForm({
 
   const hasMultipleProfessionals = filledAppointmentProfessionals.length > 1;
 
-  const normalizedDiscount = useMemo(() => {
-    const parsed = Number(discountInput);
-    if (Number.isNaN(parsed)) {
-      return 0;
-    }
-    if (parsed < 0) {
-      return 0;
-    }
-    if (parsed > 100) {
-      return 100;
-    }
-    return parsed;
-  }, [discountInput]);
-
   const appointmentPriceValue = useMemo(() => parseCurrencyInput(priceInput), [priceInput]);
   const appointmentTipsValue = useMemo(() => parseCurrencyInput(tipsInput), [tipsInput]);
 
@@ -247,14 +235,39 @@ export function useAppointmentForm({
     }, 0);
   }, [selectedAppointmentServices, serviceAssignments]);
 
+  const discountBaseValue = hasMultipleProfessionals ? servicesGrossTotal : appointmentPriceValue;
+
+  const discountValue = useMemo(() => {
+    if (!discountType || !discountInput.trim()) {
+      return 0;
+    }
+    const parsed = parseCurrencyInput(discountInput);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 0;
+    }
+    return discountType === "percentage"
+      ? Math.min(parsed, 100)
+      : Math.min(parsed, discountBaseValue);
+  }, [discountBaseValue, discountInput, discountType]);
+
+  const normalizedDiscount = useMemo(() => {
+    if (discountType === "percentage") {
+      return discountValue;
+    }
+    if (discountType === "fixed" && discountBaseValue > 0) {
+      return (discountValue / discountBaseValue) * 100;
+    }
+    return 0;
+  }, [discountBaseValue, discountType, discountValue]);
+
   const servicesDiscountAmount = useMemo(
-    () => (servicesGrossTotal * normalizedDiscount) / 100,
-    [servicesGrossTotal, normalizedDiscount],
+    () => discountType === "fixed" ? discountValue : (discountBaseValue * normalizedDiscount) / 100,
+    [discountBaseValue, discountType, discountValue, normalizedDiscount],
   );
 
   const servicesTotalAfterDiscount = useMemo(
-    () => Math.max(servicesGrossTotal - servicesDiscountAmount, 0),
-    [servicesGrossTotal, servicesDiscountAmount],
+    () => Math.max(discountBaseValue - servicesDiscountAmount, 0),
+    [discountBaseValue, servicesDiscountAmount],
   );
 
   const addedSalesTotal = useMemo(() => {
@@ -773,7 +786,9 @@ export function useAppointmentForm({
         setServicesPickerTempSelection(nextServices);
         setServiceAssignments(nextAssignments);
         setSelectedPaymentType(normalizeApiPaymentTypeToUi(detail.payment_type));
-        setDiscountInput(String(detail.discount ?? 0));
+        const existingDiscount = Number(detail.discount ?? 0);
+        setDiscountType(existingDiscount > 0 ? "percentage" : "");
+        setDiscountInput(existingDiscount > 0 ? String(existingDiscount) : "");
         setTipsInput(detail.tips ?? "0.00");
         setAppointmentObservations(detail.observations ?? "");
         setAddedSales(nextSales);
@@ -1123,7 +1138,6 @@ export function useAppointmentForm({
 
   const handleSelectPaymentOption = (payment: PaymentType) => {
     setSelectedPaymentType(payment);
-    setShowPaymentTypeModal(false);
   };
 
   const handlePriceInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -1134,22 +1148,27 @@ export function useAppointmentForm({
   const handleDiscountInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     if (value === "") {
-      setDiscountInput("0");
+      setDiscountInput("");
       return;
     }
-    const numeric = Number(value);
-    if (Number.isNaN(numeric)) {
+    const numeric = parseCurrencyInput(value);
+    if (!Number.isFinite(numeric)) {
       return;
     }
-    if (numeric > 100) {
+    if (discountType === "percentage" && numeric > 100) {
       setDiscountInput("100");
       return;
     }
     if (numeric < 0) {
-      setDiscountInput("0");
+      setDiscountInput("");
       return;
     }
     setDiscountInput(value);
+  };
+
+  const handleSelectDiscountType = (nextDiscountType: AppointmentDiscountType) => {
+    setDiscountType(nextDiscountType);
+    setDiscountInput("");
   };
 
   const handleResetPriceFromServices = () => {
@@ -1364,7 +1383,7 @@ export function useAppointmentForm({
       const basePayload = {
         date_time: dateTimeIso,
         client: selectedClient?.id ?? null,
-        discount: normalizedDiscount,
+        discount: Math.round(normalizedDiscount),
         payment_type: normalizeAppointmentPaymentTypeForApi(selectedPaymentType),
         status: selectedAppointmentStatus,
         observations: appointmentObservations || null,
@@ -1405,7 +1424,10 @@ export function useAppointmentForm({
             return {
               professional: professional.id,
               service: service.id,
-              price_paid: parseCurrencyInput(assignment?.price ?? "0").toFixed(2),
+              price_paid: Math.max(
+                parseCurrencyInput(assignment?.price ?? "0") * (1 - normalizedDiscount / 100),
+                0,
+              ).toFixed(2),
               tips: parseCurrencyInput(assignment?.tips ?? "0").toFixed(2),
             };
           }),
@@ -1417,7 +1439,7 @@ export function useAppointmentForm({
           ...sellsPayload,
           professional: professional?.id ?? 0,
           services: selectedAppointmentServices.map((service) => service.id),
-          price_paid: appointmentPriceValue.toFixed(2),
+          price_paid: Math.max(appointmentPriceValue - servicesDiscountAmount, 0).toFixed(2),
           tips: appointmentTipsValue.toFixed(2),
         };
       }
@@ -1465,9 +1487,7 @@ export function useAppointmentForm({
             setAppointmentConflicts(conflictData.conflicts);
             return;
           }
-          if (errorData?.detail) {
-            errorMessage = errorData.detail;
-          }
+          errorMessage = getApiErrorMessage(errorData, errorMessage);
         } catch {
           // noop
         }
@@ -1518,6 +1538,7 @@ export function useAppointmentForm({
     serviceAssignments,
     selectedPaymentType,
     priceInput,
+    discountType,
     discountInput,
     tipsInput,
     appointmentObservations,
@@ -1546,7 +1567,6 @@ export function useAppointmentForm({
     professionalPickerLoading,
     professionalPickerError,
     currentProfessionalPickerSlot,
-    showPaymentTypeModal,
     saleModalOpen,
     saleProductsList,
     saleProductsLoading,
@@ -1601,9 +1621,9 @@ export function useAppointmentForm({
     handleServiceAssignmentPriceChange,
     handleTipsInputChange,
     handleServiceAssignmentTipsChange,
-    setShowPaymentTypeModal,
     handleSelectPaymentOption,
     handlePriceInputChange,
+    handleSelectDiscountType,
     handleDiscountInputChange,
     handleResetPriceFromServices,
     handleOpenSaleModal,

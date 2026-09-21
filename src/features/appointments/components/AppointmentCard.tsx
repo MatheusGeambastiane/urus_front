@@ -41,6 +41,7 @@ const getStatusBorderColor = (status: string) => {
   if (normalized === "realizado") return "border-emerald-400/60";
   if (normalized === "iniciado") return "border-sky-400/60";
   if (normalized === "cancelado") return "border-rose-400/60";
+  if (normalized === "agendado") return "border-amber-300/70";
   return "border-zinc-300/60";
 };
 

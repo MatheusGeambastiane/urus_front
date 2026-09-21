@@ -108,7 +108,7 @@ export function AgendaPage() {
     ? formatCurrency(agenda.appointmentsSummary.total_scheduled ?? "0")
     : "R$ •••••";
   const scheduledStatusTotalDisplay = showSummaryValues
-    ? agenda.appointmentsSummary.scheduled_status_total ?? 0
+    ? formatCurrency(agenda.appointmentsSummary.scheduled_status_total ?? "0")
     : "•••";
 
   return (

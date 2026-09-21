@@ -94,6 +94,7 @@ const billDetail = {
 
 let requests = [];
 let conflictNextAppointment = false;
+let includeInitiatedAppointment = false;
 let nextAppointmentId = 100;
 let nextClientId = 200;
 
@@ -156,10 +157,12 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/__reset" && request.method === "POST") {
     requests = [];
     conflictNextAppointment = false;
+    includeInitiatedAppointment = false;
     return send(request, response, 200, { ok: true });
   }
   if (url.pathname === "/__control" && request.method === "POST") {
     conflictNextAppointment = Boolean(entry.json?.conflictNextAppointment);
+    includeInitiatedAppointment = Boolean(entry.json?.includeInitiatedAppointment);
     return send(request, response, 200, { ok: true });
   }
 
@@ -218,8 +221,11 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/dashboard/professional-profiles/simple-list/") return send(request, response, 200, [professional]);
 
   if (url.pathname === "/dashboard/appointments/" && request.method === "GET") {
+    const appointmentResults = includeInitiatedAppointment
+      ? [appointment, { ...appointment, id: 78, status: "iniciado", price_paid: "30.00" }]
+      : [appointment];
     return send(request, response, 200, {
-      ...paginated([appointment]),
+      ...paginated(appointmentResults),
       completed_total_price: "0.00",
       completed_total_count: 0,
       day_restriction: null,

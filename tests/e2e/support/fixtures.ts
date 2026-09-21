@@ -52,10 +52,9 @@ export async function selectAppointmentProfessional(page: Page) {
 
 export async function selectAppointmentPayment(page: Page, paymentLabel: string) {
   const paymentSection = page.locator("section").filter({ hasText: "Defina valores e condição" });
-  await paymentSection.getByRole("button", { name: /Forma de pagamento/ }).click();
-  const modal = page.getByRole("heading", { name: "Escolha a forma" }).locator("xpath=../../..");
-  await modal.getByRole("button", { name: paymentLabel }).click();
-  await expect(paymentSection.getByText(paymentLabel, { exact: true })).toBeVisible();
+  const paymentOption = paymentSection.getByRole("radio", { name: paymentLabel, exact: true });
+  await paymentOption.click();
+  await expect(paymentOption).toBeChecked();
 }
 
 export async function completeRequiredAppointmentFields(page: Page, paymentLabel = "Pix") {
