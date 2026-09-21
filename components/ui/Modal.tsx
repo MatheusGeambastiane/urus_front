@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 type ModalProps = {
@@ -21,12 +21,23 @@ const maxWidthClasses = {
 export function Modal({ open, onClose, title, subtitle, children, maxWidth = "md" }: ModalProps) {
   const titleId = useId();
 
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-4">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 p-2 pt-4 sm:items-center sm:p-4">
       <div
-        className={`flex max-h-[calc(100dvh-2rem)] w-full ${maxWidthClasses[maxWidth]} flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#050505] p-5 text-white shadow-card`}
+        className={`flex max-h-[calc(100dvh-1rem)] w-full ${maxWidthClasses[maxWidth]} min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#050505] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-white shadow-card sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl sm:pb-5`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -45,7 +56,7 @@ export function Modal({ open, onClose, title, subtitle, children, maxWidth = "md
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="no-scrollbar min-h-0 overflow-y-auto overscroll-contain pr-1">
+        <div className="no-scrollbar min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
           {children}
         </div>
       </div>

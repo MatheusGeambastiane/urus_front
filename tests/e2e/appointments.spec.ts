@@ -148,6 +148,35 @@ test.describe("Agenda", () => {
     await expect(modal.getByRole("button", { name: /maria@/ })).toHaveCount(0);
   });
 
+  test("permite rolar o cadastro de cliente no mobile acima da navegação", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 640 });
+    await openAppointmentForm(page);
+    const clientSection = page.locator("section").filter({ hasText: "Registrar cliente" });
+    await clientSection.getByRole("button", { name: "Registrar cliente" }).click();
+
+    const modal = page.getByRole("dialog", { name: "Registrar cliente" });
+    const scrollArea = modal.locator(".overflow-y-auto").first();
+    await expect(modal).toBeVisible();
+    await expect.poll(() => scrollArea.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+    await scrollArea.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    await expect.poll(() => scrollArea.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await expect(modal.getByRole("button", { name: "Salvar", exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+
+    const bottomNavigation = page.getByRole("navigation", { name: "Navegação principal" });
+    const navigationBox = await bottomNavigation.boundingBox();
+    expect(navigationBox).not.toBeNull();
+    const navigationIsOnTop = await page.evaluate(({ x, y }) => {
+      return Boolean(document.elementFromPoint(x, y)?.closest('nav[aria-label="Navegação principal"]'));
+    }, {
+      x: (navigationBox?.x ?? 0) + (navigationBox?.width ?? 0) / 2,
+      y: (navigationBox?.y ?? 0) + (navigationBox?.height ?? 0) / 2,
+    });
+    expect(navigationIsOnTop).toBe(false);
+  });
+
   test("cria agendamentos com todas as formas de pagamento", async ({ page, request }) => {
     const cases = [
       ["Cartão de crédito", "credit"],
