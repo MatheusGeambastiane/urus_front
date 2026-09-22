@@ -39,6 +39,46 @@ type IntervalForm = {
   weekDays: number[];
 };
 
+type ExistingInterval = {
+  id: number;
+  professional_name: string;
+  created_by_name: string | null;
+  created_at: string;
+  date_start: string | null;
+  date_finish: string | null;
+  hour_start: string;
+  hour_finish: string;
+  week_days: number[];
+};
+
+type IntervalsResponse = {
+  results: ExistingInterval[];
+  next: string | null;
+};
+
+const formatDate = (value: string) => value.split("-").reverse().join("/");
+const formatHour = (value: string) => value.slice(0, 5);
+const getInitials = (value: string) =>
+  value.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+const formatCreatedAt = (value: string) =>
+  new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+
+const formatPeriod = (interval: ExistingInterval) => {
+  if (interval.week_days.length) {
+    const days = interval.week_days
+      .map((day) => weekDays.find((item) => item.value === day)?.label ?? (day === 6 ? "Domingo" : null))
+      .filter(Boolean)
+      .join(", ");
+    return days;
+  }
+  if (interval.date_start && interval.date_finish) {
+    return interval.date_start === interval.date_finish
+      ? formatDate(interval.date_start)
+      : `${formatDate(interval.date_start)} a ${formatDate(interval.date_finish)}`;
+  }
+  return "Período não informado";
+};
+
 const createInitialForm = (): IntervalForm => {
   const today = formatDateParam(new Date());
 
@@ -65,6 +105,49 @@ export function CreateProfessionalIntervalPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(() => formatDateParam(new Date()));
+  const [intervals, setIntervals] = useState<ExistingInterval[]>([]);
+  const [intervalsLoading, setIntervalsLoading] = useState(false);
+  const [intervalsError, setIntervalsError] = useState<string | null>(null);
+  const [intervalsRefresh, setIntervalsRefresh] = useState(0);
+
+  useEffect(() => {
+    if (!accessToken || !selectedDate) return;
+    const controller = new AbortController();
+
+    const loadIntervals = async () => {
+      setIntervalsLoading(true);
+      setIntervalsError(null);
+      try {
+        const items: ExistingInterval[] = [];
+        let url: string | null = `${professionalIntervalsEndpointBase}active/?date=${encodeURIComponent(selectedDate)}&page_size=100`;
+        while (url) {
+          const response = await fetchWithAuth(url, {
+            credentials: "include",
+            headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+            signal: controller.signal,
+          });
+          if (!response.ok) {
+            const payload: unknown = await response.json().catch(() => null);
+            throw new Error(getApiErrorMessage(payload, "Não foi possível carregar os intervalos."));
+          }
+          const payload = (await response.json()) as IntervalsResponse;
+          items.push(...payload.results);
+          url = payload.next;
+        }
+        if (!controller.signal.aborted) setIntervals(items);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setIntervalsError(error instanceof Error ? error.message : "Erro inesperado ao carregar intervalos.");
+        }
+      } finally {
+        if (!controller.signal.aborted) setIntervalsLoading(false);
+      }
+    };
+
+    void loadIntervals();
+    return () => controller.abort();
+  }, [accessToken, fetchWithAuth, selectedDate, intervalsRefresh]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -204,6 +287,7 @@ export function CreateProfessionalIntervalPage() {
       }
 
       setSuccessMessage(`Intervalo de ${selectedProfessional?.user_name ?? "profissional"} criado com sucesso.`);
+      setIntervalsRefresh((current) => current + 1);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Erro inesperado ao criar intervalo.");
     } finally {
@@ -213,7 +297,8 @@ export function CreateProfessionalIntervalPage() {
 
   return (
     <DashboardShell activeTab="home" profilePic={profilePic} userRole={userRole}>
-      <form className="mx-auto max-w-5xl space-y-5 pb-8" onSubmit={handleSubmit}>
+      <div className="mx-auto max-w-5xl space-y-5 pb-8">
+      <form className="space-y-5" onSubmit={handleSubmit}>
         <header className="flex items-center gap-3">
           <button
             type="button"
@@ -464,6 +549,99 @@ export function CreateProfessionalIntervalPage() {
           </aside>
         </div>
       </form>
+        <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_100%_0%,rgba(255,255,255,0.065),transparent_38%),#0b0b0b] shadow-card">
+          <div className="flex flex-wrap items-end justify-between gap-5 border-b border-white/8 px-5 py-6 sm:px-7">
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center gap-2.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.7)]" />
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/45">Agenda do dia</p>
+              </div>
+              <h2 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">Intervalos existentes</h2>
+              <p className="mt-1.5 text-sm text-white/45">
+                {selectedDate
+                  ? `${selectedDate === formatDateParam(new Date()) ? "Hoje" : formatDate(selectedDate)} · ${intervalsLoading ? "Carregando" : intervalsError ? "Consulta indisponível" : `${intervals.length} ${intervals.length === 1 ? "intervalo" : "intervalos"}`}`
+                  : "Selecione uma data para consultar"}
+              </p>
+            </div>
+            <label className="block w-full text-xs font-medium text-white/60 sm:w-auto">
+              Ver por data
+              <span className="relative mt-2 block">
+                <CalendarDays className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/45" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value)}
+                  className="w-full min-w-48 rounded-xl border border-white/15 bg-white/[0.055] py-3 pl-10 pr-3 text-sm text-white outline-none transition hover:border-white/30 focus:border-white/50 sm:w-auto [color-scheme:dark]"
+                />
+              </span>
+            </label>
+          </div>
+          <div className="p-5 sm:p-7" aria-live="polite">
+            {intervalsLoading ? (
+              <div className="grid gap-4 sm:grid-cols-2" role="status" aria-label="Carregando intervalos">
+                {[0, 1].map((index) => (
+                  <div key={index} className="h-64 animate-pulse rounded-[22px] border border-white/8 bg-white/[0.035]" />
+                ))}
+              </div>
+            ) : intervalsError ? (
+              <p className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-4 text-sm text-red-100" role="alert">{intervalsError}</p>
+            ) : !selectedDate || intervals.length === 0 ? (
+              <div className="flex min-h-48 flex-col items-center justify-center rounded-[22px] border border-dashed border-white/15 bg-white/[0.02] px-5 text-center">
+                <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] text-white/50">
+                  <CalendarDays className="h-5 w-5" />
+                </span>
+                <p className="font-medium text-white/80">{selectedDate ? "Nenhum intervalo nesta data" : "Escolha uma data"}</p>
+                <p className="mt-1 text-sm text-white/40">{selectedDate ? "Os intervalos ativos aparecerão aqui." : "Use o filtro acima para consultar os intervalos."}</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {intervals.map((interval) => (
+                  <article
+                    key={interval.id}
+                    className="group relative flex min-h-64 flex-col overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(155deg,rgba(255,255,255,0.065),rgba(255,255,255,0.018)_48%,rgba(255,255,255,0.035))] p-5 transition duration-300 hover:-translate-y-0.5 hover:border-white/25 hover:shadow-[0_20px_40px_rgba(0,0,0,0.28)] sm:p-6"
+                  >
+                    <div className="absolute inset-y-6 left-0 w-0.5 rounded-r-full bg-white/45 transition group-hover:bg-white/80" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-xs font-semibold tracking-wider text-white/90">
+                          {getInitials(interval.professional_name)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">Profissional</p>
+                          <h3 className="truncate text-sm font-semibold text-white sm:text-base" title={interval.professional_name}>{interval.professional_name}</h3>
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-white/12 bg-white/[0.065] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.13em] text-white/65">
+                        {interval.week_days.length ? "Recorrente" : "Pontual"}
+                      </span>
+                    </div>
+
+                    <div className="mt-7 flex items-center gap-3 text-white">
+                      <Clock3 className="h-4 w-4 shrink-0 text-white/35" />
+                      <p className="text-2xl font-semibold tabular-nums tracking-tight sm:text-[1.7rem]">
+                        {formatHour(interval.hour_start)} <span className="font-normal text-white/30">—</span> {formatHour(interval.hour_finish)}
+                      </p>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2" aria-hidden="true">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white/65" />
+                      <span className="h-px flex-1 bg-gradient-to-r from-white/45 to-white/10" />
+                      <span className="h-1.5 w-1.5 rounded-full border border-white/35" />
+                    </div>
+                    <p className="mt-3 text-sm text-white/60"><span className="mr-2 text-white/35">Período</span>{formatPeriod(interval)}</p>
+
+                    <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-white/10 pt-4 text-xs text-white/45">
+                      <UserRound className="h-3.5 w-3.5 shrink-0" />
+                      <span>Criado por <span className="font-medium text-white/75">{interval.created_by_name ?? "Não informado"}</span></span>
+                      <span className="hidden text-white/25 sm:inline">·</span>
+                      <time dateTime={interval.created_at} className="text-white/55">{formatCreatedAt(interval.created_at)}</time>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
     </DashboardShell>
   );
 }
