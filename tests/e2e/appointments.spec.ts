@@ -208,13 +208,13 @@ test.describe("Agenda", () => {
     expect(update?.json).toMatchObject({ status: "realizado", observations: "Alterado pelo teste automatizado" });
   });
 
-  test("inclui uma venda dentro do agendamento", async ({ page, request }) => {
+  test("inclui uma venda em dinheiro dentro do agendamento", async ({ page, request }) => {
     await completeRequiredAppointmentFields(page);
     const saleSection = page.locator("fieldset").filter({ hasText: "Venda" });
     await saleSection.getByRole("button", { name: "Adicionar venda" }).click();
     const modal = page.getByRole("heading", { name: "Adicionar produto" }).locator("xpath=../../..");
     await modal.getByRole("button", { name: /Pomada E2E/ }).click();
-    await modal.getByLabel("Forma de pagamento").selectOption("pix");
+    await modal.getByLabel("Forma de pagamento").selectOption("money");
     await modal.getByLabel("Quantidade").fill("2");
     await modal.getByRole("button", { name: "Adicionar produto" }).click();
     await expect(saleSection.getByText("Pomada E2E", { exact: true }).first()).toBeVisible();
@@ -224,7 +224,7 @@ test.describe("Agenda", () => {
     const calls = await mockRequests(request);
     const creation = calls.find((call) => call.pathname === "/dashboard/appointments/" && call.method === "POST");
     expect(creation?.json?.sells).toEqual([
-      expect.objectContaining({ product: 40, quantity: 2, transaction_payment: "pix" }),
+      expect.objectContaining({ product: 40, quantity: 2, transaction_payment: "money" }),
     ]);
   });
 });

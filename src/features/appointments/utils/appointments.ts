@@ -39,6 +39,8 @@ export const normalizeAppointmentPaymentTypeForApi = (paymentType: PaymentType) 
   return paymentType;
 };
 
+export const normalizeTransactionPaymentTypeForApi = (paymentType: PaymentType) => paymentType;
+
 export const normalizeApiPaymentTypeToUi = (value: string | null | undefined): PaymentType | null => {
   if (!value) {
     return null;

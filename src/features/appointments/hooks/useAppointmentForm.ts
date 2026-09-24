@@ -11,6 +11,7 @@ import {
   getDefaultServicePrice,
   normalizeApiPaymentTypeToUi,
   normalizeAppointmentPaymentTypeForApi,
+  normalizeTransactionPaymentTypeForApi,
 } from "@/src/features/appointments/utils/appointments";
 import type {
   AppointmentConflict,
@@ -1402,7 +1403,7 @@ export function useAppointmentForm({
                 product: sale.productId,
                 quantity: sale.quantity,
                 price: sale.price,
-                transaction_payment: normalizeAppointmentPaymentTypeForApi(sale.paymentType),
+                transaction_payment: normalizeTransactionPaymentTypeForApi(sale.paymentType),
                 ...(sale.userId ? { user: sale.userId } : {}),
               })),
             }
