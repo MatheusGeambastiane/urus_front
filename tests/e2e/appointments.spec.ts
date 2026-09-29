@@ -39,6 +39,16 @@ test.describe("Agenda", () => {
     await expect(pendingCard.getByText("R$ 80,00", { exact: true })).toBeVisible();
   });
 
+  test("mostra o total de atendimentos abaixo do faturado por profissional", async ({ page }) => {
+    await page.goto("/dashboard/agenda");
+
+    await page.getByRole("button", { name: "Mostrar valores" }).click();
+    await page.getByRole("button", { name: "Ver detalhes" }).click();
+    const professionalSummary = page.getByRole("listitem").filter({ hasText: "Profissional Teste" });
+    await expect(professionalSummary.getByText("R$ 50,00", { exact: true })).toBeVisible();
+    await expect(professionalSummary.getByText("1 atendimento", { exact: true })).toBeVisible();
+  });
+
   test("cria um agendamento e envia o contrato esperado", async ({ page, request }) => {
     await completeRequiredAppointmentFields(page);
     await expect(page.getByRole("radio", { name: "Sem desconto" })).toBeChecked();

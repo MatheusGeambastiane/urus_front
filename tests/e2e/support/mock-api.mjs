@@ -65,6 +65,20 @@ const appointment = {
   appointment_origin: "presencial",
 };
 
+const professionalIntervalTemplate = {
+  id: 81,
+  professional: professional.id,
+  professional_name: professional.user_name,
+  created_by_name: "Admin E2E",
+  created_at: "2026-09-20T10:00:00-03:00",
+  date_start: "2026-09-01",
+  date_finish: "2026-09-30",
+  hour_start: "12:00:00",
+  hour_finish: "13:30:00",
+  week_days: [],
+  is_active: true,
+};
+
 const userDetail = {
   ...client,
   id: 10,
@@ -97,6 +111,7 @@ let conflictNextAppointment = false;
 let includeInitiatedAppointment = false;
 let nextAppointmentId = 100;
 let nextClientId = 200;
+let professionalInterval = { ...professionalIntervalTemplate };
 
 function corsHeaders(request) {
   return {
@@ -158,6 +173,7 @@ const server = createServer(async (request, response) => {
     requests = [];
     conflictNextAppointment = false;
     includeInitiatedAppointment = false;
+    professionalInterval = { ...professionalIntervalTemplate };
     return send(request, response, 200, { ok: true });
   }
   if (url.pathname === "/__control" && request.method === "POST") {
@@ -220,6 +236,18 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/dashboard/services/simple-list/") return send(request, response, 200, [service]);
   if (url.pathname === "/dashboard/professional-profiles/simple-list/") return send(request, response, 200, [professional]);
 
+  if (url.pathname === "/dashboard/professional-intervals/active/" && request.method === "GET") {
+    return send(request, response, 200, paginated(professionalInterval ? [professionalInterval] : []));
+  }
+  if (url.pathname === "/dashboard/professional-intervals/81/" && request.method === "PATCH") {
+    professionalInterval = { ...professionalInterval, ...(entry.json ?? {}) };
+    return send(request, response, 200, professionalInterval);
+  }
+  if (url.pathname === "/dashboard/professional-intervals/81/" && request.method === "DELETE") {
+    professionalInterval = null;
+    return send(request, response, 204, undefined);
+  }
+
   if (url.pathname === "/dashboard/appointments/" && request.method === "GET") {
     const appointmentResults = includeInitiatedAppointment
       ? [appointment, { ...appointment, id: 78, status: "iniciado", price_paid: "30.00" }]
@@ -228,6 +256,14 @@ const server = createServer(async (request, response) => {
       ...paginated(appointmentResults),
       completed_total_price: "0.00",
       completed_total_count: 0,
+      scheduled_by_professional: [
+        {
+          id: professional.id,
+          name: professional.user_name,
+          count: appointmentResults.length,
+          total: "50.00",
+        },
+      ],
       day_restriction: null,
       professional_intervals: [
         {

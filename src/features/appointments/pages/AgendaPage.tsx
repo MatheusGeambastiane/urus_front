@@ -229,7 +229,7 @@ export function AgendaPage() {
 
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/40">
-                      Atendimentos por profissional
+                      Faturado por profissional
                     </p>
                     {scheduledByProfessional.length === 0 ? (
                       <p className="mt-3 rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-2 text-sm text-white/55">
@@ -243,7 +243,14 @@ export function AgendaPage() {
                             className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-2.5"
                           >
                             <span className="text-sm text-white/75">{item.name}</span>
-                            <span className="text-sm font-semibold text-white">{item.total}</span>
+                            <span className="text-right">
+                              <span className="block text-sm font-semibold text-white">
+                                {showSummaryValues ? formatCurrency(item.total) : "R$ •••••"}
+                              </span>
+                              <span className="mt-0.5 block text-xs text-white/45">
+                                {item.count} {item.count === 1 ? "atendimento" : "atendimentos"}
+                              </span>
+                            </span>
                           </li>
                         ))}
                       </ul>

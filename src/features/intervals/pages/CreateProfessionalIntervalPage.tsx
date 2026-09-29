@@ -9,9 +9,12 @@ import {
   ChevronLeft,
   Clock3,
   Loader2,
+  Pencil,
   Repeat2,
+  Trash2,
   UserRound,
 } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { professionalProfilesSimpleListEndpoint } from "@/src/features/appointments/services/endpoints";
 import { professionalIntervalsEndpointBase } from "@/src/features/users/services/endpoints";
@@ -41,6 +44,7 @@ type IntervalForm = {
 
 type ExistingInterval = {
   id: number;
+  professional: number;
   professional_name: string;
   created_by_name: string | null;
   created_at: string;
@@ -95,6 +99,35 @@ const createInitialForm = (): IntervalForm => {
 
 const normalizeTime = (value: string) => (value.length === 5 ? `${value}:00` : value);
 
+const createEditForm = (interval: ExistingInterval): IntervalForm => ({
+  professionalId: String(interval.professional),
+  dateStart: interval.date_start ?? "",
+  dateFinish: interval.date_finish ?? "",
+  hourStart: formatHour(interval.hour_start),
+  hourFinish: formatHour(interval.hour_finish),
+  repeat: interval.week_days.length > 0,
+  weekDays: interval.week_days,
+});
+
+const buildIntervalPayload = (intervalForm: IntervalForm) =>
+  intervalForm.repeat
+    ? {
+        professional: Number(intervalForm.professionalId),
+        date_start: null,
+        date_finish: null,
+        hour_start: normalizeTime(intervalForm.hourStart),
+        hour_finish: normalizeTime(intervalForm.hourFinish),
+        week_days: intervalForm.weekDays,
+      }
+    : {
+        professional: Number(intervalForm.professionalId),
+        date_start: intervalForm.dateStart,
+        date_finish: intervalForm.dateFinish,
+        hour_start: normalizeTime(intervalForm.hourStart),
+        hour_finish: normalizeTime(intervalForm.hourFinish),
+        week_days: [],
+      };
+
 export function CreateProfessionalIntervalPage() {
   const router = useRouter();
   const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
@@ -110,6 +143,14 @@ export function CreateProfessionalIntervalPage() {
   const [intervalsLoading, setIntervalsLoading] = useState(false);
   const [intervalsError, setIntervalsError] = useState<string | null>(null);
   const [intervalsRefresh, setIntervalsRefresh] = useState(0);
+  const [intervalActionMessage, setIntervalActionMessage] = useState<string | null>(null);
+  const [editInterval, setEditInterval] = useState<ExistingInterval | null>(null);
+  const [editForm, setEditForm] = useState<IntervalForm>(createInitialForm);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [deleteInterval, setDeleteInterval] = useState<ExistingInterval | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   useEffect(() => {
     if (!accessToken || !selectedDate) return;
@@ -220,17 +261,17 @@ export function CreateProfessionalIntervalPage() {
     updateField("weekDays", nextDays);
   };
 
-  const validateForm = () => {
-    if (!form.professionalId) return "Selecione um profissional.";
-    if (!form.hourStart || !form.hourFinish) return "Informe o horário inicial e final.";
-    if (form.hourFinish <= form.hourStart) return "O horário final deve ser posterior ao inicial.";
-    if (form.repeat && form.weekDays.length === 0) {
+  const validateForm = (intervalForm: IntervalForm) => {
+    if (!intervalForm.professionalId) return "Selecione um profissional.";
+    if (!intervalForm.hourStart || !intervalForm.hourFinish) return "Informe o horário inicial e final.";
+    if (intervalForm.hourFinish <= intervalForm.hourStart) return "O horário final deve ser posterior ao inicial.";
+    if (intervalForm.repeat && intervalForm.weekDays.length === 0) {
       return "Selecione ao menos um dia para repetir.";
     }
-    if (!form.repeat && (!form.dateStart || !form.dateFinish)) {
+    if (!intervalForm.repeat && (!intervalForm.dateStart || !intervalForm.dateFinish)) {
       return "Informe a data inicial e final.";
     }
-    if (!form.repeat && form.dateFinish < form.dateStart) {
+    if (!intervalForm.repeat && intervalForm.dateFinish < intervalForm.dateStart) {
       return "A data final deve ser igual ou posterior à inicial.";
     }
     return null;
@@ -246,27 +287,13 @@ export function CreateProfessionalIntervalPage() {
       return;
     }
 
-    const validationError = validateForm();
+    const validationError = validateForm(form);
     if (validationError) {
       setSubmitError(validationError);
       return;
     }
 
-    const professionalId = Number(form.professionalId);
-    const payload = form.repeat
-      ? {
-          professional: professionalId,
-          hour_start: normalizeTime(form.hourStart),
-          hour_finish: normalizeTime(form.hourFinish),
-          week_days: form.weekDays,
-        }
-      : {
-          professional: professionalId,
-          date_start: form.dateStart,
-          date_finish: form.dateFinish,
-          hour_start: form.hourStart,
-          hour_finish: form.hourFinish,
-        };
+    const payload = buildIntervalPayload(form);
 
     setSubmitting(true);
     try {
@@ -292,6 +319,95 @@ export function CreateProfessionalIntervalPage() {
       setSubmitError(error instanceof Error ? error.message : "Erro inesperado ao criar intervalo.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEditInterval = (interval: ExistingInterval) => {
+    setIntervalActionMessage(null);
+    setEditError(null);
+    setEditForm(createEditForm(interval));
+    setEditInterval(interval);
+  };
+
+  const updateEditField = <Field extends keyof IntervalForm>(field: Field, value: IntervalForm[Field]) => {
+    setEditError(null);
+    setEditForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const toggleEditWeekDay = (dayValue: number) => {
+    const nextDays = editForm.weekDays.includes(dayValue)
+      ? editForm.weekDays.filter((value) => value !== dayValue)
+      : [...editForm.weekDays, dayValue].sort((first, second) => first - second);
+    updateEditField("weekDays", nextDays);
+  };
+
+  const handleEditInterval = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editInterval || !accessToken) {
+      setEditError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+
+    const validationError = validateForm(editForm);
+    if (validationError) {
+      setEditError(validationError);
+      return;
+    }
+
+    setEditSubmitting(true);
+    setEditError(null);
+    try {
+      const response = await fetchWithAuth(`${professionalIntervalsEndpointBase}${editInterval.id}/`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(buildIntervalPayload(editForm)),
+      });
+      if (!response.ok) {
+        const payload: unknown = await response.json().catch(() => null);
+        throw new Error(getApiErrorMessage(payload, "Não foi possível editar o intervalo."));
+      }
+
+      setEditInterval(null);
+      setIntervalActionMessage("Intervalo atualizado com sucesso.");
+      setIntervalsRefresh((current) => current + 1);
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : "Erro inesperado ao editar intervalo.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleDeleteInterval = async () => {
+    if (!deleteInterval || !accessToken) {
+      setDeleteError("Sessão expirada. Faça login novamente.");
+      return;
+    }
+
+    setDeleteSubmitting(true);
+    setDeleteError(null);
+    try {
+      const response = await fetchWithAuth(`${professionalIntervalsEndpointBase}${deleteInterval.id}/`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+      });
+      if (!response.ok) {
+        const payload: unknown = await response.json().catch(() => null);
+        throw new Error(getApiErrorMessage(payload, "Não foi possível excluir o intervalo."));
+      }
+
+      setDeleteInterval(null);
+      setIntervalActionMessage("Intervalo excluído com sucesso.");
+      setIntervalsRefresh((current) => current + 1);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "Erro inesperado ao excluir intervalo.");
+    } finally {
+      setDeleteSubmitting(false);
     }
   };
 
@@ -577,6 +693,12 @@ export function CreateProfessionalIntervalPage() {
             </label>
           </div>
           <div className="p-5 sm:p-7" aria-live="polite">
+            {intervalActionMessage ? (
+              <div className="mb-4 flex gap-3 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100" role="status">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{intervalActionMessage}</span>
+              </div>
+            ) : null}
             {intervalsLoading ? (
               <div className="grid gap-4 sm:grid-cols-2" role="status" aria-label="Carregando intervalos">
                 {[0, 1].map((index) => (
@@ -635,12 +757,215 @@ export function CreateProfessionalIntervalPage() {
                       <span className="hidden text-white/25 sm:inline">·</span>
                       <time dateTime={interval.created_at} className="text-white/55">{formatCreatedAt(interval.created_at)}</time>
                     </div>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openEditInterval(interval)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/[0.055] px-3 py-2.5 text-xs font-semibold text-white/75 transition hover:border-white/30 hover:bg-white/10 hover:text-white"
+                        aria-label={`Editar intervalo de ${interval.professional_name}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIntervalActionMessage(null);
+                          setDeleteError(null);
+                          setDeleteInterval(interval);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-500/[0.07] px-3 py-2.5 text-xs font-semibold text-red-200 transition hover:border-red-400/40 hover:bg-red-500/15"
+                        aria-label={`Excluir intervalo de ${interval.professional_name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Excluir
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
             )}
           </div>
         </section>
+
+        <Modal
+          open={Boolean(editInterval)}
+          onClose={() => {
+            if (editSubmitting) return;
+            setEditInterval(null);
+            setEditError(null);
+          }}
+          title="Editar intervalo"
+          subtitle={editInterval?.professional_name}
+          maxWidth="lg"
+        >
+          <form className="space-y-5" onSubmit={handleEditInterval}>
+            <label className="block text-sm text-white/70">
+              Profissional do intervalo
+              <span className="relative mt-2 block">
+                <select
+                  value={editForm.professionalId}
+                  onChange={(event) => updateEditField("professionalId", event.target.value)}
+                  className="w-full appearance-none rounded-2xl border border-white/10 bg-[#0b0b0b] px-4 py-3 pr-11 text-sm text-white outline-none transition focus:border-white/40"
+                >
+                  <option value="">Selecione um profissional</option>
+                  {professionals.map((professional) => (
+                    <option key={professional.id} value={professional.id}>{professional.user_name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+              </span>
+            </label>
+
+            <button
+              type="button"
+              onClick={() => updateEditField("repeat", !editForm.repeat)}
+              className="flex w-full items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-left"
+              aria-pressed={editForm.repeat}
+            >
+              <span>
+                <span className="block text-sm font-semibold text-white">Intervalo recorrente</span>
+                <span className="mt-0.5 block text-xs text-white/45">Repete nos mesmos dias da semana.</span>
+              </span>
+              <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${editForm.repeat ? "bg-white" : "bg-white/15"}`}>
+                <span className={`absolute top-1 h-5 w-5 rounded-full transition ${editForm.repeat ? "left-6 bg-black" : "left-1 bg-white/70"}`} />
+              </span>
+            </button>
+
+            {editForm.repeat ? (
+              <div>
+                <p className="text-sm text-white/70">Dias da semana</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {weekDays.map((day) => {
+                    const selected = editForm.weekDays.includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => toggleEditWeekDay(day.value)}
+                        className={`flex h-10 min-w-10 items-center justify-center rounded-full px-3 text-sm font-semibold transition ${selected ? "bg-white text-black" : "bg-white/10 text-white/70"}`}
+                        aria-pressed={selected}
+                        aria-label={day.label}
+                      >
+                        {day.shortLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-sm text-white/70">
+                  Data de início da edição
+                  <input
+                    type="date"
+                    value={editForm.dateStart}
+                    onChange={(event) => updateEditField("dateStart", event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none focus:border-white/40"
+                  />
+                </label>
+                <label className="text-sm text-white/70">
+                  Data final da edição
+                  <input
+                    type="date"
+                    min={editForm.dateStart}
+                    value={editForm.dateFinish}
+                    onChange={(event) => updateEditField("dateFinish", event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none focus:border-white/40"
+                  />
+                </label>
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm text-white/70">
+                Horário inicial da edição
+                <input
+                  type="time"
+                  value={editForm.hourStart}
+                  onChange={(event) => updateEditField("hourStart", event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none focus:border-white/40"
+                />
+              </label>
+              <label className="text-sm text-white/70">
+                Horário final da edição
+                <input
+                  type="time"
+                  value={editForm.hourFinish}
+                  onChange={(event) => updateEditField("hourFinish", event.target.value)}
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none focus:border-white/40"
+                />
+              </label>
+            </div>
+
+            {editError ? (
+              <p className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-100" role="alert">{editError}</p>
+            ) : null}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setEditInterval(null)}
+                disabled={editSubmitting}
+                className="flex-1 rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white/75 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={editSubmitting}
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-black disabled:opacity-60"
+              >
+                {editSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                {editSubmitting ? "Salvando..." : "Salvar alterações"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal
+          open={Boolean(deleteInterval)}
+          onClose={() => {
+            if (deleteSubmitting) return;
+            setDeleteInterval(null);
+            setDeleteError(null);
+          }}
+          title="Excluir intervalo"
+          subtitle={deleteInterval?.professional_name}
+          maxWidth="sm"
+        >
+          <p className="text-sm leading-relaxed text-white/70">
+            Este intervalo será excluído e deixará de bloquear a agenda. Deseja continuar?
+          </p>
+          {deleteInterval ? (
+            <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.035] px-4 py-3 text-sm">
+              <p className="font-medium text-white/85">{formatPeriod(deleteInterval)}</p>
+              <p className="mt-1 text-white/50">{formatHour(deleteInterval.hour_start)} às {formatHour(deleteInterval.hour_finish)}</p>
+            </div>
+          ) : null}
+          {deleteError ? (
+            <p className="mt-4 rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-100" role="alert">{deleteError}</p>
+          ) : null}
+          <div className="mt-5 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setDeleteInterval(null)}
+              disabled={deleteSubmitting}
+              className="flex-1 rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white/75 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDeleteInterval()}
+              disabled={deleteSubmitting}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-red-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-400 disabled:opacity-60"
+            >
+              {deleteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleteSubmitting ? "Excluindo..." : "Excluir intervalo"}
+            </button>
+          </div>
+        </Modal>
       </div>
     </DashboardShell>
   );

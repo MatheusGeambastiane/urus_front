@@ -114,7 +114,8 @@ export type AppointmentsResponse = {
   scheduled_by_professional?: Array<{
     id: number;
     name: string;
-    total: number;
+    count: number;
+    total: string;
   }>;
   professional_intervals?: ProfessionalIntervalForDay[];
   day_restriction: {
