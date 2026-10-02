@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth-options";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { PwaRegister } from "@/components/providers/pwa-register";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 
 const dashboardDisplay = Barlow_Condensed({
   subsets: ["latin"],
@@ -54,6 +55,7 @@ export default async function RootLayout({
         <AuthSessionProvider session={session}>{children}</AuthSessionProvider>
         <PwaRegister />
         <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
