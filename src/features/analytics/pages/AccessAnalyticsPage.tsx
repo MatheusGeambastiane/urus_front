@@ -10,7 +10,9 @@ import {
   Clock3,
   FileWarning,
   MousePointerClick,
+  Route,
   SlidersHorizontal,
+  UserRoundCheck,
 } from "lucide-react";
 import {
   Bar,
@@ -40,6 +42,19 @@ type AnalyticsData = {
   error_kinds: Array<{ kind: string; count: number }>;
   by_day: Array<{ date: string; accesses: number; appointments: number; errors: number }>;
   by_day_hour: Array<{ date: string; hour: number; accesses: number }>;
+  funnel: Array<{
+    event_type: string;
+    label: string;
+    count: number;
+    conversion_from_previous: number | null;
+    dropoff_from_previous: number | null;
+  }>;
+  page_accesses: Array<{
+    event_type: string;
+    path: string;
+    accesses: number;
+    unique_visits: number;
+  }>;
 };
 
 type AccessError = {
@@ -60,6 +75,13 @@ type PaginatedErrors = {
 };
 
 const quickFilters = [7, 30, 90] as const;
+
+const flowStepLabels: Record<string, string> = {
+  home_view: "Página inicial",
+  service_selected: "Serviço selecionado",
+  time_selected: "Horário escolhido",
+  professional_selected: "Profissional escolhido",
+};
 
 const formatDate = (date: string) =>
   new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
@@ -210,7 +232,8 @@ export function AccessAnalyticsPage() {
   const cards = data
     ? [
         { label: "Total de acessos", value: data.totals.accesses, icon: MousePointerClick },
-        { label: "Marcaram atendimento", value: data.totals.accesses_with_appointment, icon: CheckCircle2 },
+        { label: "Autenticaram no fluxo", value: data.funnel.find((step) => step.event_type === "authenticated")?.count ?? 0, icon: UserRoundCheck },
+        { label: "Concluíram o agendamento", value: data.funnel.find((step) => step.event_type === "appointment_completed")?.count ?? data.totals.accesses_with_appointment, icon: CheckCircle2 },
         { label: "Acessos com erro", value: data.totals.accesses_with_errors, icon: AlertTriangle },
         { label: "Erros registrados", value: data.totals.errors, icon: BarChart3 },
       ]
@@ -249,7 +272,7 @@ export function AccessAnalyticsPage() {
         {loading && !data ? (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Carregando contagens">
             {cards.length === 0
-              ? Array.from({ length: 4 }, (_, index) => (
+              ? Array.from({ length: 5 }, (_, index) => (
                   <div key={index} className="h-32 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.025]" />
                 ))
               : null}
@@ -257,7 +280,7 @@ export function AccessAnalyticsPage() {
         ) : null}
 
         {data ? (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             {cards.map(({ label, value, icon: Icon }) => (
               <article key={label} className="relative overflow-hidden rounded-2xl border border-[#e5e7eb]/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.09),rgba(255,255,255,0.025)_55%)] p-4 lg:p-5">
                 <div className="absolute right-0 top-0 h-20 w-20 rounded-full bg-[#e5e7eb]/[0.06] blur-2xl" />
@@ -320,8 +343,21 @@ export function AccessAnalyticsPage() {
 
         {data ? (
           <>
+            <FlowFunnel steps={data.funnel} />
+
             <div className="grid gap-5 xl:grid-cols-2">
+              <CountTable
+                title="Acessos por página do fluxo"
+                description="Sessões únicas que chegaram a cada página ou ação de agendamento."
+                empty="Nenhum acesso ao fluxo no período"
+                rows={data.page_accesses.map((row) => ({
+                  label: `${flowStepLabels[row.event_type] ?? row.event_type} · ${row.path} · ${row.unique_visits} ${row.unique_visits === 1 ? "sessão" : "sessões"}`,
+                  count: row.accesses,
+                }))}
+              />
               <CountTable title="Origem / UTM" empty="Nenhuma origem no período" rows={data.utm_origins.map((row) => ({ label: formatOrigin(row.origin), count: row.count }))} />
+            </div>
+            <div className="grid gap-5 xl:grid-cols-1">
               <CountTable
                 title="Erros por tipo"
                 description="Clique em um tipo para consultar os logs capturados."
@@ -479,6 +515,47 @@ export function AccessAnalyticsPage() {
 }
 
 type CountRow = { label: string; count: number };
+
+function FlowFunnel({ steps }: { steps: AnalyticsData["funnel"] }) {
+  const max = Math.max(1, ...steps.map((step) => step.count));
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+      <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e5e7eb]/15 bg-[#e5e7eb]/10 text-[#e5e7eb]">
+          <Route className="h-4 w-4" />
+        </span>
+        <div>
+          <h2 className="font-semibold text-white">Fluxo de agendamento</h2>
+          <p className="mt-0.5 text-xs text-white/40">Sessões únicas por etapa e perda em relação à etapa anterior.</p>
+        </div>
+      </div>
+      <ol className="grid gap-2 p-4 lg:grid-cols-6">
+        {steps.map((step, index) => {
+          const width = Math.max(10, (step.count / max) * 100);
+          return (
+            <li key={step.event_type} className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-black/20 p-3.5">
+              <div className="absolute inset-x-0 bottom-0 h-1 bg-white/[0.05]">
+                <span className="block h-full bg-emerald-400/70" style={{ width: `${width}%` }} />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-semibold tabular-nums text-white/30">0{index + 1}</span>
+                {step.conversion_from_previous !== null ? (
+                  <span className="text-[10px] font-semibold tabular-nums text-emerald-200/70">{step.conversion_from_previous}%</span>
+                ) : null}
+              </div>
+              <strong className="mt-3 block text-3xl font-semibold tabular-nums text-white">{step.count}</strong>
+              <p className="mt-1 min-h-8 text-xs leading-4 text-white/55">{step.label}</p>
+              {step.dropoff_from_previous !== null ? (
+                <p className="mt-2 text-[10px] text-white/30">{step.dropoff_from_previous} abandonos</p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
 
 function AccessHeatmap({
   days,
