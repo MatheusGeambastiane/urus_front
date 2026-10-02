@@ -690,7 +690,11 @@ function CountTable({
         {description ? <p className="mt-1 text-xs text-white/40">{description}</p> : null}
       </div>
       {rows.length ? (
-        <ul className="divide-y divide-white/[0.06]">
+        <ul
+          aria-label={`${title}: lista de resultados`}
+          tabIndex={rows.length > 7 ? 0 : undefined}
+          className="max-h-[320px] divide-y divide-white/[0.06] overflow-y-auto overscroll-contain [scrollbar-color:rgba(255,255,255,0.18)_transparent] [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-white/30"
+        >
           {rows.map((row) => (
             <li key={row.label}>
               {onRowClick ? (
