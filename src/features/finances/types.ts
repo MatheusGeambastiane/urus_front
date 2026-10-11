@@ -8,6 +8,24 @@ export type SellBreakdown = {
   total: number;
 };
 
+export type FinanceRevenueForecast = {
+  projected_revenue: string;
+  projected_expenses: string;
+  lower_bound: string;
+  upper_bound: string;
+  projected_appointments: number;
+  appointments_lower_bound: number;
+  appointments_upper_bound: number;
+  projected_daily_average: string;
+  daily_average_lower_bound: string;
+  daily_average_upper_bound: string;
+  scheduled_appointments_count: number;
+  scheduled_revenue: string;
+  confidence: "low" | "medium";
+  as_of: string;
+  methodology: "previous_month_weekday_pace";
+};
+
 export type FinanceSummary = {
   month: string;
   revenue: string;
@@ -18,6 +36,7 @@ export type FinanceSummary = {
   new_clients_count?: number;
   returning_clients_count?: number;
   sell_transactions_count: number;
+  forecast?: FinanceRevenueForecast | null;
   appointments_average_per_day?: string;
   appointments_ticket_average?: string;
   appointments_sell_ticket_average?: string;

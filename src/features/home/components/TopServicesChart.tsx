@@ -5,26 +5,31 @@ import type { SummaryServiceHighlight } from "@/src/features/home/types";
 type TopServicesChartProps = {
   items: SummaryServiceHighlight[];
   loading: boolean;
+  showAllForPeriod: boolean;
 };
 
-export function TopServicesChart({ items, loading }: TopServicesChartProps) {
+export function TopServicesChart({ items, loading, showAllForPeriod }: TopServicesChartProps) {
   const maxValue = items.reduce((current, item) => Math.max(current, item.total), 1);
 
   return (
     <section className="rounded-[28px] border border-white/8 bg-[#090909] p-5 shadow-card lg:rounded-[20px] lg:border-white/[0.07] lg:bg-[#0a0a0a]">
       <div>
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40 lg:text-[#e5e7eb]/70">
-          Top serviços
+          {showAllForPeriod ? "Serviços executados" : "Top serviços"}
         </p>
-        <p className="home-display mt-1 text-lg font-semibold text-white lg:text-2xl">Mais executados</p>
+        <p className="home-display mt-1 text-lg font-semibold text-white lg:text-2xl">
+          {showAllForPeriod ? "Todos no período" : "Mais executados"}
+        </p>
       </div>
 
       {loading ? (
         <p className="mt-6 text-sm text-white/60">Carregando...</p>
       ) : items.length === 0 ? (
-        <p className="mt-6 text-sm text-white/60">Nenhum serviço destacado hoje.</p>
+        <p className="mt-6 text-sm text-white/60">
+          {showAllForPeriod ? "Nenhum serviço executado no período." : "Nenhum serviço destacado hoje."}
+        </p>
       ) : (
-        <div className="mt-6 space-y-4">
+        <div className={`mt-6 space-y-4 ${showAllForPeriod ? "max-h-[28rem] overflow-y-auto pr-2 [scrollbar-color:rgba(255,255,255,0.2)_transparent] [scrollbar-width:thin]" : ""}`}>
           {items.map((service, index) => {
             const widthPercent = Math.max((service.total / maxValue) * 100, 8);
             const isPrimary = index === 0;

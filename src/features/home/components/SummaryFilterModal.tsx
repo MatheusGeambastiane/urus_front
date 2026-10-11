@@ -125,7 +125,7 @@ export function SummaryFilterModal({
 
       {mode === "day" ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div>
             <label className="block text-sm text-white/70">
               Data (dd/mm/aaaa)
               <input
@@ -135,29 +135,6 @@ export function SummaryFilterModal({
                 placeholder="dd/mm/aaaa"
                 className="mt-1 w-full rounded-2xl border border-white/15 bg-transparent px-3 py-3 text-sm outline-none focus:border-white/40"
               />
-            </label>
-
-            <label className="flex min-h-[76px] cursor-pointer items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3">
-              <span className="min-w-0">
-                <span className="block text-xs font-semibold text-white">Comparar média</span>
-              </span>
-              <input
-                type="checkbox"
-                checked={compareEnabled}
-                onChange={(event) => onCompareEnabledChange(event.target.checked)}
-                className="sr-only"
-              />
-              <span
-                className={`relative h-6 w-10 shrink-0 rounded-full border transition ${
-                  compareEnabled ? "border-white bg-white" : "border-white/15 bg-white/10"
-                }`}
-              >
-                <span
-                  className={`absolute left-1 top-1 h-4 w-4 rounded-full transition ${
-                    compareEnabled ? "translate-x-4 bg-black" : "bg-white"
-                  }`}
-                />
-              </span>
             </label>
           </div>
 
@@ -299,6 +276,34 @@ export function SummaryFilterModal({
           </div>
         </div>
       )}
+
+      <label className="mt-4 flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition hover:border-white/20">
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold text-white">Comparar média</span>
+          <span className="mt-0.5 block text-[11px] text-white/40">
+            {mode === "day"
+              ? "Mesmo dia da semana dentro do mês"
+              : "Média dos dois meses anteriores"}
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={compareEnabled}
+          onChange={(event) => onCompareEnabledChange(event.target.checked)}
+          className="sr-only"
+        />
+        <span
+          className={`relative h-6 w-10 shrink-0 rounded-full border transition ${
+            compareEnabled ? "border-white bg-white" : "border-white/15 bg-white/10"
+          }`}
+        >
+          <span
+            className={`absolute left-1 top-1 h-4 w-4 rounded-full transition ${
+              compareEnabled ? "translate-x-4 bg-black" : "bg-white"
+            }`}
+          />
+        </span>
+      </label>
 
       {error ? (
         <p className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">

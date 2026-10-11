@@ -29,11 +29,26 @@ export type SummaryServiceHighlight = {
   total: number;
 };
 
+export type SummaryProductSale = {
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  total_value: string;
+};
+
 export type DailySummaryComparisonMetric = {
   current: string;
   compared: string;
   difference: string;
   percentage: string | null;
+};
+
+export type SummaryComparisonMetrics = {
+  revenue: string;
+  appointments_value: string;
+  sell_value: string;
+  total_appointments: number | string;
+  total_services_performed: number | string;
 };
 
 export type DailySummaryComparedDay = {
@@ -47,40 +62,54 @@ export type DailySummaryComparedDay = {
     revenue: string;
     appointments_value: string;
     sell_value: string;
-    total_services_performed?: number | string;
+    total_appointments: number | string;
+    total_services_performed: number | string;
   };
 };
 
-export type DailySummaryComparison = {
-  type: string;
-  weekday?: number;
-  weekday_name?: string;
+type SummaryComparisonBase = {
   current_period: {
     type: string;
     start: string;
     end: string;
-    metrics: {
-      revenue: string;
-      appointments_value: string;
-      sell_value: string;
-      total_services_performed: number | string;
-    };
+    metrics: SummaryComparisonMetrics;
   };
-  compared_days: DailySummaryComparedDay[];
-  compared_days_count: number;
-  compared_average: {
-    revenue: string;
-    appointments_value: string;
-    sell_value: string;
-    total_services_performed: number | string;
-  };
+  compared_average: SummaryComparisonMetrics;
   variation: {
     revenue: DailySummaryComparisonMetric;
     appointments_value: DailySummaryComparisonMetric;
     sell_value: DailySummaryComparisonMetric;
+    total_appointments: DailySummaryComparisonMetric;
     total_services_performed: DailySummaryComparisonMetric;
   };
 };
+
+export type SameWeekdaySummaryComparison = SummaryComparisonBase & {
+  type: "same_weekday_in_month";
+  weekday: number;
+  weekday_name: string;
+  compared_days: DailySummaryComparedDay[];
+  compared_days_count: number;
+};
+
+export type SummaryComparedPeriod = {
+  type: string;
+  start: string;
+  end: string;
+  metrics: SummaryComparisonMetrics;
+};
+
+export type PreviousMonthsSummaryComparison = SummaryComparisonBase & {
+  type: "two_previous_months_average" | "same_ordinal_week_average";
+  mode: SummaryComparisonMode;
+  ordinal_week: number | null;
+  compared_periods: SummaryComparedPeriod[];
+  compared_periods_count: number;
+};
+
+export type DailySummaryComparison =
+  | SameWeekdaySummaryComparison
+  | PreviousMonthsSummaryComparison;
 
 export type DailySummaryResponse = {
   period: {
@@ -95,12 +124,14 @@ export type DailySummaryResponse = {
   revenue: string;
   appointments_value: string;
   sell_value: string;
+  total_appointments: number;
   total_services_performed: number;
   appointments_by_payment_type: SummaryPaymentSplit[];
   sell_by_payment_type: SummarySellPaymentSplit[];
   next_appointment: SummaryNextAppointment | null;
   appointments_by_professional: SummaryProfessionalBreakdown[];
   top_services: SummaryServiceHighlight[];
+  top_products: SummaryProductSale[];
   comparison?: DailySummaryComparison | null;
 };
 
@@ -111,6 +142,7 @@ export type QuickActionKey =
   | "create-product";
 
 export type SummaryFilterMode = "day" | "month" | "range";
+export type SummaryComparisonMode = "days" | "weeks";
 
 export type HomeWeeklyFilter = {
   day: string | null;

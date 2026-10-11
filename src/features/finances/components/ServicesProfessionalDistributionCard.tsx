@@ -4,9 +4,9 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
 } from "recharts";
+import { ChartResponsiveContainer } from "@/src/features/shared/components/ChartResponsiveContainer";
 import { pieChartColors } from "@/src/features/finances/utils/finances";
 import type { ServiceProfessionalDistribution } from "@/src/features/finances/types";
 
@@ -45,7 +45,7 @@ export function ServicesProfessionalDistributionCard({
       ) : (
         <div className="relative mt-4 grid gap-4 sm:grid-cols-2">
           <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartResponsiveContainer>
               <PieChart>
                 <Pie data={data} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={4}>
                   {data.map((entry, index) => (
@@ -64,7 +64,7 @@ export function ServicesProfessionalDistributionCard({
                   }}
                 />
               </PieChart>
-            </ResponsiveContainer>
+            </ChartResponsiveContainer>
           </div>
           <div className="space-y-3 text-sm text-white/80">
             {data.map((item, index) => (

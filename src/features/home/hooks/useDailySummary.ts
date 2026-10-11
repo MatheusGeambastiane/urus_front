@@ -5,7 +5,12 @@ import { env } from "@/lib/env";
 import type { TokenRefreshService } from "@/src/features/shared/utils/auth";
 import { convertDisplayDateToIso, formatDateParam, formatDisplayDate, formatIsoToDisplay } from "@/src/features/shared/utils/date";
 import { addMonths, parseIsoDate, summaryFilterMonthOptions } from "@/src/features/home/utils/home";
-import type { DailySummaryResponse, HomeWeeklyFilter, SummaryFilterMode } from "@/src/features/home/types";
+import type {
+  DailySummaryResponse,
+  HomeWeeklyFilter,
+  SummaryComparisonMode,
+  SummaryFilterMode,
+} from "@/src/features/home/types";
 
 type UseDailySummaryParams = {
   accessToken: string | null;
@@ -33,6 +38,8 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
   const [activeSummaryRangeEnd, setActiveSummaryRangeEnd] = useState<string | null>(null);
   const [activeSummaryCompare, setActiveSummaryCompare] = useState(false);
   const [pendingSummaryCompare, setPendingSummaryCompare] = useState(false);
+  const [activeComparisonMode, setActiveComparisonMode] = useState<SummaryComparisonMode>("days");
+  const [showComparisonModeModal, setShowComparisonModeModal] = useState(false);
   const [summaryFilterError, setSummaryFilterError] = useState<string | null>(null);
 
   const summaryFilterYears = useMemo(() => {
@@ -66,6 +73,9 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
         }
         if (activeSummaryCompare) {
           url.searchParams.set("compare", "true");
+          if (activeSummaryRangeStart && activeSummaryRangeEnd) {
+            url.searchParams.set("comparison_mode", activeComparisonMode);
+          }
         }
 
         const response = await fetchWithAuth(url.toString(), {
@@ -105,6 +115,7 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     activeSummaryRangeStart,
     activeSummaryRangeEnd,
     activeSummaryCompare,
+    activeComparisonMode,
     fetchWithAuth,
   ]);
 
@@ -151,6 +162,29 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
   };
 
   const handleCloseSummaryFilters = () => {
+    setShowSummaryFilters(false);
+  };
+
+  const isMondayToSaturdayRange = (start: Date, end: Date) =>
+    start.getDay() === 1 && end.getDay() === 6 &&
+    Math.round(
+      (
+        Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
+        Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
+      ) / 86_400_000,
+    ) === 5;
+
+  const applySummaryRange = (comparisonMode: SummaryComparisonMode) => {
+    if (!summaryRangeStart || !summaryRangeEnd) {
+      return;
+    }
+    setActiveSummaryRangeStart(formatDateParam(summaryRangeStart));
+    setActiveSummaryRangeEnd(formatDateParam(summaryRangeEnd));
+    setActiveSummaryDay(null);
+    setActiveSummaryMonth(null);
+    setActiveSummaryCompare(pendingSummaryCompare);
+    setActiveComparisonMode(comparisonMode);
+    setShowComparisonModeModal(false);
     setShowSummaryFilters(false);
   };
 
@@ -213,6 +247,7 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
         setActiveSummaryRangeStart(null);
         setActiveSummaryRangeEnd(null);
         setActiveSummaryCompare(true);
+        setActiveComparisonMode("days");
         setShowSummaryFilters(false);
         return;
       }
@@ -228,6 +263,7 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
       setActiveSummaryRangeStart(null);
       setActiveSummaryRangeEnd(null);
       setActiveSummaryCompare(pendingSummaryCompare);
+      setActiveComparisonMode("days");
       setShowSummaryFilters(false);
       return;
     }
@@ -238,12 +274,16 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
         return;
       }
 
-      setActiveSummaryRangeStart(formatDateParam(summaryRangeStart));
-      setActiveSummaryRangeEnd(formatDateParam(summaryRangeEnd));
-      setActiveSummaryDay(null);
-      setActiveSummaryMonth(null);
-      setActiveSummaryCompare(pendingSummaryCompare);
-      setShowSummaryFilters(false);
+      if (
+        pendingSummaryCompare &&
+        isMondayToSaturdayRange(summaryRangeStart, summaryRangeEnd)
+      ) {
+        setShowSummaryFilters(false);
+        setShowComparisonModeModal(true);
+        return;
+      }
+
+      applySummaryRange("days");
       return;
     }
 
@@ -257,7 +297,17 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     setActiveSummaryRangeStart(null);
     setActiveSummaryRangeEnd(null);
     setActiveSummaryCompare(pendingSummaryCompare);
+    setActiveComparisonMode("days");
     setShowSummaryFilters(false);
+  };
+
+  const handleSelectComparisonMode = (mode: SummaryComparisonMode) => {
+    applySummaryRange(mode);
+  };
+
+  const handleCancelComparisonMode = () => {
+    setShowComparisonModeModal(false);
+    setShowSummaryFilters(true);
   };
 
   const handleClearSummaryFilters = () => {
@@ -267,11 +317,25 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     setActiveSummaryRangeEnd(null);
     setActiveSummaryCompare(false);
     setPendingSummaryCompare(false);
+    setActiveComparisonMode("days");
+    setShowComparisonModeModal(false);
     setSummaryDayInput("");
     setSummaryMonthYear("");
     setSummaryMonthValue("");
     setSummaryRangeStart(null);
     setSummaryRangeEnd(null);
+    setSummaryFilterError(null);
+  };
+
+  const handleSelectSummaryDay = (day: string) => {
+    setActiveSummaryDay(day);
+    setActiveSummaryMonth(null);
+    setActiveSummaryRangeStart(null);
+    setActiveSummaryRangeEnd(null);
+    setSummaryFilterMode("day");
+    setActiveComparisonMode("days");
+    setSummaryDayInput(formatIsoToDisplay(day));
+    setShowSummaryFilters(false);
     setSummaryFilterError(null);
   };
 
@@ -284,9 +348,21 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
           ? `Filtrando por período: ${formatIsoToDisplay(activeSummaryRangeStart)} até ${formatIsoToDisplay(activeSummaryRangeEnd)}`
           : null;
 
+  const comparisonDescription = activeSummaryCompare
+    ? activeSummaryDay || (!activeSummaryMonth && !activeSummaryRangeStart)
+      ? "Comparando com a média do mesmo dia da semana no mês"
+      : `Comparando com a média dos 2 meses anteriores${
+          activeSummaryRangeStart
+            ? activeComparisonMode === "weeks"
+              ? " por semanas"
+              : " por dias"
+            : ""
+        }`
+    : null;
+
   const filterDescription = [
     periodFilterDescription,
-    activeSummaryCompare ? "Comparando com a média do mesmo dia da semana no mês" : null,
+    comparisonDescription,
   ].filter(Boolean).join(" • ") || null;
 
   const overviewTitle =
@@ -329,6 +405,8 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     pendingSummaryCompare,
     setPendingSummaryCompare,
     activeSummaryCompare,
+    activeComparisonMode,
+    showComparisonModeModal,
     activeSummaryDay,
     activeSummaryMonth,
     activeSummaryRangeStart,
@@ -343,7 +421,10 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     handleSummaryRangePrevMonth,
     handleSummaryRangeNextMonth,
     handleApplySummaryFilters,
+    handleSelectComparisonMode,
+    handleCancelComparisonMode,
     handleClearSummaryFilters,
+    handleSelectSummaryDay,
     handleSetCurrentSummaryMonth,
   };
 }

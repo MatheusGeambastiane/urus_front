@@ -7,11 +7,11 @@ import {
   Cell,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { ChartResponsiveContainer } from "@/src/features/shared/components/ChartResponsiveContainer";
 import { FileText } from "lucide-react";
 import type { ProfessionalServiceSummary, RepasseDetail } from "@/src/features/repasses/types";
 import {
@@ -220,7 +220,7 @@ export function RepasseAnalyticsPanel({
                 </p>
               ) : (
                 <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ChartResponsiveContainer>
                     <BarChart data={weeklyRevenueData} barCategoryGap={18}>
                       <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
                       <XAxis
@@ -247,7 +247,7 @@ export function RepasseAnalyticsPanel({
                         minPointSize={weeklyRevenueData.some((item) => item.total > 0) ? 0 : 2}
                       />
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ChartResponsiveContainer>
                 </div>
               )}
             </div>
@@ -315,7 +315,7 @@ export function RepasseAnalyticsPanel({
           </p>
         ) : (
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartResponsiveContainer>
               <BarChart data={servicesBreakdown}>
                 <XAxis dataKey="service_name" tick={{ fill: "#A1A1AA", fontSize: 12 }} />
                 <YAxis tick={{ fill: "#A1A1AA", fontSize: 12 }} />
@@ -329,7 +329,7 @@ export function RepasseAnalyticsPanel({
                   ))}
                 </Bar>
               </BarChart>
-            </ResponsiveContainer>
+            </ChartResponsiveContainer>
           </div>
         )}
       </fieldset>
@@ -343,7 +343,7 @@ export function RepasseAnalyticsPanel({
         ) : (
           <div className="flex flex-col items-center gap-6">
             <div className="h-56 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ChartResponsiveContainer>
                 <PieChart>
                   <Pie data={categoriesBreakdown} dataKey="total" nameKey="category_name" innerRadius={60} outerRadius={90} paddingAngle={4}>
                     {categoriesBreakdown.map((item, index) => (
@@ -357,7 +357,7 @@ export function RepasseAnalyticsPanel({
                     contentStyle={{ backgroundColor: "#111", borderRadius: 12, border: "1px solid #333" }}
                   />
                 </PieChart>
-              </ResponsiveContainer>
+              </ChartResponsiveContainer>
             </div>
             <div className="w-full space-y-3 text-sm text-white/80">
               {categoriesBreakdown.map((item, index) => (

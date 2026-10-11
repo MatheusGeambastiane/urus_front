@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CalendarDays, Package, Scissors } from "lucide-react";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 import type { DailySummaryComparison, DailySummaryComparisonMetric } from "@/src/features/home/types";
@@ -44,26 +45,62 @@ const getToneClass = (metric: DailySummaryComparisonMetric) => {
   return "border-rose-400/20 bg-rose-400/10 text-rose-200";
 };
 
+const formatPeriodLabel = (start: string, end: string) => {
+  const startDate = start.slice(0, 10);
+  const endDate = end.slice(0, 10);
+  if (startDate === endDate) {
+    return formatShortDate(startDate);
+  }
+  return `${formatShortDate(startDate)}–${formatShortDate(endDate)}`;
+};
+
 export function SummaryComparisonCard({ comparison }: SummaryComparisonCardProps) {
+  const [activeChartItemKey, setActiveChartItemKey] = useState<string | null>(null);
   const sellVariation = comparison.variation.sell_value;
   const servicesVariation = comparison.variation.total_services_performed;
-  const currentDate = comparison.current_period.start.slice(0, 10);
+  const isSameWeekdayComparison = comparison.type === "same_weekday_in_month";
+  const comparisonTitle = isSameWeekdayComparison
+    ? `Média de ${comparison.weekday_name}`
+    : comparison.type === "same_ordinal_week_average"
+      ? `${comparison.ordinal_week ? `${comparison.ordinal_week}ª semana` : "Semanas equivalentes"} · média dos 2 meses anteriores`
+      : "Média dos 2 meses anteriores";
+  const comparedChartItems = isSameWeekdayComparison
+    ? comparison.compared_days.map((day) => ({
+        key: day.date,
+        label: formatShortDate(day.date),
+        revenue: Number(day.metrics.revenue),
+        revenueLabel: formatCurrency(day.metrics.revenue),
+        appointments: Number(day.metrics.total_appointments),
+        services: Number(day.metrics.total_services_performed),
+        salesLabel: formatCurrency(day.metrics.sell_value),
+        isCurrent: false,
+      }))
+    : comparison.compared_periods.map((period) => ({
+        key: `${period.start}-${period.end}`,
+        label: formatPeriodLabel(period.start, period.end),
+        revenue: Number(period.metrics.revenue),
+        revenueLabel: formatCurrency(period.metrics.revenue),
+        appointments: Number(period.metrics.total_appointments),
+        services: Number(period.metrics.total_services_performed),
+        salesLabel: formatCurrency(period.metrics.sell_value),
+        isCurrent: false,
+      }));
   const revenueChartItems = [
-    ...comparison.compared_days.map((day) => ({
-      date: day.date,
-      label: formatShortDate(day.date),
-      revenue: Number(day.metrics.revenue),
-      revenueLabel: formatCurrency(day.metrics.revenue),
-      isCurrent: false,
-    })),
+    ...comparedChartItems,
     {
-      date: currentDate,
-      label: "Hoje",
+      key: "current-period",
+      label: isSameWeekdayComparison
+        ? formatShortDate(comparison.current_period.start)
+        : formatPeriodLabel(comparison.current_period.start, comparison.current_period.end),
       revenue: Number(comparison.current_period.metrics.revenue),
       revenueLabel: formatCurrency(comparison.current_period.metrics.revenue),
+      appointments: Number(comparison.current_period.metrics.total_appointments),
+      services: Number(comparison.current_period.metrics.total_services_performed),
+      salesLabel: formatCurrency(comparison.current_period.metrics.sell_value),
       isCurrent: true,
     },
   ];
+  const activeChartItem = revenueChartItems.find((item) => item.key === activeChartItemKey) ?? null;
   const maxRevenue = revenueChartItems.reduce((current, item) => {
     if (Number.isNaN(item.revenue)) {
       return current;
@@ -82,12 +119,16 @@ export function SummaryComparisonCard({ comparison }: SummaryComparisonCardProps
             Comparativo
           </p>
           <p className="home-display mt-2 text-lg font-semibold tracking-tight text-white lg:text-2xl">
-            Média de {comparison.weekday_name ?? "dias anteriores"}
+            {comparisonTitle}
           </p>
         </div>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.04] p-4">
+      <div
+        className="mt-5 rounded-2xl border border-white/8 bg-white/[0.04] p-4"
+        role="group"
+        aria-label="Faturamento por data"
+      >
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/40">
             <span className="lg:hidden">Revenue por data</span>
@@ -99,45 +140,94 @@ export function SummaryComparisonCard({ comparison }: SummaryComparisonCardProps
         </div>
 
         {revenueChartItems.length > 0 ? (
-          <div className="mt-4 flex h-40 items-end gap-3">
-            {revenueChartItems.map((item) => {
-              const barHeight = maxRevenue > 0 && !Number.isNaN(item.revenue)
-                ? Math.max((item.revenue / maxRevenue) * 100, 8)
-                : 8;
-
-              return (
-                <div
-                  key={`${item.date}-${item.isCurrent ? "current" : "compared"}`}
-                  className="group flex min-w-0 flex-1 flex-col items-center"
-                >
-                  <div className="mb-2 min-h-[20px] text-center">
-                    <span className="rounded-md bg-black px-2 py-1 text-[10px] font-semibold text-white opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
-                      {item.revenueLabel}
-                    </span>
-                  </div>
-                  <div className="flex h-28 w-full items-end overflow-hidden rounded-[14px] bg-black/25 px-1">
-                    <div
-                      className={`w-full rounded-t-[12px] transition-all duration-300 ${
-                        item.isCurrent
-                          ? "bg-emerald-300 shadow-[0_0_22px_rgba(110,231,183,0.22)] lg:bg-[#e5e7eb] lg:shadow-[0_0_22px_rgba(255,255,255,0.22)]"
-                          : "bg-white shadow-[0_0_20px_rgba(255,255,255,0.14)]"
-                      }`}
-                      style={{ height: `${barHeight}%` }}
-                    />
-                  </div>
-                  <span
-                    className={`mt-3 text-center text-[10px] font-semibold uppercase tracking-[0.04em] ${
-                      item.isCurrent ? "text-emerald-200 lg:text-[#f4f4f5]" : "text-white/45"
-                    }`}
-                  >
-                    {item.label}
-                  </span>
+          <div className="mt-3">
+            <div
+              className="flex min-h-[76px] items-center rounded-xl border border-white/[0.06] bg-black/20 px-3 py-2"
+              aria-live="polite"
+            >
+              {activeChartItem ? (
+                <div className="w-full">
+                  <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
+                    {activeChartItem.label}
+                  </p>
+                  <dl className="mt-2 grid grid-cols-3 gap-2">
+                    <div>
+                      <dt className="text-[9px] uppercase tracking-wide text-white/35">Agendamentos</dt>
+                      <dd className="mt-0.5 text-sm font-semibold text-white">
+                        {formatNumber(activeChartItem.appointments)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[9px] uppercase tracking-wide text-white/35">Serviços</dt>
+                      <dd className="mt-0.5 text-sm font-semibold text-white">
+                        {formatNumber(activeChartItem.services)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[9px] uppercase tracking-wide text-white/35">Vendas</dt>
+                      <dd className="mt-0.5 truncate text-sm font-semibold text-white">
+                        {activeChartItem.salesLabel}
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
-              );
-            })}
+              ) : (
+                <p className="w-full text-center text-[11px] text-white/35">
+                  <span className="sm:hidden">Toque em uma barra para ver os totais do período.</span>
+                  <span className="hidden sm:inline">Passe o mouse sobre uma barra para ver os totais do período.</span>
+                </p>
+              )}
+            </div>
+
+            <div className="mt-3 flex h-40 items-end gap-3">
+              {revenueChartItems.map((item) => {
+                const barHeight = maxRevenue > 0 && !Number.isNaN(item.revenue)
+                  ? Math.max((item.revenue / maxRevenue) * 100, 8)
+                  : 8;
+                const isActive = activeChartItemKey === item.key;
+
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-label={`${item.label}: ${formatNumber(item.appointments)} agendamentos, ${formatNumber(item.services)} serviços e ${item.salesLabel} em vendas`}
+                    aria-pressed={isActive}
+                    className="group flex min-w-0 flex-1 flex-col items-center rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70"
+                    onMouseEnter={() => setActiveChartItemKey(item.key)}
+                    onMouseLeave={() => setActiveChartItemKey((current) => current === item.key ? null : current)}
+                    onFocus={() => setActiveChartItemKey(item.key)}
+                    onBlur={() => setActiveChartItemKey((current) => current === item.key ? null : current)}
+                    onClick={() => setActiveChartItemKey(item.key)}
+                  >
+                    <div className="mb-2 min-h-[20px] text-center">
+                      <span className={`rounded-md bg-black px-2 py-1 text-[10px] font-semibold text-white transition ${isActive ? "opacity-100" : "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"}`}>
+                        {item.revenueLabel}
+                      </span>
+                    </div>
+                    <div className={`flex h-28 w-full items-end overflow-hidden rounded-[14px] border bg-black/25 px-1 transition ${isActive ? "border-emerald-200/50" : "border-transparent"}`}>
+                      <div
+                        className={`w-full rounded-t-[12px] transition-all duration-300 ${
+                          item.isCurrent
+                            ? "bg-emerald-300 shadow-[0_0_22px_rgba(110,231,183,0.22)] lg:bg-[#e5e7eb] lg:shadow-[0_0_22px_rgba(255,255,255,0.22)]"
+                            : "bg-white shadow-[0_0_20px_rgba(255,255,255,0.14)]"
+                        }`}
+                        style={{ height: `${barHeight}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`mt-3 text-center text-[10px] font-semibold uppercase tracking-[0.04em] ${
+                        item.isCurrent ? "text-emerald-200 lg:text-[#f4f4f5]" : "text-white/45"
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-white/55">Sem dias comparados.</p>
+          <p className="mt-4 text-sm text-white/55">Sem períodos comparados.</p>
         )}
       </div>
 

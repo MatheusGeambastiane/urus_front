@@ -11,6 +11,15 @@ test.describe("Financeiro", () => {
     await page.goto("/dashboard/financeiro");
     await expect(page.getByText("Panorama do mês")).toBeVisible();
     await expect(page.getByText("vs mesmo período anterior")).toBeVisible();
+    await expect(page.getByText("Previsão de fechamento")).toBeVisible();
+    await expect(page.getByText("R$ 2.450,00")).toBeVisible();
+    await expect(page.getByText("Despesa possível")).toBeVisible();
+    await expect(page.getByText("R$ 980,00")).toBeVisible();
+    await expect(page.getByText("Faixa provável: R$ 2.200,00 – R$ 2.725,00")).toBeVisible();
+    await expect(page.getByText("Atendimentos possíveis")).toBeVisible();
+    await expect(page.getByText("faixa 24–32")).toBeVisible();
+    await expect(page.getByText("Média diária possível")).toBeVisible();
+    await expect(page.getByText("faixa 0,92–1,23")).toBeVisible();
 
     await page.getByRole("button", { name: "Selecionar mês" }).click();
     const modal = page.getByRole("heading", { name: "Selecionar mês" }).locator("xpath=../../..");
@@ -22,6 +31,7 @@ test.describe("Financeiro", () => {
     await expect(page.getByText("4.321,00", { exact: true })).toBeVisible();
     await expect(page.getByText("+R$ 3.321,00")).toBeVisible();
     await expect(page.getByText("42 atendimentos")).toBeVisible();
+    await expect(page.getByText("Previsão de fechamento")).not.toBeVisible();
 
     const calls = await mockRequests(request);
     expect(

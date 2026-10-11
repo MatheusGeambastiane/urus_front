@@ -5,11 +5,11 @@ import {
   Bar,
   BarChart,
   Cell,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { ChartResponsiveContainer } from "@/src/features/shared/components/ChartResponsiveContainer";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 
 type ResourceDistributionItem = {
@@ -44,7 +44,7 @@ export function ResourceDistributionChart({ items }: ResourceDistributionChartPr
       ) : (
         <>
           <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartResponsiveContainer>
               <BarChart data={items}>
                 <XAxis dataKey="label" tick={{ fill: "#A1A1AA", fontSize: 12 }} />
                 <YAxis tick={{ fill: "#A1A1AA", fontSize: 12 }} />
@@ -77,7 +77,7 @@ export function ResourceDistributionChart({ items }: ResourceDistributionChartPr
                   ))}
                 </Bar>
               </BarChart>
-            </ResponsiveContainer>
+            </ChartResponsiveContainer>
           </div>
           {selectedResourceCount ? (
             <p className="mt-2 text-xs text-white/60">

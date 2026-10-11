@@ -12,6 +12,7 @@ type ChartItem = {
   displayValue: string;
   isToday: boolean;
   barHeight: number;
+  filterDate: string | null;
 };
 
 type OverviewHighlight = {
@@ -25,6 +26,7 @@ type HomeOverviewCardProps = {
   totalValue: string;
   appointmentsValue: string;
   sellValue: string;
+  totalAppointments: number;
   totalServices: number;
   highlights?: OverviewHighlight[];
   revenueComparison?: DailySummaryComparisonMetric | null;
@@ -34,11 +36,13 @@ type HomeOverviewCardProps = {
   filterDescription: string | null;
   onOpenFilters: () => void;
   onClearFilters: () => void;
+  onSelectChartDay: (day: string) => void;
 };
 
 type OverviewHeaderProps = {
   title: string;
   totalValue: string;
+  totalAppointments: number;
   totalServices: number;
   revenueComparison?: DailySummaryComparisonMetric | null;
   onOpenFilters: () => void;
@@ -55,11 +59,13 @@ type PeriodChartBodyProps = {
   chartItems: ChartItem[];
   loading: boolean;
   error: string | null;
+  onSelectDay: (day: string) => void;
 };
 
 function OverviewHeader({
   title,
   totalValue,
+  totalAppointments,
   totalServices,
   revenueComparison,
   onOpenFilters,
@@ -121,9 +127,16 @@ function OverviewHeader({
             <Filter className="h-3.5 w-3.5" />
             Filtros
           </button>
-          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[11px] font-medium text-white/55 lg:hidden">
-            {totalServices} serviços
-          </span>
+          <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 lg:hidden">
+            <div className="flex items-baseline justify-end gap-1.5 text-white">
+              <strong className="home-display text-base font-semibold">{totalAppointments}</strong>
+              <span className="text-xs text-white/25">/</span>
+              <span className="home-display text-xs font-medium text-white/65">{totalServices}</span>
+            </div>
+            <p className="mt-0.5 text-[8px] uppercase tracking-[0.12em] text-white/35">
+              Agend. / serviços
+            </p>
+          </div>
         </div>
       </div>
     </>
@@ -145,7 +158,7 @@ function FilterDescription({ description, onClear, compact = false }: FilterDesc
   );
 }
 
-function PeriodChartBody({ chartItems, loading, error }: PeriodChartBodyProps) {
+function PeriodChartBody({ chartItems, loading, error, onSelectDay }: PeriodChartBodyProps) {
   const sliderRef = useRef<HTMLDivElement | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const pages = useMemo(() => {
@@ -241,7 +254,14 @@ function PeriodChartBody({ chartItems, loading, error }: PeriodChartBodyProps) {
           >
             <div className="grid grid-cols-7 gap-2">
               {page.map((item) => (
-                <div key={item.key} className="group min-w-0">
+                <button
+                  key={item.key}
+                  type="button"
+                  disabled={!item.filterDate}
+                  onClick={() => item.filterDate && onSelectDay(item.filterDate)}
+                  aria-label={item.filterDate ? `Filtrar resumo pelo dia ${item.label}` : undefined}
+                  className="group min-w-0 text-left disabled:cursor-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
                   <div className="mb-2 min-h-[24px] text-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                     <span
                       className={`rounded-md px-2 py-1 text-[11px] font-medium ${
@@ -251,7 +271,7 @@ function PeriodChartBody({ chartItems, loading, error }: PeriodChartBodyProps) {
                       {item.displayValue}
                     </span>
                   </div>
-                  <div className="flex h-36 items-end overflow-hidden rounded-[14px] bg-white/[0.05] px-1">
+                  <div className={`flex h-36 items-end overflow-hidden rounded-[14px] bg-white/[0.05] px-1 transition ${item.filterDate ? "cursor-pointer group-hover:bg-white/[0.09]" : ""}`}>
                     <div
                       className={`block w-full rounded-t-[12px] transition-all duration-300 ${
                         item.isToday
@@ -271,7 +291,7 @@ function PeriodChartBody({ chartItems, loading, error }: PeriodChartBodyProps) {
                   >
                     {item.label}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -286,6 +306,7 @@ export function HomeOverviewCard({
   totalValue,
   appointmentsValue,
   sellValue,
+  totalAppointments,
   totalServices,
   highlights = [],
   revenueComparison,
@@ -295,12 +316,31 @@ export function HomeOverviewCard({
   filterDescription,
   onOpenFilters,
   onClearFilters,
+  onSelectChartDay,
 }: HomeOverviewCardProps) {
   const summaryCards = [
-    { title: "Serviços", value: appointmentsValue, label: "Valor em atendimentos" },
-    { title: "Produtos", value: sellValue, label: "Valor em vendas" },
-    { title: "Total serviços", value: String(totalServices), label: "Executados no período" },
-    ...highlights.slice(0, 2),
+    { key: "appointments-value", title: "Serviços", value: appointmentsValue, label: "Valor em atendimentos" },
+    { key: "products-value", title: "Produtos", value: sellValue, label: "Valor em vendas" },
+    {
+      key: "appointments-services-total",
+      title: "Total agendamentos / serviços",
+      value: (
+        <div className="flex items-baseline gap-2 whitespace-nowrap">
+          <strong className="home-display text-4xl font-semibold leading-none text-white">
+            {totalAppointments}
+          </strong>
+          <span className="text-xl font-light text-white/20">/</span>
+          <span className="home-display text-2xl font-medium leading-none text-white/60">
+            {totalServices}
+          </span>
+        </div>
+      ),
+      label: "Agendamentos / serviços executados no período",
+    },
+    ...highlights.slice(0, 2).map((highlight, index) => ({
+      ...highlight,
+      key: `highlight-${index}-${highlight.title}`,
+    })),
   ];
 
   return (
@@ -309,6 +349,7 @@ export function HomeOverviewCard({
         <OverviewHeader
           title={title}
           totalValue={totalValue}
+          totalAppointments={totalAppointments}
           totalServices={totalServices}
           revenueComparison={revenueComparison}
           onOpenFilters={onOpenFilters}
@@ -333,7 +374,12 @@ export function HomeOverviewCard({
           </div>
         </div>
 
-        <PeriodChartBody chartItems={chartItems} loading={loading} error={error} />
+        <PeriodChartBody
+          chartItems={chartItems}
+          loading={loading}
+          error={error}
+          onSelectDay={onSelectChartDay}
+        />
       </section>
 
       <div className="hidden lg:col-span-12 lg:grid lg:grid-cols-12 lg:gap-5">
@@ -341,6 +387,7 @@ export function HomeOverviewCard({
           <OverviewHeader
             title={title}
             totalValue={totalValue}
+            totalAppointments={totalAppointments}
             totalServices={totalServices}
             revenueComparison={revenueComparison}
             onOpenFilters={onOpenFilters}
@@ -354,15 +401,15 @@ export function HomeOverviewCard({
         <div className="grid min-w-0 gap-5 lg:col-span-12 lg:grid-cols-3 xl:col-span-8 xl:grid-cols-2 2xl:grid-cols-3">
           {summaryCards.map((card) => (
             <article
-              key={`${card.title}-${card.value}`}
+              key={card.key}
               className="group flex min-w-0 flex-col justify-center rounded-[26px] border border-white/8 bg-[#090909] p-5 shadow-card lg:rounded-[20px] lg:bg-[#0a0a0a] lg:transition lg:duration-300 lg:hover:-translate-y-0.5 lg:hover:border-[#e5e7eb]/25 lg:hover:bg-[#0a0a0a]"
             >
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/35">
                 {card.title}
               </p>
-              <p className="home-display mt-4 break-words text-xl font-semibold tracking-tight text-white lg:text-[1.7rem] lg:leading-none 2xl:text-3xl">
+              <div className="home-display mt-4 break-words text-xl font-semibold tracking-tight text-white lg:text-[1.7rem] lg:leading-none 2xl:text-3xl">
                 {card.value}
-              </p>
+              </div>
               <p className="mt-2 break-words text-xs leading-relaxed text-white/45">{card.label}</p>
             </article>
           ))}
@@ -372,7 +419,7 @@ export function HomeOverviewCard({
   );
 }
 
-export function PeriodChartCard({ chartItems, loading, error }: PeriodChartBodyProps) {
+export function PeriodChartCard({ chartItems, loading, error, onSelectDay }: PeriodChartBodyProps) {
   return (
     <section className="relative h-full overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.06),transparent_32%),linear-gradient(180deg,#0b0b0b,#060606)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] lg:rounded-[20px] lg:border-white/[0.07] lg:bg-[#0a0a0a]">
       <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-white/[0.03] blur-3xl" />
@@ -385,7 +432,7 @@ export function PeriodChartCard({ chartItems, loading, error }: PeriodChartBodyP
           Últimos 7 dias
         </span>
       </div>
-      <PeriodChartBody chartItems={chartItems} loading={loading} error={error} />
+      <PeriodChartBody chartItems={chartItems} loading={loading} error={error} onSelectDay={onSelectDay} />
     </section>
   );
 }

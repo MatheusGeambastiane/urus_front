@@ -331,6 +331,23 @@ const server = createServer(async (request, response) => {
       new_clients_count: 3,
       returning_clients_count: 9,
       sell_transactions_count: 4,
+      forecast: month === "2026-10" ? {
+        projected_revenue: "2450.00",
+        projected_expenses: "980.00",
+        lower_bound: "2200.00",
+        upper_bound: "2725.00",
+        projected_appointments: 28,
+        appointments_lower_bound: 24,
+        appointments_upper_bound: 32,
+        projected_daily_average: "1.08",
+        daily_average_lower_bound: "0.92",
+        daily_average_upper_bound: "1.23",
+        scheduled_appointments_count: 6,
+        scheduled_revenue: "390.00",
+        confidence: "medium",
+        as_of: "2026-10-11",
+        methodology: "previous_month_weekday_pace",
+      } : null,
       appointments_average_per_day: "2.50",
       appointments_ticket_average: "65.00",
       appointments_sell_ticket_average: "82.00",
@@ -421,7 +438,45 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === "/dashboard/bills/") return send(request, response, 200, []);
   if (url.pathname === "/dashboard/summary/daily/") {
-    return send(request, response, 200, { revenue: "0", total_services_performed: 0, appointments_by_professional: [], top_services: [] });
+    const compare = url.searchParams.get("compare") === "true";
+    const comparisonMode = url.searchParams.get("comparison_mode") ?? "days";
+    const isRange = url.searchParams.has("start_date");
+    const isMonth = url.searchParams.has("month");
+    const comparison = compare && (isRange || isMonth) ? {
+      type: comparisonMode === "weeks" ? "same_ordinal_week_average" : "two_previous_months_average",
+      mode: comparisonMode,
+      ordinal_week: comparisonMode === "weeks" ? 1 : null,
+      current_period: {
+        type: isRange ? "range" : "month",
+        start: isRange ? "2026-10-05T00:00:00-03:00" : "2026-10-01T00:00:00-03:00",
+        end: isRange ? "2026-10-10T23:59:59-03:00" : "2026-10-11T23:59:59-03:00",
+        metrics: { revenue: "1200.00", appointments_value: "1000.00", sell_value: "200.00", total_appointments: 15, total_services_performed: 18 },
+      },
+      compared_periods: [
+        { type: "range", start: "2026-08-03T00:00:00-03:00", end: "2026-08-08T23:59:59-03:00", metrics: { revenue: "800.00", appointments_value: "700.00", sell_value: "100.00", total_appointments: 10, total_services_performed: 12 } },
+        { type: "range", start: "2026-09-07T00:00:00-03:00", end: "2026-09-12T23:59:59-03:00", metrics: { revenue: "1000.00", appointments_value: "850.00", sell_value: "150.00", total_appointments: 12, total_services_performed: 14 } },
+      ],
+      compared_periods_count: 2,
+      compared_average: { revenue: "900.00", appointments_value: "775.00", sell_value: "125.00", total_appointments: 11, total_services_performed: 13 },
+      variation: {
+        revenue: { current: "1200.00", compared: "900.00", difference: "300.00", percentage: "33.33" },
+        appointments_value: { current: "1000.00", compared: "775.00", difference: "225.00", percentage: "29.03" },
+        sell_value: { current: "200.00", compared: "125.00", difference: "75.00", percentage: "60.00" },
+        total_appointments: { current: "15", compared: "11", difference: "4", percentage: "36.36" },
+        total_services_performed: { current: "18", compared: "13", difference: "5", percentage: "38.46" },
+      },
+    } : undefined;
+    return send(request, response, 200, {
+      revenue: comparison ? "1200.00" : "0",
+      appointments_value: comparison ? "1000.00" : "0",
+      sell_value: comparison ? "200.00" : "0",
+      total_appointments: comparison ? 15 : 0,
+      total_services_performed: comparison ? 18 : 0,
+      appointments_by_professional: [],
+      top_services: [],
+      top_products: [],
+      ...(comparison ? { comparison } : {}),
+    });
   }
 
   return send(request, response, 200, {});

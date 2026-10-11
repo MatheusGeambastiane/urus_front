@@ -7,12 +7,14 @@ import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatDateParam } from "@/src/features/shared/utils/date";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 import { HighlightsRow } from "@/src/features/home/components/HighlightsRow";
+import { ComparisonModeModal } from "@/src/features/home/components/ComparisonModeModal";
 import { HomeOverviewCard, PeriodChartCard } from "@/src/features/home/components/HomeOverviewCard";
 import { NextAppointmentCard } from "@/src/features/home/components/NextAppointmentCard";
 import { ProfessionalBreakdownChart } from "@/src/features/home/components/ProfessionalBreakdownChart";
 import { QuickActions } from "@/src/features/home/components/QuickActions";
 import { SummaryFilterModal } from "@/src/features/home/components/SummaryFilterModal";
 import { SummaryComparisonCard } from "@/src/features/home/components/SummaryComparisonCard";
+import { TopProductSalesTable } from "@/src/features/home/components/TopProductSalesTable";
 import { TopServicesChart } from "@/src/features/home/components/TopServicesChart";
 import { useDailySummary } from "@/src/features/home/hooks/useDailySummary";
 import { useLast7Days } from "@/src/features/home/hooks/useLast7Days";
@@ -112,6 +114,8 @@ export function HomePage({ firstName }: HomePageProps) {
     const safeHeight = maxWeeklyCount > 0 ? (item.count / maxWeeklyCount) * 100 : 0;
     const isRange = Boolean(item.start_date || item.end_date);
     const isMonthFilter = Boolean(dailySummary.weeklyFilter.month);
+    const filterDate = item.date ?? (startDate === endDate ? startDate : null);
+    const highlightedDate = dailySummary.activeSummaryDay ?? todayKey;
 
     return {
       key: `${startDate ?? "item"}-${endDate ?? "item"}`,
@@ -122,8 +126,9 @@ export function HomePage({ firstName }: HomePageProps) {
         : getWeekdayNumberLabel(item.day),
       totalValue: item.count,
       displayValue: String(item.count),
-      isToday: itemDate === todayKey || startDate === todayKey,
+      isToday: itemDate === highlightedDate || startDate === highlightedDate,
       barHeight: safeHeight,
+      filterDate,
     };
   });
 
@@ -211,6 +216,7 @@ export function HomePage({ firstName }: HomePageProps) {
           totalValue={revenueValue}
           appointmentsValue={appointmentsValue}
           sellValue={sellValue}
+          totalAppointments={dailySummary.dailySummary?.total_appointments ?? 0}
           totalServices={dailySummary.dailySummary?.total_services_performed ?? 0}
           highlights={highlightCards}
           revenueComparison={comparison?.variation.revenue ?? null}
@@ -220,6 +226,7 @@ export function HomePage({ firstName }: HomePageProps) {
           filterDescription={dailySummary.filterDescription}
           onOpenFilters={dailySummary.handleOpenSummaryFilters}
           onClearFilters={dailySummary.handleClearSummaryFilters}
+          onSelectChartDay={dailySummary.handleSelectSummaryDay}
         />
 
         <div className="hidden lg:col-span-7 lg:block xl:col-span-8">
@@ -227,6 +234,7 @@ export function HomePage({ firstName }: HomePageProps) {
             chartItems={chartItems}
             loading={dailySummary.dailySummaryLoading || last7Days.last7DaysLoading}
             error={dailySummary.dailySummaryError ?? last7Days.last7DaysError}
+            onSelectDay={dailySummary.handleSelectSummaryDay}
           />
         </div>
 
@@ -258,7 +266,7 @@ export function HomePage({ firstName }: HomePageProps) {
         ) : null}
 
         {userRole !== "professional" ? (
-          <div className="lg:col-span-6">
+          <div className="lg:col-span-4">
             <ProfessionalBreakdownChart
               items={dailySummary.dailySummary?.appointments_by_professional ?? []}
               loading={dailySummary.dailySummaryLoading}
@@ -266,10 +274,25 @@ export function HomePage({ firstName }: HomePageProps) {
           </div>
         ) : null}
 
-        <div className={userRole !== "professional" ? "lg:col-span-6" : "lg:col-span-8"}>
+        <div className={userRole !== "professional" ? "lg:col-span-4" : "lg:col-span-6"}>
           <TopServicesChart
             items={dailySummary.dailySummary?.top_services ?? []}
             loading={dailySummary.dailySummaryLoading}
+            showAllForPeriod={Boolean(
+              dailySummary.activeSummaryMonth ||
+              (dailySummary.activeSummaryRangeStart && dailySummary.activeSummaryRangeEnd),
+            )}
+          />
+        </div>
+
+        <div className={userRole !== "professional" ? "lg:col-span-4" : "lg:col-span-6"}>
+          <TopProductSalesTable
+            items={dailySummary.dailySummary?.top_products ?? []}
+            loading={dailySummary.dailySummaryLoading}
+            isPeriod={Boolean(
+              dailySummary.activeSummaryMonth ||
+              (dailySummary.activeSummaryRangeStart && dailySummary.activeSummaryRangeEnd),
+            )}
           />
         </div>
       </div>
@@ -299,6 +322,14 @@ export function HomePage({ firstName }: HomePageProps) {
         onNextMonth={dailySummary.handleSummaryRangeNextMonth}
         onSelectDayDate={dailySummary.handleSelectSummaryDayDate}
         onSelectRangeDate={dailySummary.handleSelectSummaryRangeDate}
+      />
+
+      <ComparisonModeModal
+        open={dailySummary.showComparisonModeModal}
+        rangeStart={dailySummary.summaryRangeStart}
+        rangeEnd={dailySummary.summaryRangeEnd}
+        onSelect={dailySummary.handleSelectComparisonMode}
+        onCancel={dailySummary.handleCancelComparisonMode}
       />
     </DashboardShell>
   );

@@ -5,11 +5,11 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { ChartResponsiveContainer } from "@/src/features/shared/components/ChartResponsiveContainer";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 
 type PaymentDistributionItem = {
@@ -59,7 +59,7 @@ export function PaymentDistributionCard({
         </p>
       ) : (
         <div className="mt-5 h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
+          <ChartResponsiveContainer>
             <BarChart data={data} barGap={5} barCategoryGap="24%">
               <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.07)" />
               <XAxis
@@ -94,7 +94,7 @@ export function PaymentDistributionCard({
               <Bar dataKey="services" fill="#6ee7b7" radius={[7, 7, 2, 2]} maxBarSize={46} />
               <Bar dataKey="sales" fill="#d4d4d8" radius={[7, 7, 2, 2]} maxBarSize={46} />
             </BarChart>
-          </ResponsiveContainer>
+          </ChartResponsiveContainer>
         </div>
       )}
     </section>

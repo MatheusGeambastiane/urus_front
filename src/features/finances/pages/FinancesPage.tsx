@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, FileText, Plus } from "lucide-react";
+import { Calendar, FileText, Plus, TrendingUp } from "lucide-react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { useFinanceSummary } from "@/src/features/finances/hooks/useFinanceSummary";
@@ -84,6 +84,13 @@ export function FinancesPage({ firstName }: Props) {
   const hasPreviousRevenueComparison = revenueDifferencePreviousMonthPeriod !== null;
   const revenueDifferenceTone = revenueDifferenceValue >= 0 ? "text-emerald-200" : "text-rose-200";
   const revenueDifferencePrefix = revenueDifferenceValue > 0 ? "+" : "";
+  const revenueForecast = finance.summary?.forecast ?? null;
+  const forecastConfidenceLabel = revenueForecast?.confidence === "medium" ? "Confiança média" : "Confiança baixa";
+  const formatForecastAverage = (value: string) =>
+    Number(value).toLocaleString("pt-BR", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 2,
+    });
 
   const years = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -177,6 +184,61 @@ export function FinancesPage({ firstName }: Props) {
                     </span>
                   </span>
                 </button>
+              ) : null}
+              {revenueForecast ? (
+                <div className="mt-4 max-w-xl border-l border-emerald-300/30 pl-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200/80">
+                      <TrendingUp className="h-3.5 w-3.5" />
+                      Previsão de fechamento
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-white/50">
+                      {forecastConfidenceLabel}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-end gap-x-5 gap-y-2">
+                    <p className="text-2xl font-semibold tracking-tight text-white">
+                      {formatCurrency(revenueForecast.projected_revenue)}
+                    </p>
+                    <div className="border-l border-rose-300/20 pl-3">
+                      <p className="text-[9px] font-medium uppercase tracking-[0.14em] text-rose-200/50">
+                        Despesa possível
+                      </p>
+                      <p className="mt-0.5 text-base font-semibold tracking-tight text-rose-300">
+                        {formatCurrency(revenueForecast.projected_expenses)}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-white/58">
+                    Faixa provável: {formatCurrency(revenueForecast.lower_bound)} – {formatCurrency(revenueForecast.upper_bound)}
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 border-t border-white/[0.07] pt-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.13em] text-white/35">
+                        Atendimentos possíveis
+                      </p>
+                      <p className="mt-1 text-sm font-semibold tabular-nums text-white/85">
+                        {revenueForecast.projected_appointments}
+                        <span className="ml-1.5 text-[11px] font-normal text-white/38">
+                          faixa {revenueForecast.appointments_lower_bound}–{revenueForecast.appointments_upper_bound}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.13em] text-white/35">
+                        Média diária possível
+                      </p>
+                      <p className="mt-1 text-sm font-semibold tabular-nums text-white/85">
+                        {formatForecastAverage(revenueForecast.projected_daily_average)}
+                        <span className="ml-1 text-[11px] font-normal text-white/38">/dia</span>
+                        <span className="ml-1.5 block text-[11px] font-normal text-white/38 sm:inline">
+                          faixa {formatForecastAverage(revenueForecast.daily_average_lower_bound)}–
+                          {formatForecastAverage(revenueForecast.daily_average_upper_bound)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
               ) : null}
               <p className="mt-3 text-sm text-white/72">
                 Despesa em {expenseReferenceLabel}:{" "}

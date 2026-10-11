@@ -35,7 +35,7 @@ export function useLast7Days({ accessToken, fetchWithAuth, filters }: UseLast7Da
         } else if (filters.month) {
           url.searchParams.set("month", filters.month);
         } else if (filters.day) {
-          url.searchParams.set("day", filters.day);
+          url.searchParams.set("date", filters.day);
         }
 
         const response = await fetchWithAuth(url.toString(), {
