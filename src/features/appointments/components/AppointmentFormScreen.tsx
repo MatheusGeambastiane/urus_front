@@ -1233,7 +1233,7 @@ export function AppointmentFormScreen({ form, onBack }: AppointmentFormScreenPro
                   type="number"
                   min={1}
                   value={form.saleQuantityInput}
-                  onChange={(event) => form.setSaleQuantityInput(event.target.value)}
+                  onChange={form.handleSaleQuantityChange}
                   className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
                 />
               </label>

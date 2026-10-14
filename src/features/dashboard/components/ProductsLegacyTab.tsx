@@ -5884,9 +5884,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       }
       formData.append("transaction_payment", productSaleDetailForm.transactionPayment);
       formData.append("quantity", productSaleDetailForm.quantity);
-      if (productSaleDetailForm.userId) {
-        formData.append("user", productSaleDetailForm.userId);
-      }
+      formData.append("user", productSaleDetailForm.userId);
       if (productSaleDetailForm.productId) {
         formData.append("product", productSaleDetailForm.productId);
       }
@@ -5933,6 +5931,19 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const handleProductSalePriceChange = (event: ChangeEvent<HTMLInputElement>) => {
     const maskedValue = formatMoneyInputValue(event.target.value);
     setProductSalePriceInput(maskedValue);
+  };
+
+  const handleProductSaleQuantityChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const quantity = event.target.value;
+    setProductSaleQuantityInput(quantity);
+
+    const quantityValue = Number(quantity);
+    const unitPrice = Number(productSaleSelectedProduct?.price_to_sell ?? "0");
+    if (Number.isFinite(quantityValue) && quantityValue > 0 && Number.isFinite(unitPrice)) {
+      setProductSalePriceInput(
+        formatMoneyFromDecimalString((unitPrice * quantityValue).toFixed(2)),
+      );
+    }
   };
 
   const handleProductSaleDateChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -6062,7 +6073,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
   const handleSelectProductForSale = (product: ProductItem) => {
     setProductSaleSelectedProduct(product);
     setProductSaleProductModalOpen(false);
-    const maskedPrice = formatMoneyFromDecimalString(product.price_to_sell ?? "0");
+    const quantityValue = Number(productSaleQuantityInput);
+    const unitPrice = Number(product.price_to_sell ?? "0");
+    const total = Number.isFinite(quantityValue) && quantityValue > 0
+      ? unitPrice * quantityValue
+      : unitPrice;
+    const maskedPrice = formatMoneyFromDecimalString(total.toFixed(2));
     setProductSalePriceInput(maskedPrice);
   };
 
@@ -6628,10 +6644,8 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setProductSaleError("Escolha a forma de pagamento.");
       return;
     }
-    if (!productSaleSeller) {
-      setProductSaleError(
-        productSaleIsInternalSell ? "Selecione o comprador." : "Selecione o vendedor.",
-      );
+    if (productSaleIsInternalSell && !productSaleSeller) {
+      setProductSaleError("Selecione o comprador.");
       return;
     }
     const priceValue = parseCurrencyInput(productSalePriceInput);
@@ -6654,7 +6668,9 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
     formData.append("transaction_payment", productSalePayment);
     formData.append("quantity", quantityValue.toString());
     formData.append("is_internal_sell", productSaleIsInternalSell ? "true" : "false");
-    formData.append("user", String(productSaleSeller.id));
+    if (productSaleSeller) {
+      formData.append("user", String(productSaleSeller.id));
+    }
     formData.append("product", productSaleSelectedProduct.id.toString());
 
     setProductSaleSubmitting(true);
@@ -6774,7 +6790,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 quantity: sale.quantity,
                 price: sale.price,
                 transaction_payment: sale.paymentType,
-                ...(sale.userId ? { user: sale.userId } : {}),
+                user: sale.userId ?? null,
               })),
             }
           : {};
@@ -8264,7 +8280,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                 type="number"
                 min={1}
                 value={productSaleQuantityInput}
-                onChange={(event) => setProductSaleQuantityInput(event.target.value)}
+                onChange={handleProductSaleQuantityChange}
                 className="mt-1 w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm outline-none focus:border-white/40"
               />
             </label>
@@ -8305,7 +8321,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
 
             <div>
               <p className="text-sm text-white/70">
-                {productSaleIsInternalSell ? "Comprador" : "Vendedor"}
+                {productSaleIsInternalSell ? "Comprador" : "Vendedor (opcional)"}
               </p>
               <button
                 type="button"
@@ -8318,10 +8334,12 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
                   </div>
                   <div>
                     <p className="text-sm font-semibold">
-                      {productSaleSeller?.name ?? "Selecionar"}
+                      {productSaleSeller?.name ?? (productSaleIsInternalSell ? "Selecionar" : "Sem vendedor")}
                     </p>
                     <p className="text-xs text-white/60">
-                      {productSaleIsInternalSell ? "Escolha o comprador" : "Escolha o vendedor"}
+                      {productSaleIsInternalSell
+                        ? "Escolha o comprador"
+                        : "Selecione apenas se houver um responsável"}
                     </p>
                   </div>
                 </div>

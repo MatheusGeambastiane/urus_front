@@ -1262,7 +1262,24 @@ export function useAppointmentForm({
     setSelectedSaleProductId(productId);
     const product = saleProductsList.find((item) => item.id === productId);
     if (product) {
-      setSalePriceInput(product.price_to_sell ?? "");
+      const quantityValue = Number(saleQuantityInput);
+      const unitPrice = Number(product.price_to_sell ?? "0");
+      const total = Number.isFinite(quantityValue) && quantityValue > 0
+        ? unitPrice * quantityValue
+        : unitPrice;
+      setSalePriceInput(total.toFixed(2));
+    }
+  };
+
+  const handleSaleQuantityChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const quantity = event.target.value;
+    setSaleQuantityInput(quantity);
+
+    const product = saleProductsList.find((item) => item.id === selectedSaleProductId);
+    const quantityValue = Number(quantity);
+    const unitPrice = Number(product?.price_to_sell ?? "0");
+    if (Number.isFinite(quantityValue) && quantityValue > 0 && Number.isFinite(unitPrice)) {
+      setSalePriceInput((unitPrice * quantityValue).toFixed(2));
     }
   };
 
@@ -1404,7 +1421,7 @@ export function useAppointmentForm({
                 quantity: sale.quantity,
                 price: sale.price,
                 transaction_payment: normalizeTransactionPaymentTypeForApi(sale.paymentType),
-                ...(sale.userId ? { user: sale.userId } : {}),
+                user: sale.userId ?? null,
               })),
             }
           : {};
@@ -1636,7 +1653,7 @@ export function useAppointmentForm({
     handleSelectSaleProduct,
     setSaleProfessionalId,
     setSalePaymentSelect,
-    setSaleQuantityInput,
+    handleSaleQuantityChange,
     setSalePriceInput,
     handleAddSaleProduct,
     handleSubmitAppointment,

@@ -127,9 +127,11 @@ export function useUserDetail({ userId, accessToken, fetchWithAuth }: UseUserDet
             : { headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${accessToken}` } }),
         });
         if (!response.ok) {
-          const data = await response.json().catch(() => null);
-          const detail = (data && (data.detail || data.message)) || "Não foi possível atualizar o usuário.";
-          return { success: false, error: detail };
+          const data: unknown = await response.json().catch(() => null);
+          return {
+            success: false,
+            error: getApiErrorMessage(data, "Não foi possível atualizar o usuário."),
+          };
         }
         const updated: UserDetail = await response.json();
         setUserDetail(updated);
@@ -168,9 +170,11 @@ export function useUserDetail({ userId, accessToken, fetchWithAuth }: UseUserDet
           body: JSON.stringify(payload),
         });
         if (!response.ok) {
-          const data = await response.json().catch(() => null);
-          const detail = (data && (data.detail || data.message)) || "Não foi possível salvar o perfil.";
-          return { success: false, error: detail };
+          const data: unknown = await response.json().catch(() => null);
+          return {
+            success: false,
+            error: getApiErrorMessage(data, "Não foi possível salvar o perfil."),
+          };
         }
         const updated: ProfessionalProfileDetail = await response.json();
         setUserDetail((prev) => (prev ? { ...prev, professional_profile: updated } : prev));
