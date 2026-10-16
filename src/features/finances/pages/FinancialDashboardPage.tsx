@@ -10,35 +10,56 @@ import {
   ReceiptText,
   RefreshCw,
   Scissors,
+  Settings2,
   TrendingUp,
   UsersRound,
-  WalletCards,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from "recharts";
 
 import { FeedbackBanner } from "@/components/ui/FeedbackBanner";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { MonthSelectorModal } from "@/src/features/finances/components/MonthSelectorModal";
+import { PaymentMethodFeesModal } from "@/src/features/finances/components/PaymentMethodFeesModal";
 import { useFinancialDashboard } from "@/src/features/finances/hooks/useFinancialDashboard";
+import { usePaymentMethodFees } from "@/src/features/finances/hooks/usePaymentMethodFees";
 import { formatMonthParam, getMonthLabel } from "@/src/features/finances/utils/finances";
 import { ChartResponsiveContainer } from "@/src/features/shared/components/ChartResponsiveContainer";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 
 const money = (value: string | number) => formatCurrency(String(value));
+const todayIso = () => {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+};
 
 export function FinancialDashboardPage() {
   const router = useRouter();
   const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
+  const [mode, setMode] = useState<"month" | "range">("month");
   const [month, setMonth] = useState(() => formatMonthParam(new Date()));
+  const [startDate, setStartDate] = useState(() => `${formatMonthParam(new Date())}-01`);
+  const [endDate, setEndDate] = useState(todayIso);
   const [monthModalOpen, setMonthModalOpen] = useState(false);
   const [yearInput, setYearInput] = useState(() => month.slice(0, 4));
   const [monthInput, setMonthInput] = useState(() => month.slice(5, 7));
   const [monthError, setMonthError] = useState<string | null>(null);
+  const [feesModalOpen, setFeesModalOpen] = useState(false);
+  const filter = useMemo(
+    () => mode === "month"
+      ? { mode, month } as const
+      : { mode, startDate, endDate } as const,
+    [endDate, mode, month, startDate],
+  );
   const { data, loading, error, refresh } = useFinancialDashboard({
     accessToken,
     fetchWithAuth,
-    month,
+    filter,
+    enabled: userRole === "admin",
+  });
+  const paymentFeeSettings = usePaymentMethodFees({
+    accessToken,
+    fetchWithAuth,
     enabled: userRole === "admin",
   });
 
@@ -69,14 +90,11 @@ export function FinancialDashboardPage() {
 
   const summary = data?.summary;
   const headlineCards = [
-    { label: "Faturamento geral", value: summary?.total_revenue ?? "0", detail: "Serviços + produtos", icon: Landmark, tone: "text-[#ead39e]" },
-    { label: "Custos operacionais", value: summary?.operating_cost ?? "0", detail: "Contas, repasses e ajuda", icon: ReceiptText, tone: "text-rose-200" },
     { label: "Lucro geral", value: summary?.total_profit ?? "0", detail: `${Number(summary?.profit_margin ?? 0).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% de margem`, icon: TrendingUp, tone: Number(summary?.total_profit ?? 0) >= 0 ? "text-emerald-300" : "text-rose-300" },
-    { label: "Custo dos produtos", value: summary?.product_cost ?? "0", detail: "Aquisição do estoque vendido", icon: WalletCards, tone: "text-sky-200" },
   ];
   const profitCards = [
-    { label: "Serviços", revenue: summary?.service_revenue ?? "0", profit: summary?.service_profit ?? "0", icon: Scissors, note: "Após repasse de serviços" },
-    { label: "Produtos", revenue: summary?.product_revenue ?? "0", profit: summary?.product_profit ?? "0", icon: PackageCheck, note: "Após estoque e repasse" },
+    { label: "Serviços", revenue: summary?.service_revenue ?? "0", profit: summary?.service_profit ?? "0", icon: Scissors, note: `Líquido ${money(summary?.service_net_revenue ?? 0)} · após taxas de pagamento` },
+    { label: "Produtos", revenue: summary?.product_revenue ?? "0", profit: summary?.product_profit ?? "0", icon: PackageCheck, note: `Líquido ${money(summary?.product_net_revenue ?? 0)} · após taxas de pagamento` },
   ];
   const costs = data?.costs;
   const costItems = [
@@ -86,6 +104,7 @@ export function FinancialDashboardPage() {
     { label: "Ajuda de custo", value: costs?.allowances ?? "0", color: "#fbbf24" },
     { label: "Gorjetas", value: costs?.tips ?? "0", color: "#f472b6" },
     { label: "Custo dos produtos", value: costs?.product_cost ?? "0", color: "#34d399" },
+    { label: "Taxas de pagamento", value: costs?.payment_fees ?? "0", color: "#22d3ee" },
   ];
   const maxCost = Math.max(...costItems.map((item) => Number(item.value)), 1);
   const professionalChart = data?.professionals.map((item) => ({
@@ -109,20 +128,61 @@ export function FinancialDashboardPage() {
               <h1 className="mt-1 text-2xl font-semibold tracking-tight">Dashboard financeiro</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={openMonthSelector} className="flex h-10 items-center gap-2 rounded-2xl border border-white/10 px-3 text-sm text-white/70 transition hover:border-white/25 hover:text-white">
-              <CalendarDays className="h-4 w-4 text-[#d8b873]" />
-              <span className="capitalize">{getMonthLabel(month)}</span>
-            </button>
-            <button type="button" onClick={() => void refresh()} disabled={loading} className="grid h-10 w-10 place-items-center rounded-2xl border border-white/10 text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-40" aria-label="Atualizar dashboard">
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+        </header>
+
+        <section className="rounded-[22px] border border-white/8 bg-white/[0.025] p-3 lg:flex lg:items-end lg:justify-between lg:gap-5">
+          <div className="inline-flex rounded-[14px] border border-white/8 bg-black/20 p-1">
+            {(["month", "range"] as const).map((item) => (
+              <button key={item} type="button" onClick={() => setMode(item)} className={`rounded-[11px] px-4 py-2 text-xs font-semibold transition ${mode === item ? "bg-white text-black" : "text-white/48 hover:text-white"}`}>
+                {item === "month" ? "Por mês" : "Por período"}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] lg:mt-0 lg:flex lg:items-end">
+            {mode === "month" ? (
+              <label className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/38">Mês
+                <button type="button" onClick={openMonthSelector} className="mt-1 flex h-11 w-full items-center justify-between gap-3 rounded-[15px] border border-white/10 bg-[#0b0b0b] px-3 text-left text-sm font-medium normal-case tracking-normal text-white transition hover:border-white/20 focus:border-[#d8b873]/60 lg:w-48">
+                  <span className="capitalize">{getMonthLabel(month)}</span>
+                  <CalendarDays className="h-4 w-4 text-[#d8b873]/75" />
+                </button>
+              </label>
+            ) : (
+              <>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/38">Início
+                  <input type="date" value={startDate} max={endDate} onChange={(event) => setStartDate(event.target.value)} className="mt-1 block h-11 w-full rounded-[15px] border border-white/10 bg-[#0b0b0b] px-3 text-sm text-white outline-none focus:border-[#d8b873]/60 lg:w-44" />
+                </label>
+                <label className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/38">Fim
+                  <input type="date" value={endDate} min={startDate} onChange={(event) => setEndDate(event.target.value)} className="mt-1 block h-11 w-full rounded-[15px] border border-white/10 bg-[#0b0b0b] px-3 text-sm text-white outline-none focus:border-[#d8b873]/60 lg:w-44" />
+                </label>
+              </>
+            )}
+            <button type="button" onClick={() => void refresh()} disabled={loading} className="flex h-11 items-center justify-center gap-2 self-end rounded-[15px] border border-white/10 px-4 text-xs font-semibold text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-40">
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Atualizar
             </button>
           </div>
-        </header>
+        </section>
 
         {error ? <FeedbackBanner type="error" message={error} /> : null}
 
-        <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-3">
+          <article className="rounded-[24px] border border-white/8 bg-[linear-gradient(155deg,rgba(216,184,115,0.075),rgba(255,255,255,0.014))] p-4 shadow-card lg:p-5">
+            <div className="flex items-center justify-between gap-3"><p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">Faturamento bruto</p><Landmark className="h-4 w-4 text-white/25" /></div>
+            <p className="mt-4 text-xl font-semibold tracking-tight text-white lg:text-2xl">{loading ? "—" : money(summary?.total_revenue ?? 0)}</p>
+            <div className="mt-3 border-t border-white/[0.07] pt-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">Faturamento líquido</p>
+              <p className="mt-1 text-lg font-semibold tracking-tight text-white lg:text-xl">{loading ? "—" : money(summary?.net_revenue ?? 0)}</p>
+              <p className="mt-1 text-[10px] text-white/32">Taxas descontadas: {money(summary?.payment_fees ?? 0)}</p>
+            </div>
+          </article>
+          <article className="rounded-[24px] border border-white/8 bg-[linear-gradient(155deg,rgba(255,255,255,0.052),rgba(255,255,255,0.014))] p-4 shadow-card lg:p-5">
+            <div className="flex items-center justify-between gap-3"><p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">Custos operacionais</p><ReceiptText className="h-4 w-4 text-white/25" /></div>
+            <p className="mt-4 text-xl font-semibold tracking-tight text-white lg:text-2xl">{loading ? "—" : money(summary?.operating_cost ?? 0)}</p>
+            <div className="mt-3 border-t border-white/[0.07] pt-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">Custo dos produtos</p>
+              <p className="mt-1 text-lg font-semibold tracking-tight text-white lg:text-xl">{loading ? "—" : money(summary?.product_cost ?? 0)}</p>
+              <p className="mt-1 text-[10px] text-white/32">Aquisição do estoque vendido</p>
+            </div>
+          </article>
           {headlineCards.map(({ label, value, detail, icon: Icon, tone }) => (
             <article key={label} className="rounded-[24px] border border-white/8 bg-[linear-gradient(155deg,rgba(255,255,255,0.052),rgba(255,255,255,0.014))] p-4 shadow-card lg:p-5">
               <div className="flex items-center justify-between gap-3"><p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">{label}</p><Icon className="h-4 w-4 text-white/25" /></div>
@@ -137,12 +197,28 @@ export function FinancialDashboardPage() {
             <article key={label} className="rounded-[28px] border border-white/8 bg-white/[0.025] p-5">
               <div className="flex items-center justify-between"><div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">Resultado por origem</p><h2 className="mt-2 text-lg font-semibold">{label}</h2></div><Icon className="h-5 w-5 text-white/25" /></div>
               <div className="mt-5 grid grid-cols-2 gap-4">
-                <div><p className="text-xs text-white/38">Faturamento</p><p className="mt-1 text-xl font-semibold text-white">{loading ? "—" : money(revenue)}</p></div>
+                <div><p className="text-xs text-white/38">Faturamento bruto</p><p className="mt-1 text-xl font-semibold text-white">{loading ? "—" : money(revenue)}</p></div>
                 <div className="border-l border-white/8 pl-4"><p className="text-xs text-white/38">Lucro</p><p className={`mt-1 text-xl font-semibold ${Number(profit) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{loading ? "—" : money(profit)}</p></div>
               </div>
               <p className="mt-4 text-[11px] text-white/32">{note}</p>
             </article>
           ))}
+        </section>
+
+        <section className="rounded-[28px] border border-white/8 bg-white/[0.022] p-5 lg:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-200/55">Meios de pagamento</p><h2 className="mt-2 text-lg font-semibold">Faturamento após taxas</h2></div>
+            <button type="button" onClick={() => setFeesModalOpen(true)} disabled={paymentFeeSettings.loading} className="inline-flex h-10 items-center gap-2 rounded-2xl border border-white/10 px-3 text-xs font-semibold text-white/65 transition hover:border-white/25 hover:text-white disabled:opacity-40"><Settings2 className="h-4 w-4" /> Configurar taxas</button>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            {data?.payment_methods.map((method) => (
+              <article key={method.payment_method} className="rounded-[20px] border border-white/[0.07] bg-black/15 p-4">
+                <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold text-white/82">{method.label}</p><span className="rounded-full bg-white/[0.055] px-2 py-1 text-[10px] font-semibold text-white/48">{Number(method.rate).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</span></div>
+                <p className="mt-4 text-lg font-semibold text-white">{money(method.gross_revenue)}</p>
+                <p className="mt-1 text-[10px] text-white/32">Líquido {money(method.net_revenue)} · taxa {money(method.fee_amount)}</p>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[0.78fr_1.22fr]">
@@ -168,12 +244,13 @@ export function FinancialDashboardPage() {
 
         <section className="overflow-hidden rounded-[28px] border border-white/8 bg-white/[0.02]">
           <div className="border-b border-white/7 px-5 py-4"><h2 className="text-lg font-semibold">Resultado por barbeiro</h2><p className="mt-1 text-xs text-white/38">Lucro de contribuição sem rateio das contas gerais.</p></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead><tr className="border-b border-white/7 text-[10px] uppercase tracking-[0.14em] text-white/32"><th className="px-5 py-3 font-medium">Profissional</th><th className="px-4 py-3 font-medium">Serviços</th><th className="px-4 py-3 font-medium">Produtos</th><th className="px-4 py-3 font-medium">Custo prod.</th><th className="px-4 py-3 font-medium">Repasses + gorjetas</th><th className="px-4 py-3 font-medium">Ajuda</th><th className="px-5 py-3 text-right font-medium">Contribuição</th></tr></thead><tbody>{data?.professionals.map((professional) => <tr key={professional.professional_id} className="border-b border-white/[0.045] transition hover:bg-white/[0.025]"><td className="px-5 py-4 font-medium text-white/85">{professional.name}</td><td className="px-4 py-4 text-white/62">{money(professional.service_revenue)}</td><td className="px-4 py-4 text-white/62">{money(professional.product_revenue)}</td><td className="px-4 py-4 text-white/62">{money(professional.product_cost)}</td><td className="px-4 py-4 text-white/62">{money(professional.repasses)}</td><td className="px-4 py-4 text-white/62">{money(professional.allowance)}</td><td className={`px-5 py-4 text-right font-semibold ${Number(professional.contribution_profit) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{money(professional.contribution_profit)}</td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-white/7 text-[10px] uppercase tracking-[0.14em] text-white/32"><th className="px-5 py-3 font-medium">Profissional</th><th className="px-4 py-3 font-medium">Serviços</th><th className="px-4 py-3 font-medium">Produtos</th><th className="px-4 py-3 font-medium">Taxas</th><th className="px-4 py-3 font-medium">Custo prod.</th><th className="px-4 py-3 font-medium">Repasses + gorjetas</th><th className="px-4 py-3 font-medium">Ajuda</th><th className="px-5 py-3 text-right font-medium">Contribuição</th></tr></thead><tbody>{data?.professionals.map((professional) => <tr key={professional.professional_id} className="border-b border-white/[0.045] transition hover:bg-white/[0.025]"><td className="px-5 py-4 font-medium text-white/85">{professional.name}</td><td className="px-4 py-4"><p className="font-medium text-white/62">{money(professional.service_revenue)}</p><p className="mt-1 text-[10px] text-white/62">Líquido {money(professional.service_net_revenue)}</p></td><td className="px-4 py-4"><p className="font-medium text-white/62">{money(professional.product_revenue)}</p><p className="mt-1 text-[10px] text-white/62">Líquido {money(professional.product_net_revenue)}</p></td><td className="px-4 py-4 text-white/62">{money(professional.payment_fees)}</td><td className="px-4 py-4 text-white/62">{money(professional.product_cost)}</td><td className="px-4 py-4 text-white/62">{money(professional.repasses)}</td><td className="px-4 py-4 text-white/62">{money(professional.allowance)}</td><td className={`px-5 py-4 text-right font-semibold ${Number(professional.contribution_profit) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{money(professional.contribution_profit)}</td></tr>)}</tbody></table></div>
         </section>
 
-        <p className="px-1 text-[11px] leading-relaxed text-white/30">Lucro geral = faturamento de serviços e produtos − contas − repasses − ajuda de custo − gorjetas − custo dos produtos vendidos.</p>
+        <p className="px-1 text-[11px] leading-relaxed text-white/30">Faturamento líquido = faturamento bruto − taxas dos meios de pagamento. Lucro geral também desconta contas, repasses, ajuda de custo, gorjetas e custo dos produtos vendidos.{mode === "range" ? " Em períodos parciais, a ajuda de custo mensal é considerada proporcionalmente aos dias selecionados." : ""}</p>
 
         <MonthSelectorModal open={monthModalOpen} yearValue={yearInput} monthValue={monthInput} years={years} error={monthError} onClose={() => setMonthModalOpen(false)} onApply={applyMonth} onYearChange={setYearInput} onMonthChange={setMonthInput} />
+        {feesModalOpen ? <PaymentMethodFeesModal open fees={paymentFeeSettings.fees} loading={paymentFeeSettings.loading} saving={paymentFeeSettings.saving} error={paymentFeeSettings.error} onClose={() => setFeesModalOpen(false)} onSave={async (fees) => { await paymentFeeSettings.save(fees); await refresh(); setFeesModalOpen(false); }} /> : null}
       </div>
     </DashboardShell>
   );

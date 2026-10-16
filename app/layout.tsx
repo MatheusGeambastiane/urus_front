@@ -50,7 +50,10 @@ export default async function RootLayout({
 
   return (
     <html lang="pt-BR">
-      <body className={`${dashboardDisplay.variable} ${dashboardBody.variable} antialiased`}>
+      <body
+        className={`${dashboardDisplay.variable} ${dashboardBody.variable} antialiased`}
+        suppressHydrationWarning
+      >
         <AuthSessionProvider session={session}>{children}</AuthSessionProvider>
         <PwaRegister />
         <SpeedInsights />

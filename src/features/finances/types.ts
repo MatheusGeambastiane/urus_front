@@ -107,8 +107,12 @@ export type FinanceClientAppointmentsResponse = {
 
 export type FinancialDashboardSummary = {
   total_revenue: string;
+  net_revenue: string;
   service_revenue: string;
+  service_net_revenue: string;
   product_revenue: string;
+  product_net_revenue: string;
+  payment_fees: string;
   operating_cost: string;
   product_cost: string;
   total_cost: string;
@@ -125,6 +129,7 @@ export type FinancialDashboardCosts = {
   tips: string;
   allowances: string;
   product_cost: string;
+  payment_fees: string;
 };
 
 export type FinancialDashboardProfessional = {
@@ -133,19 +138,37 @@ export type FinancialDashboardProfessional = {
   service_revenue: string;
   product_revenue: string;
   total_revenue: string;
+  service_net_revenue: string;
+  product_net_revenue: string;
+  net_revenue: string;
+  payment_fees: string;
   repasses: string;
   allowance: string;
   product_cost: string;
   contribution_profit: string;
 };
 
+export type PaymentMethodFee = {
+  payment_method: "money" | "pix" | "credit" | "debit";
+  label: string;
+  rate: string;
+};
+
+export type FinancialDashboardPaymentMethod = PaymentMethodFee & {
+  gross_revenue: string;
+  fee_amount: string;
+  net_revenue: string;
+};
+
 export type FinancialDashboardData = {
   period: {
-    month: string;
+    mode: "month" | "range";
+    month: string | null;
     start_date: string;
     end_date: string;
   };
   summary: FinancialDashboardSummary;
   costs: FinancialDashboardCosts;
+  payment_methods: FinancialDashboardPaymentMethod[];
   professionals: FinancialDashboardProfessional[];
 };
