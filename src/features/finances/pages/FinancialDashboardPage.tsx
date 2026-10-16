@@ -28,6 +28,19 @@ import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 
 const money = (value: string | number) => formatCurrency(String(value));
+const compactMoney = (value: number) => new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+}).format(value);
+const monthLabel = (month: string) => {
+  const label = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" })
+    .format(new Date(`${month}-01T12:00:00`))
+    .replace(" de ", " ")
+    .replace(".", "");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+};
 const todayIso = () => {
   const today = new Date();
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
@@ -103,7 +116,6 @@ export function FinancialDashboardPage() {
     { label: "Repasses de produtos", value: costs?.product_repasses ?? "0", color: "#a78bfa" },
     { label: "Ajuda de custo", value: costs?.allowances ?? "0", color: "#fbbf24" },
     { label: "Gorjetas", value: costs?.tips ?? "0", color: "#f472b6" },
-    { label: "Custo dos produtos", value: costs?.product_cost ?? "0", color: "#34d399" },
     { label: "Taxas de pagamento", value: costs?.payment_fees ?? "0", color: "#22d3ee" },
   ];
   const maxCost = Math.max(...costItems.map((item) => Number(item.value)), 1);
@@ -112,6 +124,15 @@ export function FinancialDashboardPage() {
     services: Number(item.service_revenue),
     products: Number(item.product_revenue),
   })) ?? [];
+  const monthlyChart = data?.monthly_breakdown.map((item) => ({
+    month: monthLabel(item.month),
+    revenue: Number(item.revenue),
+    profit: Number(item.profit),
+    costs: Number(item.costs),
+    services: Number(item.service_revenue),
+    products: Number(item.product_revenue),
+  })) ?? [];
+  const showMonthlyChart = data?.period.mode === "range" && monthlyChart.length > 1;
 
   if (userRole && userRole !== "admin") return null;
 
@@ -177,11 +198,7 @@ export function FinancialDashboardPage() {
           <article className="rounded-[24px] border border-white/8 bg-[linear-gradient(155deg,rgba(255,255,255,0.052),rgba(255,255,255,0.014))] p-4 shadow-card lg:p-5">
             <div className="flex items-center justify-between gap-3"><p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">Custos operacionais</p><ReceiptText className="h-4 w-4 text-white/25" /></div>
             <p className="mt-4 text-xl font-semibold tracking-tight text-white lg:text-2xl">{loading ? "—" : money(summary?.operating_cost ?? 0)}</p>
-            <div className="mt-3 border-t border-white/[0.07] pt-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">Custo dos produtos</p>
-              <p className="mt-1 text-lg font-semibold tracking-tight text-white lg:text-xl">{loading ? "—" : money(summary?.product_cost ?? 0)}</p>
-              <p className="mt-1 text-[10px] text-white/32">Aquisição do estoque vendido</p>
-            </div>
+            <p className="mt-2 text-[11px] text-white/38">Contas, repasses, ajuda e taxas</p>
           </article>
           {headlineCards.map(({ label, value, detail, icon: Icon, tone }) => (
             <article key={label} className="rounded-[24px] border border-white/8 bg-[linear-gradient(155deg,rgba(255,255,255,0.052),rgba(255,255,255,0.014))] p-4 shadow-card lg:p-5">
@@ -204,6 +221,31 @@ export function FinancialDashboardPage() {
             </article>
           ))}
         </section>
+
+        {showMonthlyChart ? (
+          <section className="rounded-[28px] border border-white/8 bg-[linear-gradient(160deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] p-5 lg:p-6">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Evolução do período</p>
+              <h2 className="mt-2 text-lg font-semibold">Resultado por mês</h2>
+            </div>
+            <div className="mt-5 h-[360px]">
+              <ChartResponsiveContainer>
+                <BarChart data={monthlyChart} margin={{ top: 8, right: 10, left: 4, bottom: 4 }} barGap={3} barCategoryGap="24%">
+                  <CartesianGrid stroke="rgba(255,255,255,.055)" vertical={false} />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "rgba(255,255,255,.5)", fontSize: 11 }} />
+                  <YAxis axisLine={false} tickLine={false} width={72} tick={{ fill: "rgba(255,255,255,.38)", fontSize: 10 }} tickFormatter={compactMoney} />
+                  <Tooltip formatter={(value: number, name: string) => [money(value), name]} contentStyle={{ background: "#111", border: "1px solid #333", borderRadius: 14, color: "#fff" }} labelStyle={{ color: "#fff" }} itemStyle={{ color: "#fff" }} cursor={{ fill: "rgba(255,255,255,.025)" }} />
+                  <Legend wrapperStyle={{ color: "rgba(255,255,255,.65)", fontSize: 12, paddingTop: 12 }} />
+                  <Bar dataKey="revenue" name="Faturamento" fill="#d8b873" radius={[5, 5, 0, 0]} maxBarSize={22} />
+                  <Bar dataKey="profit" name="Lucro" fill="#34d399" radius={[5, 5, 0, 0]} maxBarSize={22} />
+                  <Bar dataKey="costs" name="Custos" fill="#fb7185" radius={[5, 5, 0, 0]} maxBarSize={22} />
+                  <Bar dataKey="services" name="Serviços" fill="#38bdf8" radius={[5, 5, 0, 0]} maxBarSize={22} />
+                  <Bar dataKey="products" name="Produtos" fill="#a78bfa" radius={[5, 5, 0, 0]} maxBarSize={22} />
+                </BarChart>
+              </ChartResponsiveContainer>
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-[28px] border border-white/8 bg-white/[0.022] p-5 lg:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -244,10 +286,10 @@ export function FinancialDashboardPage() {
 
         <section className="overflow-hidden rounded-[28px] border border-white/8 bg-white/[0.02]">
           <div className="border-b border-white/7 px-5 py-4"><h2 className="text-lg font-semibold">Resultado por barbeiro</h2><p className="mt-1 text-xs text-white/38">Lucro de contribuição sem rateio das contas gerais.</p></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[1080px] text-left text-sm"><thead><tr className="border-b border-white/7 text-[10px] uppercase tracking-[0.14em] text-white/32"><th className="px-5 py-3 font-medium">Profissional</th><th className="px-4 py-3 font-medium">Serviços</th><th className="px-4 py-3 font-medium">Produtos</th><th className="px-4 py-3 font-medium">Taxas</th><th className="px-4 py-3 font-medium">Custo prod.</th><th className="px-4 py-3 font-medium">Repasses + gorjetas</th><th className="px-4 py-3 font-medium">Ajuda</th><th className="px-5 py-3 text-right font-medium">Contribuição</th></tr></thead><tbody>{data?.professionals.map((professional) => <tr key={professional.professional_id} className="border-b border-white/[0.045] transition hover:bg-white/[0.025]"><td className="px-5 py-4 font-medium text-white/85">{professional.name}</td><td className="px-4 py-4"><p className="font-medium text-white/62">{money(professional.service_revenue)}</p><p className="mt-1 text-[10px] text-white/62">Líquido {money(professional.service_net_revenue)}</p></td><td className="px-4 py-4"><p className="font-medium text-white/62">{money(professional.product_revenue)}</p><p className="mt-1 text-[10px] text-white/62">Líquido {money(professional.product_net_revenue)}</p></td><td className="px-4 py-4 text-white/62">{money(professional.payment_fees)}</td><td className="px-4 py-4 text-white/62">{money(professional.product_cost)}</td><td className="px-4 py-4 text-white/62">{money(professional.repasses)}</td><td className="px-4 py-4 text-white/62">{money(professional.allowance)}</td><td className={`px-5 py-4 text-right font-semibold ${Number(professional.contribution_profit) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{money(professional.contribution_profit)}</td></tr>)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead><tr className="border-b border-white/7 text-[10px] uppercase tracking-[0.14em] text-white/32"><th className="px-5 py-3 font-medium">Profissional</th><th className="px-4 py-3 font-medium">Serviços</th><th className="px-4 py-3 font-medium">Produtos</th><th className="px-4 py-3 font-medium">Taxas</th><th className="px-4 py-3 font-medium">Repasses + gorjetas</th><th className="px-4 py-3 font-medium">Ajuda</th><th className="px-5 py-3 text-right font-medium">Contribuição</th></tr></thead><tbody>{data?.professionals.map((professional) => <tr key={professional.professional_id} className="border-b border-white/[0.045] transition hover:bg-white/[0.025]"><td className="px-5 py-4 font-medium text-white/85">{professional.name}</td><td className="px-4 py-4"><p className="font-medium text-white/62">{money(professional.service_revenue)}</p><p className="mt-1 text-[10px] text-white/62">Líquido {money(professional.service_net_revenue)}</p></td><td className="px-4 py-4"><p className="font-medium text-white/62">{money(professional.product_revenue)}</p><p className="mt-1 text-[10px] text-white/62">Líquido {money(professional.product_net_revenue)}</p></td><td className="px-4 py-4 text-white/62">{money(professional.payment_fees)}</td><td className="px-4 py-4 text-white/62">{money(professional.repasses)}</td><td className="px-4 py-4 text-white/62">{money(professional.allowance)}</td><td className={`px-5 py-4 text-right font-semibold ${Number(professional.contribution_profit) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{money(professional.contribution_profit)}</td></tr>)}</tbody></table></div>
         </section>
 
-        <p className="px-1 text-[11px] leading-relaxed text-white/30">Faturamento líquido = faturamento bruto − taxas dos meios de pagamento. Lucro geral também desconta contas, repasses, ajuda de custo, gorjetas e custo dos produtos vendidos.{mode === "range" ? " Em períodos parciais, a ajuda de custo mensal é considerada proporcionalmente aos dias selecionados." : ""}</p>
+        <p className="px-1 text-[11px] leading-relaxed text-white/30">Faturamento líquido = faturamento bruto − taxas dos meios de pagamento. Lucro geral também desconta contas, repasses, ajuda de custo e gorjetas. O custo dos produtos já está incluído nas contas.{mode === "range" ? " Em períodos parciais, a ajuda de custo mensal é considerada proporcionalmente aos dias selecionados." : ""}</p>
 
         <MonthSelectorModal open={monthModalOpen} yearValue={yearInput} monthValue={monthInput} years={years} error={monthError} onClose={() => setMonthModalOpen(false)} onApply={applyMonth} onYearChange={setYearInput} onMonthChange={setMonthInput} />
         {feesModalOpen ? <PaymentMethodFeesModal open fees={paymentFeeSettings.fees} loading={paymentFeeSettings.loading} saving={paymentFeeSettings.saving} error={paymentFeeSettings.error} onClose={() => setFeesModalOpen(false)} onSave={async (fees) => { await paymentFeeSettings.save(fees); await refresh(); setFeesModalOpen(false); }} /> : null}

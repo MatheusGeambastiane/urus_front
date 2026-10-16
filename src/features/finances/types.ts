@@ -114,7 +114,6 @@ export type FinancialDashboardSummary = {
   product_net_revenue: string;
   payment_fees: string;
   operating_cost: string;
-  product_cost: string;
   total_cost: string;
   service_profit: string;
   product_profit: string;
@@ -128,7 +127,6 @@ export type FinancialDashboardCosts = {
   product_repasses: string;
   tips: string;
   allowances: string;
-  product_cost: string;
   payment_fees: string;
 };
 
@@ -144,7 +142,6 @@ export type FinancialDashboardProfessional = {
   payment_fees: string;
   repasses: string;
   allowance: string;
-  product_cost: string;
   contribution_profit: string;
 };
 
@@ -160,6 +157,15 @@ export type FinancialDashboardPaymentMethod = PaymentMethodFee & {
   net_revenue: string;
 };
 
+export type FinancialDashboardMonth = {
+  month: string;
+  revenue: string;
+  profit: string;
+  costs: string;
+  service_revenue: string;
+  product_revenue: string;
+};
+
 export type FinancialDashboardData = {
   period: {
     mode: "month" | "range";
@@ -170,5 +176,6 @@ export type FinancialDashboardData = {
   summary: FinancialDashboardSummary;
   costs: FinancialDashboardCosts;
   payment_methods: FinancialDashboardPaymentMethod[];
+  monthly_breakdown: FinancialDashboardMonth[];
   professionals: FinancialDashboardProfessional[];
 };
