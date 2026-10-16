@@ -134,6 +134,7 @@ export function DashboardShell({
             onLogout={() => void signOut({ callbackUrl: "/dashboard/login" })}
             myProfileHref="/dashboard/meu-perfil"
             analyticsHref={userRole === "admin" ? "/dashboard/analytics" : undefined}
+            goalsHref={userRole === "admin" || userRole === "professional" ? "/dashboard/metas" : undefined}
             documentsHref={userRole === "admin" ? "/dashboard/documentos" : undefined}
           />
           </div>
@@ -147,6 +148,7 @@ export function DashboardShell({
             onLogout={() => void signOut({ callbackUrl: "/dashboard/login" })}
             myProfileHref="/dashboard/meu-perfil"
             analyticsHref={userRole === "admin" ? "/dashboard/analytics" : undefined}
+            goalsHref={userRole === "admin" || userRole === "professional" ? "/dashboard/metas" : undefined}
             documentsHref={userRole === "admin" ? "/dashboard/documentos" : undefined}
           />
         </div>

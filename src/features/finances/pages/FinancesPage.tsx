@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, FileText, Plus, TrendingUp } from "lucide-react";
+import { Calendar, FileText, LayoutDashboard, Plus, TrendingUp } from "lucide-react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
 import { useFinanceSummary } from "@/src/features/finances/hooks/useFinanceSummary";
@@ -373,6 +373,7 @@ export function FinancesPage({ firstName }: Props) {
           open={showFabOptions}
           onToggle={() => setShowFabOptions((previous) => !previous)}
           options={[
+            { label: "Dashboard financeiro", icon: LayoutDashboard, onClick: () => router.push("/dashboard/financeiro/dashboard") },
             { label: finance.reportLoading ? "Gerando..." : "Gerar relatório", icon: FileText, onClick: handleGenerateReport },
             { label: "Criar conta", icon: Plus, onClick: () => router.push("/dashboard/financeiro/contas/nova") },
           ]}

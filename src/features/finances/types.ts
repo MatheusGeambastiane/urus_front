@@ -104,3 +104,48 @@ export type FinanceClientAppointmentsResponse = {
   appointments_count: number;
   clients: FinanceClientWithAppointments[];
 };
+
+export type FinancialDashboardSummary = {
+  total_revenue: string;
+  service_revenue: string;
+  product_revenue: string;
+  operating_cost: string;
+  product_cost: string;
+  total_cost: string;
+  service_profit: string;
+  product_profit: string;
+  total_profit: string;
+  profit_margin: string;
+};
+
+export type FinancialDashboardCosts = {
+  bills: string;
+  service_repasses: string;
+  product_repasses: string;
+  tips: string;
+  allowances: string;
+  product_cost: string;
+};
+
+export type FinancialDashboardProfessional = {
+  professional_id: number;
+  name: string;
+  service_revenue: string;
+  product_revenue: string;
+  total_revenue: string;
+  repasses: string;
+  allowance: string;
+  product_cost: string;
+  contribution_profit: string;
+};
+
+export type FinancialDashboardData = {
+  period: {
+    month: string;
+    start_date: string;
+    end_date: string;
+  };
+  summary: FinancialDashboardSummary;
+  costs: FinancialDashboardCosts;
+  professionals: FinancialDashboardProfessional[];
+};

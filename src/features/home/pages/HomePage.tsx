@@ -16,6 +16,8 @@ import { SummaryFilterModal } from "@/src/features/home/components/SummaryFilter
 import { SummaryComparisonCard } from "@/src/features/home/components/SummaryComparisonCard";
 import { TopProductSalesTable } from "@/src/features/home/components/TopProductSalesTable";
 import { TopServicesChart } from "@/src/features/home/components/TopServicesChart";
+import { HomeGoalCard } from "@/src/features/goals/components/HomeGoalCard";
+import { useHomeGoalProgress } from "@/src/features/goals/hooks/useHomeGoalProgress";
 import { useDailySummary } from "@/src/features/home/hooks/useDailySummary";
 import { useLast7Days } from "@/src/features/home/hooks/useLast7Days";
 import { formatCompactRangeLabel, formatFullDate, formatShortDate, formatShortTime, getWeekdayNumberLabel } from "@/src/features/home/utils/home";
@@ -33,6 +35,11 @@ export function HomePage({ firstName }: HomePageProps) {
     accessToken,
     fetchWithAuth,
     filters: dailySummary.weeklyFilter,
+  });
+  const { goal: homeGoal } = useHomeGoalProgress({
+    accessToken,
+    fetchWithAuth,
+    enabled: userRole === "admin" || userRole === "professional",
   });
   const [typedHeader, setTypedHeader] = useState("");
   const rotatingPhrases = useMemo(
@@ -137,6 +144,11 @@ export function HomePage({ firstName }: HomePageProps) {
   const sellValue = formatCurrency(dailySummary.dailySummary?.sell_value ?? "0");
   const nextAppointment = dailySummary.dailySummary?.next_appointment ?? null;
   const comparison = dailySummary.dailySummary?.comparison ?? null;
+  const goalPeriodLabel = dailySummary.activeSummaryRangeStart && dailySummary.activeSummaryRangeEnd
+    ? "Meta para o período"
+    : dailySummary.activeSummaryMonth
+      ? "Meta para o mês"
+      : "Semana até hoje";
 
   const quickActions = [
     {
@@ -210,6 +222,8 @@ export function HomePage({ firstName }: HomePageProps) {
             </p>
           </div>
         </header>
+
+        {homeGoal ? <HomeGoalCard goal={homeGoal} periodLabel={goalPeriodLabel} /> : null}
 
         <HomeOverviewCard
           title={dailySummary.overviewTitle}

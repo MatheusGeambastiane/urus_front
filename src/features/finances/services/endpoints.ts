@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 
 export const financeSummaryEndpoint = `${env.apiBaseUrl}/dashboard/summary/`;
+export const financialDashboardEndpoint = `${env.apiBaseUrl}/dashboard/summary/financial-dashboard/`;
 export const financeNewClientsEndpoint = `${env.apiBaseUrl}/dashboard/summary/clients/new/`;
 export const financeReturningClientsEndpoint = `${env.apiBaseUrl}/dashboard/summary/clients/returning/`;
 export const financeServicesSummaryEndpoint = `${env.apiBaseUrl}/dashboard/summary/services/`;

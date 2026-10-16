@@ -4,17 +4,18 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import { BarChart3, FileText, LogOut, UserRound, UserCircle2 } from "lucide-react";
+import { BarChart3, FileText, LogOut, Target, UserRound, UserCircle2 } from "lucide-react";
 
 type ProfileMenuProps = {
   profilePicUrl: string | null;
   onLogout: () => void;
   myProfileHref?: string;
   analyticsHref?: string;
+  goalsHref?: string;
   documentsHref?: string;
 };
 
-export function ProfileMenu({ profilePicUrl, onLogout, myProfileHref, analyticsHref, documentsHref }: ProfileMenuProps) {
+export function ProfileMenu({ profilePicUrl, onLogout, myProfileHref, analyticsHref, goalsHref, documentsHref }: ProfileMenuProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
@@ -144,6 +145,20 @@ export function ProfileMenu({ profilePicUrl, onLogout, myProfileHref, analyticsH
             >
               <BarChart3 className="h-4 w-4" />
               Analytics
+            </button>
+          ) : null}
+          {goalsHref ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                router.push(goalsHref);
+              }}
+              role="menuitem"
+              className="mb-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-white/80 hover:bg-white/10"
+            >
+              <Target className="h-4 w-4" />
+              Metas
             </button>
           ) : null}
           {documentsHref ? (

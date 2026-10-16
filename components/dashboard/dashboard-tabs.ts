@@ -7,6 +7,7 @@ export type DashboardTab =
   | "finances"
   | "performance"
   | "analytics"
+  | "goals"
   | "documents";
 
 export const dashboardTabRoutes: Record<DashboardTab, string> = {
@@ -18,6 +19,7 @@ export const dashboardTabRoutes: Record<DashboardTab, string> = {
   finances: "financeiro",
   performance: "desempenho",
   analytics: "analytics",
+  goals: "metas",
   documents: "documentos",
 };
 
@@ -38,6 +40,7 @@ export const dashboardTabList: DashboardTab[] = [
   "finances",
   "performance",
   "analytics",
+  "goals",
   "documents",
 ];
 
