@@ -28,6 +28,7 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Calendar,
+  ChartNoAxesCombined,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -1999,7 +2000,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
       setProductSalesError(null);
       try {
         const url = new URL(transactionsSellListEndpoint);
-        if (productSalesUserFilter) {
+        if (/^[1-9]\d*$/.test(productSalesUserFilter)) {
           url.searchParams.set("user", productSalesUserFilter);
         }
         if (productSalesStartDate) {
@@ -8495,15 +8496,38 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             <p className="text-sm text-white/60">Produtos</p>
             <p className="text-2xl font-semibold lg:text-4xl">Vendas</p>
           </div>
-          <button
-            type="button"
-            onClick={handleOpenProductSalesFilters}
-            className="ml-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
-            aria-label="Abrir filtros"
-            title="Abrir filtros"
-          >
-            <Filter className="h-5 w-5" />
-          </button>
+          <div className="ml-3 flex items-center gap-2">
+            {userRole === "admin" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => router.push("/dashboard/produtos/vendas/dashboard")}
+                  className="hidden h-10 items-center gap-2 rounded-full border border-[#d8b873]/30 bg-[#d8b873]/10 px-4 text-xs font-semibold text-[#ead39e] transition hover:border-[#d8b873]/55 hover:bg-[#d8b873]/15 sm:flex"
+                >
+                  <ChartNoAxesCombined className="h-4 w-4" />
+                  Ver dashboard de vendas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push("/dashboard/produtos/vendas/dashboard")}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#d8b873]/30 bg-[#d8b873]/10 text-[#ead39e] sm:hidden"
+                  aria-label="Ver dashboard de vendas"
+                  title="Ver dashboard de vendas"
+                >
+                  <ChartNoAxesCombined className="h-5 w-5" />
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleOpenProductSalesFilters}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70 transition hover:border-white/40 hover:text-white"
+              aria-label="Abrir filtros"
+              title="Abrir filtros"
+            >
+              <Filter className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         <section className="overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-4 shadow-card backdrop-blur-sm lg:border-[#e5e7eb]/12 lg:p-6">

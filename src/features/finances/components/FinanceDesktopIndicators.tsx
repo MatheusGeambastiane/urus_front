@@ -11,6 +11,7 @@ type FinanceDesktopIndicatorsProps = {
   monthlyTicketAverage: string;
   onNewClientsClick: () => void;
   onReturningClientsClick: () => void;
+  onSalesClick: () => void;
 };
 
 export function FinanceDesktopIndicators({
@@ -20,6 +21,7 @@ export function FinanceDesktopIndicators({
   monthlyTicketAverage,
   onNewClientsClick,
   onReturningClientsClick,
+  onSalesClick,
 }: FinanceDesktopIndicatorsProps) {
   const cards = [
     {
@@ -38,7 +40,7 @@ export function FinanceDesktopIndicators({
       label: "Vendas registradas no mês",
       detail: `${formatCurrency(monthlyTicketAverage)} ticket total`,
       icon: Package,
-      onClick: null,
+      onClick: onSalesClick,
     },
     {
       key: "services",
@@ -97,7 +99,9 @@ export function FinanceDesktopIndicators({
                   <p className="mt-2 text-sm text-white/58">{card.label}</p>
                   <p className="mt-1 text-xs text-white/38">{card.detail}</p>
                   {card.onClick ? (
-                    <p className="mt-3 text-[11px] font-medium text-white/48">Ver atendimentos</p>
+                    <p className="mt-3 text-[11px] font-medium text-white/48">
+                      {card.key === "products" ? "Ver dashboard de vendas" : "Ver atendimentos"}
+                    </p>
                   ) : null}
                 </div>
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white/78">

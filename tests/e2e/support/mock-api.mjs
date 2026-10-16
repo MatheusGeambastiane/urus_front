@@ -318,6 +318,39 @@ const server = createServer(async (request, response) => {
   }
   if (url.pathname === "/dashboard/transactions/sell-list/") return send(request, response, 200, paginated([]));
 
+  if (url.pathname === "/dashboard/summary/product-sales/") {
+    const productRow = {
+      product_id: 40,
+      name: "Pomada E2E",
+      type: "produtos_capilares",
+      type_label: "Produtos capilares",
+      quantity: 6,
+      sales_count: 4,
+      revenue: "270.00",
+      cost: "120.00",
+      commission: "27.00",
+      profit: "123.00",
+    };
+    return send(request, response, 200, {
+      period: { mode: "month", start_date: "2026-10-01", end_date: "2026-10-31" },
+      summary: {
+        total_revenue: "270.00",
+        total_cost: "120.00",
+        total_commission: "27.00",
+        total_profit: "123.00",
+        sales_count: 4,
+        items_sold: 6,
+      },
+      sales_by_product_type: [{ type: productRow.type, label: productRow.type_label, revenue: productRow.revenue, quantity: productRow.quantity }],
+      top_sellers: [{ user_id: 2, name: "Profissional Teste", revenue: "270.00", sales_count: 4, items_sold: 6 }],
+      top_customers: [{ customer_id: 10, name: "Cliente Teste", amount_spent: "180.00", transactions_count: 3, items_bought: 4 }],
+      sales_by_day_hour: [{ date: "2026-10-05", hour: 14, count: 2 }],
+      top_products_by_revenue: [productRow],
+      top_products_by_profit: [productRow],
+      products: [productRow],
+    });
+  }
+
   if (url.pathname === "/dashboard/summary/") {
     const month = url.searchParams.get("month") ?? "2026-09";
     const isJanuary = month.endsWith("-01");

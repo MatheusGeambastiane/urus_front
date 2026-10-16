@@ -69,6 +69,25 @@ test.describe("Financeiro", () => {
     ).toBe(true);
   });
 
+  test("abre o dashboard de vendas pelo card de produtos", async ({ page, request }) => {
+    await page.goto("/dashboard/financeiro");
+
+    await page.getByRole("button", { name: /Produtos vendidos/ }).click();
+
+    await expect(page).toHaveURL(/\/dashboard\/produtos\/vendas\/dashboard$/);
+    await expect(page.getByText("Total vendido", { exact: true })).toBeVisible();
+    await expect(page.getByText("R$ 123,00").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Lucro por produto" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Faturamento e lucro" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Quem mais comprou" })).toBeVisible();
+    await expect(page.getByText("Cliente Teste", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Vendas por dia e hora" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Pomada E2E" })).toBeVisible();
+
+    const calls = await mockRequests(request);
+    expect(calls.some((call) => call.pathname === "/dashboard/summary/product-sales/")).toBe(true);
+  });
+
   test("exibe recorrências e permite excluir somente a conta aberta", async ({ page, request }) => {
     await page.goto("/dashboard/financeiro/contas/43");
 

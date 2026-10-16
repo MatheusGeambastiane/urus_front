@@ -7,6 +7,7 @@ type FinanceSummaryCardsProps = {
   summary: FinanceSummary | null;
   onNewClientsClick: () => void;
   onReturningClientsClick: () => void;
+  onSalesClick: () => void;
 };
 
 const cards = [
@@ -22,6 +23,7 @@ export function FinanceSummaryCards({
   summary,
   onNewClientsClick,
   onReturningClientsClick,
+  onSalesClick,
 }: FinanceSummaryCardsProps) {
   return (
     <section className="grid grid-cols-2 gap-3">
@@ -29,7 +31,9 @@ export function FinanceSummaryCards({
         const Icon = card.icon;
         const value = summary?.[card.key] ?? 0;
         const onClick =
-          card.key === "new_clients_count"
+          card.key === "sell_transactions_count"
+            ? onSalesClick
+            : card.key === "new_clients_count"
             ? onNewClientsClick
             : card.key === "returning_clients_count"
               ? onReturningClientsClick
@@ -48,7 +52,9 @@ export function FinanceSummaryCards({
                 <p className="mt-1 text-lg font-semibold text-white">{card.label}</p>
                 <p className={`mt-1 text-2xl font-semibold ${card.accent}`}>{value}</p>
                 {onClick ? (
-                  <p className="mt-2 text-[11px] font-medium text-white/38">Ver atendimentos</p>
+                  <p className="mt-2 text-[11px] font-medium text-white/38">
+                    {card.key === "sell_transactions_count" ? "Ver dashboard" : "Ver atendimentos"}
+                  </p>
                 ) : null}
               </div>
             </div>

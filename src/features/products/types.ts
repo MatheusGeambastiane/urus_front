@@ -51,3 +51,60 @@ export type AddedSaleItem = {
   paymentType: PaymentType;
   userId?: number | null;
 };
+
+export type ProductSalesDashboardProduct = {
+  product_id: number | null;
+  name: string;
+  type: string;
+  type_label: string;
+  quantity: number;
+  sales_count: number;
+  revenue: string;
+  cost: string;
+  commission: string;
+  profit: string;
+};
+
+export type ProductSalesDashboard = {
+  period: {
+    mode: "month" | "range";
+    start_date: string;
+    end_date: string;
+  };
+  summary: {
+    total_revenue: string;
+    total_cost: string;
+    total_commission: string;
+    total_profit: string;
+    sales_count: number;
+    items_sold: number;
+  };
+  sales_by_product_type: Array<{
+    type: string;
+    label: string;
+    revenue: string;
+    quantity: number;
+  }>;
+  top_sellers: Array<{
+    user_id: number | null;
+    name: string;
+    revenue: string;
+    sales_count: number;
+    items_sold: number;
+  }>;
+  top_customers: Array<{
+    customer_id: number;
+    name: string;
+    amount_spent: string;
+    transactions_count: number;
+    items_bought: number;
+  }>;
+  sales_by_day_hour: Array<{
+    date: string;
+    hour: number;
+    count: number;
+  }>;
+  top_products_by_revenue: ProductSalesDashboardProduct[];
+  top_products_by_profit: ProductSalesDashboardProduct[];
+  products: ProductSalesDashboardProduct[];
+};

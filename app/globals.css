@@ -166,6 +166,32 @@ body {
   }
 }
 
+@keyframes sales-dashboard-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sales-dashboard > * {
+  animation: sales-dashboard-reveal 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sales-dashboard > :nth-child(2) { animation-delay: 50ms; }
+.sales-dashboard > :nth-child(3) { animation-delay: 90ms; }
+.sales-dashboard > :nth-child(4) { animation-delay: 130ms; }
+.sales-dashboard > :nth-child(n + 5) { animation-delay: 165ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sales-dashboard > * {
+    animation: none;
+  }
+}
+
 @keyframes products-desktop-reveal {
   from {
     opacity: 0;

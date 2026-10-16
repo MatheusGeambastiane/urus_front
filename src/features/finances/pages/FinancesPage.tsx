@@ -268,6 +268,7 @@ export function FinancesPage({ firstName }: Props) {
             summary={finance.summary}
             onNewClientsClick={() => openClientAppointments("new")}
             onReturningClientsClick={() => openClientAppointments("returning")}
+            onSalesClick={() => router.push("/dashboard/produtos/vendas/dashboard")}
           />
         </div>
 
@@ -278,6 +279,7 @@ export function FinancesPage({ firstName }: Props) {
           monthlyTicketAverage={monthlyTicketAverage}
           onNewClientsClick={() => openClientAppointments("new")}
           onReturningClientsClick={() => openClientAppointments("returning")}
+          onSalesClick={() => router.push("/dashboard/produtos/vendas/dashboard")}
         />
 
         <AppointmentsHeatmap
