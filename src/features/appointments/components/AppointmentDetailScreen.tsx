@@ -2,7 +2,16 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Loader2, PenSquare, RefreshCw } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarClock,
+  ChevronLeft,
+  History,
+  Loader2,
+  PenSquare,
+  RefreshCw,
+  UserRound,
+} from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { formatCurrency } from "@/src/features/shared/utils/money";
 import { capitalizeFirstLetter } from "@/src/features/shared/utils/string";
@@ -66,6 +75,7 @@ export function AppointmentDetailScreen({
 
   const detail = appointmentDetail;
   const clientName = detail?.client_name ?? "Cliente não informado";
+  const clientProfile = detail?.client_profile ?? null;
   const professionalName = detail?.professional_name ?? "Profissional não informado";
   const appointmentOriginLabel = detail?.appointment_origin
     ? detail.appointment_origin === "schedule_system"
@@ -184,10 +194,39 @@ export function AppointmentDetailScreen({
 
           <section className="space-y-4 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-white/50">Cliente</p>
-                <p className="text-base font-semibold text-white">{clientName}</p>
-              </div>
+              <button
+                type="button"
+                disabled={!clientProfile}
+                onClick={() => {
+                  if (clientProfile) router.push(`/dashboard/usuarios/${clientProfile.id}`);
+                }}
+                className="group -m-2 flex items-center gap-3 rounded-2xl p-2 text-left transition hover:bg-white/[0.055] disabled:cursor-default disabled:hover:bg-transparent"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.06]">
+                  {clientProfile?.profile_pic ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={clientProfile.profile_pic}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <UserRound className="h-4 w-4 text-white/45" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <p className="text-xs uppercase tracking-wide text-white/50">Cliente</p>
+                  <span className="flex items-center gap-2">
+                    <span className="truncate text-base font-semibold text-white">{clientName}</span>
+                    {clientProfile ? (
+                      <ArrowRight className="h-4 w-4 text-white/35 transition group-hover:translate-x-0.5 group-hover:text-white" />
+                    ) : null}
+                  </span>
+                  {clientProfile ? (
+                    <span className="text-xs text-white/45">Abrir perfil completo</span>
+                  ) : null}
+                </span>
+              </button>
               <div>
                 <p className="text-xs uppercase tracking-wide text-white/50">Profissional</p>
                 <p className="text-base font-semibold text-white">{professionalName}</p>
@@ -216,6 +255,48 @@ export function AppointmentDetailScreen({
               </div>
             </div>
           </section>
+
+          {detail.was_rescheduled ? (
+            <section className="overflow-hidden rounded-3xl border border-amber-300/20 bg-amber-300/[0.055]">
+              <div className="flex items-start gap-3 border-b border-amber-200/10 px-5 py-4">
+                <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-amber-200/10 text-amber-100">
+                  <History className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-amber-50">Horário alterado</p>
+                  <p className="mt-0.5 text-xs text-amber-50/55">
+                    {detail.reschedule_count ?? detail.reschedule_history?.length ?? 0} remarcação(ões)
+                    registrada(s)
+                  </p>
+                </div>
+              </div>
+              <ol className="space-y-0 px-5 py-2">
+                {(detail.reschedule_history ?? []).map((change) => (
+                  <li
+                    key={change.id}
+                    className="grid gap-2 border-b border-white/[0.06] py-4 last:border-0 sm:grid-cols-[1fr_auto_1fr] sm:items-center"
+                  >
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35">Antes</p>
+                      <p className="mt-1 text-sm font-medium text-white/70">
+                        {formatDateTime(change.previous_date_time)}
+                      </p>
+                    </div>
+                    <CalendarClock className="hidden h-4 w-4 text-amber-100/55 sm:block" />
+                    <div className="sm:text-right">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100/55">Novo horário</p>
+                      <p className="mt-1 text-sm font-semibold text-amber-50">
+                        {formatDateTime(change.new_date_time)}
+                      </p>
+                      <p className="mt-1 text-xs text-white/35">
+                        {change.changed_by?.name ?? "Alteração do sistema"} · {formatDateTime(change.changed_at)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
 
           <section className="space-y-3 rounded-3xl border border-white/5 bg-[#0b0b0b] p-5">
             <div className="flex items-center justify-between">

@@ -72,6 +72,31 @@ export type ClientHistorySummary = {
   appointments_by_service: HistoryItem[];
 };
 
+export type UserAppointment = {
+  id: number;
+  date_time: string;
+  start_datetime: string | null;
+  finish_datetime: string | null;
+  professional: number | null;
+  professional_name: string | null;
+  services: Array<{
+    id: number;
+    name: string;
+    category: number;
+    category_name: string;
+  }>;
+  price_paid: string;
+  tips: string | null;
+  discount: number;
+  payment_type: string;
+  status: "agendado" | "iniciado" | "realizado" | "cancelado";
+  status_display: string;
+  appointment_origin: string;
+  observations: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type UserDetail = {
   id: number;
   first_name: string;
@@ -86,6 +111,7 @@ export type UserDetail = {
   date_of_birth: string | null;
   profile_pic: string | null;
   professional_profile: ProfessionalProfileDetail | null;
+  appointments?: UserAppointment[];
 };
 
 export type AuthenticatedUserProfile = {

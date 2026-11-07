@@ -62,6 +62,28 @@ export type AppointmentSell = {
   updated_at?: string;
 };
 
+export type AppointmentClientProfile = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  cpf: string | null;
+  date_of_birth: string | null;
+  profile_pic: string | null;
+  is_unregistered_client: boolean;
+  profile_url: string;
+};
+
+export type AppointmentRescheduleChange = {
+  id: number;
+  previous_date_time: string;
+  new_date_time: string;
+  changed_at: string;
+  changed_by: { id: number; name: string } | null;
+};
+
 export type AppointmentItem = {
   id: number;
   date_time: string;
@@ -88,6 +110,10 @@ export type AppointmentItem = {
   client_completed_appointments_current_month_total?: number | null;
   client_last_completed_appointment_id?: number | null;
   client_last_completed_appointment_date?: string | null;
+  client_profile?: AppointmentClientProfile | null;
+  was_rescheduled?: boolean;
+  reschedule_count?: number;
+  reschedule_history?: AppointmentRescheduleChange[];
 };
 
 export type ProfessionalIntervalForDay = {
