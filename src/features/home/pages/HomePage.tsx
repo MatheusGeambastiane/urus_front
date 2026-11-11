@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
 import { useAuth } from "@/src/features/shared/hooks/useAuth";
@@ -36,11 +37,43 @@ export function HomePage({ firstName }: HomePageProps) {
     fetchWithAuth,
     filters: dailySummary.weeklyFilter,
   });
-  const { goal: homeGoal } = useHomeGoalProgress({
+  const goalsEnabled = userRole === "admin" || userRole === "professional";
+  const goalProgress = useHomeGoalProgress({
     accessToken,
     fetchWithAuth,
-    enabled: userRole === "admin" || userRole === "professional",
+    enabled: goalsEnabled,
   });
+  const homeGoal = goalProgress.goal;
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const loading = refreshing || dailySummary.dailySummaryLoading || last7Days.last7DaysLoading ||
+    (goalsEnabled && goalProgress.loading);
+  const initialDates = [dailySummary.updatedAt, last7Days.updatedAt,
+    ...(goalsEnabled ? [goalProgress.updatedAt] : [])];
+  const initialUpdatedAt = initialDates.every((date) => date !== null)
+    ? new Date(Math.min(...initialDates.map((date) => date!.getTime()))) : null;
+  const lastUpdated = lastRefresh ?? initialUpdatedAt;
+
+  const handleRefresh = async () => {
+    if (loading || !accessToken) return;
+    // Preserve the last successful timestamp if any request fails.
+    setLastRefresh(lastUpdated);
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const results = await Promise.all([
+        dailySummary.reload(), last7Days.reload(), goalProgress.reload(),
+      ]);
+      if (results.every(Boolean)) setLastRefresh(new Date());
+      else setRefreshError("Alguns dados não foram atualizados. Tente novamente.");
+    } catch {
+      setRefreshError("Não foi possível atualizar os dados. Tente novamente.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const [typedHeader, setTypedHeader] = useState("");
   const rotatingPhrases = useMemo(
     () => [
@@ -204,7 +237,7 @@ export function HomePage({ firstName }: HomePageProps) {
   return (
     <DashboardShell activeTab="home" profilePic={profilePic} userRole={userRole} desktopVariant="luxury">
       <div className="home-dashboard space-y-5 pb-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-5 lg:space-y-0">
-        <header className="flex items-center justify-between lg:col-span-12">
+        <header className="flex flex-wrap items-center justify-between gap-4 lg:col-span-12">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.24em] text-white/35 lg:text-[#e5e7eb]/80">
               <span className="lg:hidden">Visão Geral</span>
@@ -221,7 +254,27 @@ export function HomePage({ firstName }: HomePageProps) {
               {todayLabel} <span className="mx-2 text-[#e5e7eb]/50">•</span> acompanhe o ritmo da barbearia.
             </p>
           </div>
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto sm:flex-col sm:items-end">
+            <button
+              type="button"
+              onClick={() => void handleRefresh()}
+              disabled={loading || !accessToken}
+              aria-busy={refreshing}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:border-white/30 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RefreshCw aria-hidden="true" className={`h-4 w-4 ${refreshing ? "motion-safe:animate-spin" : ""}`} />
+              {refreshing ? "Atualizando…" : "Atualizar"}
+            </button>
+            <p className="text-xs text-white/50" role="status" aria-live="polite">
+              Última atualização: {lastUpdated ? (
+                <time dateTime={lastUpdated.toISOString()} title={lastUpdated.toLocaleString("pt-BR", { timeZone: "America/Bahia" })}>
+                  {lastUpdated.toLocaleTimeString("pt-BR", { timeZone: "America/Bahia", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                </time>
+              ) : "—"}
+            </p>
+          </div>
         </header>
+        {refreshError ? <p role="alert" className="text-sm text-amber-200 lg:col-span-12">{refreshError}</p> : null}
 
         {homeGoal ? <HomeGoalCard goal={homeGoal} periodLabel={goalPeriodLabel} /> : null}
 

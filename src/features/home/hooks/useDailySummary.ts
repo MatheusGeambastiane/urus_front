@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { env } from "@/lib/env";
 import type { TokenRefreshService } from "@/src/features/shared/utils/auth";
 import { convertDisplayDateToIso, formatDateParam, formatDisplayDate, formatIsoToDisplay } from "@/src/features/shared/utils/date";
@@ -47,67 +47,69 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     return Array.from({ length: 6 }, (_, index) => String(currentYear + 1 - index));
   }, []);
 
-  useEffect(() => {
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+
+  const requestVersion = useRef(0);
+
+  const reload = useCallback(async (signal?: AbortSignal) => {
     if (!accessToken) {
-      return;
+      return false;
     }
+    const version = ++requestVersion.current;
+    setDailySummaryLoading(true);
+    setDailySummaryError(null);
 
-    const controller = new AbortController();
-
-    const fetchDailySummary = async () => {
-      setDailySummaryLoading(true);
-      setDailySummaryError(null);
-
-      try {
-        const url = new URL(`${env.apiBaseUrl}/dashboard/summary/daily/`);
-        if (activeSummaryRangeStart && activeSummaryRangeEnd) {
-          url.searchParams.set("start_date", activeSummaryRangeStart);
-          url.searchParams.set("end_date", activeSummaryRangeEnd);
-        } else {
-          if (activeSummaryDay) {
-            url.searchParams.set("day", activeSummaryDay);
-          }
-          if (activeSummaryMonth) {
-            url.searchParams.set("month", activeSummaryMonth);
-          }
+    try {
+      const url = new URL(`${env.apiBaseUrl}/dashboard/summary/daily/`);
+      if (activeSummaryRangeStart && activeSummaryRangeEnd) {
+        url.searchParams.set("start_date", activeSummaryRangeStart);
+        url.searchParams.set("end_date", activeSummaryRangeEnd);
+      } else {
+        if (activeSummaryDay) {
+          url.searchParams.set("day", activeSummaryDay);
         }
-        if (activeSummaryCompare) {
-          url.searchParams.set("compare", "true");
-          if (activeSummaryRangeStart && activeSummaryRangeEnd) {
-            url.searchParams.set("comparison_mode", activeComparisonMode);
-          }
-        }
-
-        const response = await fetchWithAuth(url.toString(), {
-          credentials: "include",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error("Não foi possível carregar o resumo diário.");
-        }
-
-        const data: DailySummaryResponse = await response.json();
-        setDailySummary(data);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          setDailySummaryError(
-            error instanceof Error ? error.message : "Erro inesperado ao carregar o resumo diário.",
-          );
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setDailySummaryLoading(false);
+        if (activeSummaryMonth) {
+          url.searchParams.set("month", activeSummaryMonth);
         }
       }
-    };
+      if (activeSummaryCompare) {
+        url.searchParams.set("compare", "true");
+        if (activeSummaryRangeStart && activeSummaryRangeEnd) {
+          url.searchParams.set("comparison_mode", activeComparisonMode);
+        }
+      }
 
-    void fetchDailySummary();
-    return () => controller.abort();
+      const response = await fetchWithAuth(url.toString(), {
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        signal,
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível carregar o resumo diário.");
+      }
+
+      const data: DailySummaryResponse = await response.json();
+      if (signal?.aborted || version !== requestVersion.current) return false;
+      setDailySummary(data);
+      setUpdatedAt(new Date());
+      return true;
+    } catch (error) {
+      if (!signal?.aborted && version === requestVersion.current) {
+        setDailySummaryError(
+          error instanceof Error ? error.message : "Erro inesperado ao carregar o resumo diário.",
+        );
+      }
+    } finally {
+      if (!signal?.aborted && version === requestVersion.current) {
+        setDailySummaryLoading(false);
+      }
+    }
+    return false;
   }, [
     accessToken,
     activeSummaryDay,
@@ -118,6 +120,15 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
     activeComparisonMode,
     fetchWithAuth,
   ]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void reload(controller.signal);
+    return () => {
+      controller.abort();
+      requestVersion.current += 1;
+    };
+  }, [reload]);
 
   const handleOpenSummaryFilters = () => {
     setSummaryFilterError(null);
@@ -385,6 +396,8 @@ export function useDailySummary({ accessToken, fetchWithAuth }: UseDailySummaryP
   };
 
   return {
+    reload,
+    updatedAt,
     dailySummary,
     dailySummaryLoading,
     dailySummaryError,

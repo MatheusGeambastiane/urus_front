@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { homeGoalProgressEndpoint } from "@/src/features/goals/services/endpoints";
 import type { HomeGoalProgress } from "@/src/features/goals/types";
@@ -16,31 +16,48 @@ export function useHomeGoalProgress({ accessToken, fetchWithAuth, enabled }: Par
   const [goal, setGoal] = useState<HomeGoalProgress | null>(null);
   const [loading, setLoading] = useState(enabled);
 
-  useEffect(() => {
-    if (!accessToken || !enabled) return;
-    const controller = new AbortController();
-    const load = async () => {
-      setLoading(true);
-      try {
-        const response = await fetchWithAuth(homeGoalProgressEndpoint, {
-          credentials: "include",
-          headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
-          signal: controller.signal,
-        });
-        if (!response.ok) return;
-        const payload = (await response.json()) as { goal: HomeGoalProgress | null };
-        if (!controller.signal.aborted) setGoal(payload.goal);
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error("Não foi possível carregar o progresso da meta.", error);
-        }
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const requestVersion = useRef(0);
+
+  const reload = useCallback(async (signal?: AbortSignal) => {
+    if (!enabled) return true;
+    if (!accessToken) return false;
+    setError(null);
+    const version = ++requestVersion.current;
+    setLoading(true);
+    try {
+      const response = await fetchWithAuth(homeGoalProgressEndpoint, {
+        cache: "no-store",
+        credentials: "include",
+        headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+        signal,
+      });
+      if (!response.ok) throw new Error("Não foi possível atualizar a meta.");
+      const payload = (await response.json()) as { goal: HomeGoalProgress | null };
+      if (signal?.aborted || version !== requestVersion.current) return false;
+      setGoal(payload.goal);
+      setUpdatedAt(new Date());
+      return true;
+    } catch (error) {
+      if (!signal?.aborted && version === requestVersion.current) {
+        setError(error instanceof Error ? error.message : "Não foi possível atualizar a meta.");
       }
-    };
-    void load();
-    return () => controller.abort();
+    } finally {
+      if (!signal?.aborted && version === requestVersion.current) setLoading(false);
+    }
+    return false;
   }, [accessToken, enabled, fetchWithAuth]);
 
-  return { goal, loading };
+  useEffect(() => {
+    const controller = new AbortController();
+    void reload(controller.signal);
+    return () => {
+      controller.abort();
+      requestVersion.current += 1;
+    };
+  }, [reload]);
+
+  return { goal, loading, error, reload, updatedAt };
 }
