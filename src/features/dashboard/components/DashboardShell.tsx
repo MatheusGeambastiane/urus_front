@@ -17,8 +17,8 @@ type DashboardShellProps = {
   desktopVariant?: "default" | "luxury";
 };
 
-function UrinhoIcon() {
-  return <Image src="/urinho.png" alt="" width={28} height={28} className="h-7 w-7 object-contain" />;
+function UrinhoIcon({ isActive = false }: { isActive?: boolean }) {
+  return <Image src={isActive ? "/urinho preto.png" : "/urinho.png"} alt="" width={28} height={28} className="h-7 w-7 object-contain" />;
 }
 
 const bottomNavItems: Array<{ key: DashboardTab; label: string; icon: ComponentType<{ className?: string; strokeWidth?: number }> }> = [
@@ -106,7 +106,7 @@ export function DashboardShell({
                     ? "bg-[#e5e7eb] text-[#0a0a0a] shadow-[0_8px_20px_rgba(255,255,255,0.18)]"
                     : "bg-white/[0.035] text-white/55 group-hover:bg-[#e5e7eb]/10 group-hover:text-[#f4f4f5]"
                 }`}>
-                  <Icon className="h-[18px] w-[18px]" strokeWidth={isActive ? 2.3 : 1.9} />
+                  {item.key === "chat" ? <UrinhoIcon isActive={isActive} /> : <Icon className="h-[18px] w-[18px]" strokeWidth={isActive ? 2.3 : 1.9} />}
                 </span>
                 <span className="tracking-[0.01em]">{item.label}</span>
                 {isActive ? <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[#e5e7eb] shadow-[0_0_10px_rgba(255,255,255,0.75)]" /> : null}
@@ -188,7 +188,7 @@ export function DashboardShell({
                 <span className={`flex h-7 w-7 items-center justify-center rounded-[9px] transition ${
                   isActive ? "bg-[#e5e7eb] text-[#0a0a0a] shadow-[0_7px_18px_rgba(255,255,255,0.16)]" : "text-white/55"
                 }`}>
-                  <Icon className="h-[17px] w-[17px]" strokeWidth={isActive ? 2.35 : 1.9} />
+                  {item.key === "chat" ? <UrinhoIcon isActive={isActive} /> : <Icon className="h-[17px] w-[17px]" strokeWidth={isActive ? 2.35 : 1.9} />}
                 </span>
                 <span className="mt-1 whitespace-nowrap tracking-[-0.01em]">{item.label}</span>
               </button>
