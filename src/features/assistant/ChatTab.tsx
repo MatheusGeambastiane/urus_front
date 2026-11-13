@@ -17,7 +17,7 @@ type Block = { type: string; questions?: ChatQuestion[]; options?: { id: number;
 type Message = { id: number; role: string; content: string; blocks: Block[]; status: string };
 type Action = { id: string; state: string; summary: Summary };
 type Page<T> = { results: T[]; next: string | null };
-const base = `${env.apiBaseUrl}/dashboard/assistant/chats/`;
+const base = `${env.apiBaseUrl.replace(/\/+$/, "")}/dashboard/assistant/chats/`;
 const destinations: Record<string, string> = { appointment: "/dashboard/agenda", sale: "/dashboard/produtos/vendas", client: "/dashboard/usuarios" };
 
 export function ChatTab() {
@@ -48,9 +48,23 @@ export function ChatTab() {
   const current = chats.find(c => c.id === active);
 
   const api = useCallback(async (url: string, init?: RequestInit) => {
-    const response = await fetchWithAuth(url, { ...init, headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...init?.headers } });
-    const body = await response.json();
-    if (!response.ok) throw new Error(typeof body.detail === "string" ? body.detail : JSON.stringify(body));
+    const response = await fetchWithAuth(url, { ...init, headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", Accept: "application/json", ...init?.headers } });
+    const text = await response.text();
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      const status = `HTTP ${response.status}`;
+      const hint = response.status === 404
+        ? "A rota do assistente não foi encontrada. Verifique a publicação do backend."
+        : [502, 503, 504].includes(response.status)
+          ? "O serviço do assistente está indisponível ou demorou para responder."
+          : response.status >= 500
+            ? "O servidor encontrou um erro ao atender o chat."
+            : "O endereço da API retornou uma página em vez dos dados do chat. Verifique a configuração da API e os redirecionamentos.";
+      throw new Error(`${hint} (${status}). Não foi possível verificar o resultado da solicitação. Reabra a conversa para conferir o estado antes de repetir.`);
+    }
+    if (!response.ok) throw new Error(typeof body?.detail === "string" ? body.detail : `Não foi possível concluir a solicitação (HTTP ${response.status}).`);
     return body;
   }, [accessToken, fetchWithAuth]);
   const loadChats = useCallback(async () => {
@@ -211,7 +225,7 @@ export function ChatTab() {
           </div>
         </div>
         <div className="mx-auto w-full max-w-3xl px-4 pb-4 sm:px-6">
-          {(error || dictation.error) && <p role="alert" className="mb-3 max-h-32 overflow-y-auto rounded-lg bg-red-950/40 px-4 py-3 text-sm text-red-200">{error || dictation.error}</p>}
+          {(error || dictation.error) && <p role="alert" aria-label="Erro do chat" className="mb-3 max-h-32 overflow-y-auto rounded-lg bg-red-950/40 px-4 py-3 text-sm text-red-200">{error || dictation.error}</p>}
           {pendingAction && !current?.archived && <section key={pendingAction.id} aria-label="Confirmar proposta pendente" className={`${styles.confirmEnter} mb-3 rounded-2xl border border-[#c8ba9a]/30 bg-[#24261f] p-3 sm:p-4`}>
             <div className="mb-3 flex items-start justify-between gap-3"><div><p className="text-sm font-medium text-[#eee6d5]">{pendingAction.summary.operation || "Proposta pronta para confirmar"}</p><p className="mt-1 text-xs text-stone-400">{pendingAction.summary.overbooking ? "Inclui encaixe. Confira o aviso e os horários acima." : "Confira os dados acima. A alteração só acontece ao confirmar."}</p></div><Check size={18} className="shrink-0 text-[#c8ba9a]"/></div>
             <div className="flex flex-wrap gap-2">

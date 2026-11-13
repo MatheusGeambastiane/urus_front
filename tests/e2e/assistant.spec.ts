@@ -94,6 +94,17 @@ test.describe("Assistente", () => {
     expect(mock.writes()).toBe(0);
   });
 
+  test("mostra erro legível quando o servidor retorna HTML", async ({ page }) => {
+    await page.route("**/dashboard/assistant/chats/", route => route.fulfill({
+      status: 502, contentType: "text/html", body: "<!doctype html><html>Bad Gateway</html>",
+    }));
+    await page.goto("/dashboard/chat");
+    await expect(page.getByRole("alert", { name: "Erro do chat" })).toContainText("HTTP 502");
+    await expect(page.getByRole("alert", { name: "Erro do chat" })).toContainText("indisponível ou demorou");
+    await expect(page.getByRole("alert", { name: "Erro do chat" })).not.toContainText("Unexpected token");
+    await expect(page.getByRole("alert", { name: "Erro do chat" })).not.toContainText("<!doctype");
+  });
+
   test("dita no campo sem enviar e permite edição", async ({ page }) => {
     await page.addInitScript(() => {
       class MockRecognition {
