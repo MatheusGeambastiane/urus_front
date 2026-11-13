@@ -1,4 +1,5 @@
 export type DashboardTab =
+  | "chat"
   | "home"
   | "agenda"
   | "services"
@@ -11,6 +12,7 @@ export type DashboardTab =
   | "documents";
 
 export const dashboardTabRoutes: Record<DashboardTab, string> = {
+  chat: "chat",
   home: "home",
   agenda: "agenda",
   services: "servicos",
@@ -32,6 +34,7 @@ export const dashboardRouteToTab: Record<string, DashboardTab> = Object.entries(
 );
 
 export const dashboardTabList: DashboardTab[] = [
+  "chat",
   "home",
   "agenda",
   "services",

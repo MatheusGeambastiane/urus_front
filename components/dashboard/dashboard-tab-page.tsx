@@ -1,3 +1,4 @@
+import { ChatTab } from "@/src/features/assistant/ChatTab";
 import type { Session } from "next-auth";
 
 import type { DashboardTab } from "@/components/dashboard/dashboard-tabs";
@@ -24,6 +25,7 @@ const getDashboardFirstName = (session: Session) => {
 };
 
 const dashboardTabComponentMap = {
+  chat: ChatTab,
   home: HomeTab,
   agenda: AgendaTab,
   services: ServicesTab,

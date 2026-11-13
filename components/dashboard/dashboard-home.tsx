@@ -1,5 +1,6 @@
 "use client";
 
+import { ChatTab } from "@/src/features/assistant/ChatTab";
 import type { DashboardTab } from "@/components/dashboard/dashboard-tabs";
 import { AgendaTab } from "@/src/features/dashboard/tabs/agenda/AgendaTab";
 import { FinancesTab } from "@/src/features/dashboard/tabs/finances/FinancesTab";
@@ -18,6 +19,7 @@ type DashboardHomeProps = {
 };
 
 const TAB_COMPONENTS = {
+  chat: ChatTab,
   home: HomeTab,
   users: UsersTab,
   agenda: AgendaTab,

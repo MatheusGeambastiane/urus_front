@@ -1,0 +1,13 @@
+.messageEnter { animation: message-rise 260ms cubic-bezier(.2,.8,.2,1) both; }
+.responseEnter { animation: response-reveal 220ms ease-out both; }
+.dot { animation: typing 1.2s ease-in-out infinite; }
+.dot:nth-child(2) { animation-delay: 150ms; }
+.dot:nth-child(3) { animation-delay: 300ms; }
+@keyframes message-rise { from { opacity: 0; transform: translateY(22px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes response-reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes typing { 0%, 70%, 100% { opacity: .35; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .messageEnter, .responseEnter, .dot { animation: none; } }
+
+.confirmEnter { animation: confirm-appear 320ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes confirm-appear { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .confirmEnter { animation: none; } }
