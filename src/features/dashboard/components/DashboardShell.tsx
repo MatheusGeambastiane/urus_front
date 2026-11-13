@@ -21,7 +21,7 @@ function UrinhoIcon({ isActive = false }: { isActive?: boolean }) {
   return <Image src={isActive ? "/urinho preto.png" : "/urinho.png"} alt="" width={28} height={28} className="h-7 w-7 object-contain" />;
 }
 
-const bottomNavItems: Array<{ key: DashboardTab; label: string; icon: ComponentType<{ className?: string; strokeWidth?: number }> }> = [
+const bottomNavItems: Array<{ key: DashboardTab; label: string; icon: ComponentType<{ className?: string; strokeWidth?: number; isActive?: boolean }> }> = [
   { key: "chat", label: "Chat", icon: UrinhoIcon },
   { key: "home", label: "Home", icon: Home },
   { key: "agenda", label: "Agenda", icon: Calendar },
