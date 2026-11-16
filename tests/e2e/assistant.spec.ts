@@ -207,3 +207,85 @@ test("perguntas em etapas e envio otimista com indicador de resposta", async ({ 
   release!();
   await expect(page.getByRole('status',{name:'Urus está preparando a resposta'})).toHaveCount(0);
 });
+
+test("expande e copia o log da falha e trata mensagens antigas", async ({ page, request, context }) => {
+  await resetMockApi(request);
+  await login(page);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const log = 'Assistant request failed: {"causes":[{"type":"ReadTimeout"}]}';
+  const chat = { id: "chat-log", title: "Conversa com falha", archived: false, processing_until: null };
+  const messages = [
+    { id: 2, role: "assistant", content: "Não consegui concluir a resposta.", status: "failed", blocks: [{ type: "error_log", text: log }] },
+    { id: 1, role: "assistant", content: "Falha antiga.", status: "failed", blocks: [] },
+  ];
+  await page.route("**/dashboard/assistant/chats/**", route => {
+    const path = new URL(route.request().url()).pathname;
+    return route.fulfill({ json: path.endsWith("/chats/") ? { results: [chat], next: null } :
+      path.endsWith("/messages/") ? { results: messages, next: null } : [] });
+  });
+  await page.goto("/dashboard/chat");
+  await page.getByRole("button", { name: "Conversa com falha" }).click();
+  const failure = page.locator("article").filter({ hasText: "Não consegui concluir a resposta." });
+  await expect(failure.getByRole("button", { name: "Tentar novamente" })).toBeVisible();
+  await expect(failure.locator("pre")).toBeHidden();
+  await failure.getByRole("button", { name: "Ver log" }).click();
+  await expect(failure.locator("pre")).toHaveText(log);
+  await failure.getByRole("button", { name: "Copiar log" }).click();
+  await expect(failure.getByRole("status")).toHaveText("Log copiado.");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(log);
+  await failure.getByRole("button", { name: "Ver log" }).click();
+  await expect(failure.locator("pre")).toBeHidden();
+  const old = page.locator("article").filter({ hasText: "Falha antiga." });
+  await old.getByRole("button", { name: "Ver log" }).click();
+  await expect(old.getByText("O log não foi registrado para esta mensagem.")).toBeVisible();
+});
+
+for (const withoutClient of [false, true]) {
+  test(`envia cliente e perguntas juntos: ${withoutClient ? "sem cliente" : "cliente selecionado"}`, async ({ page, request }) => {
+    await resetMockApi(request);
+    await login(page);
+    const chat = { id: "combined", title: "Agendamento combinado", archived: false, processing_until: null };
+    const submissions: { content: string; selected_client_id?: number }[] = [];
+    const messages = [{ id: 1, role: "assistant", content: "Vamos completar os detalhes abaixo.", status: "completed", blocks: [
+      { type: "clients", query: "Alan Borges", options: [{ id: 423, name: "Alan Borges", phone_hint: "•••• 3288" }] },
+      { type: "questions", questions: [
+        { id: "service", title: "Qual serviço?", options: [{ label: "Corte", value: "corte" }] },
+        { id: "payment", title: "Qual a forma de pagamento?", options: [{ label: "Pix", value: "pix" }] },
+      ] },
+    ] }];
+    await page.route("**/dashboard/assistant/chats/**", async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (route.request().method() === "POST") {
+        submissions.push(route.request().postDataJSON());
+        await route.fulfill({ json: { id: 2, role: "assistant", status: "completed", content: "Recebido.", blocks: [] } });
+      } else {
+        await route.fulfill({ json: path.endsWith("/chats/") ? { results: [chat], next: null } :
+          path.endsWith("/messages/") ? { results: messages, next: null } : [] });
+      }
+    });
+    await page.goto("/dashboard/chat");
+    await page.getByRole("button", { name: "Agendamento combinado" }).click();
+    await expect(page.getByRole("region", { name: "Perguntas do assistente" })).toHaveCount(1);
+    await expect(page.getByText("Pergunta 1 de 3")).toBeVisible();
+    await page.getByRole("radio", { name: withoutClient ? /Sem cliente informado/ : /Alan Borges/ }).check();
+    await page.getByRole("button", { name: "Próxima", exact: true }).click();
+    await page.getByRole("radio", { name: /Corte/ }).check();
+    await page.getByRole("button", { name: "Próxima", exact: true }).click();
+    await expect(page.getByText("Pergunta 3 de 3")).toBeVisible();
+    await page.getByRole("radio", { name: /Pix/ }).check();
+    await page.getByRole("button", { name: "Voltar", exact: true }).click();
+    await expect(page.getByRole("radio", { name: /Corte/ })).toBeChecked();
+    await page.getByRole("button", { name: "Voltar", exact: true }).click();
+    await expect(page.getByRole("radio", { name: withoutClient ? /Sem cliente informado/ : /Alan Borges/ })).toBeChecked();
+    await page.getByRole("button", { name: "Próxima", exact: true }).click();
+    await page.getByRole("button", { name: "Próxima", exact: true }).click();
+    await expect(page.getByRole("radio", { name: /Pix/ })).toBeChecked();
+    expect(submissions).toHaveLength(0);
+    await page.getByRole("button", { name: "Enviar respostas", exact: true }).click();
+    await expect.poll(() => submissions.length).toBe(1);
+    expect(submissions[0].selected_client_id).toBe(withoutClient ? undefined : 423);
+    expect(submissions[0].content).toContain(withoutClient ? "sem cliente informado" : "Alan Borges (#423)");
+    expect(submissions[0].content).toContain("Qual serviço?: Corte");
+    expect(submissions[0].content).toContain("Qual a forma de pagamento?: Pix");
+  });
+}

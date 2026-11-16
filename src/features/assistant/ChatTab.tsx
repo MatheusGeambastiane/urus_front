@@ -9,16 +9,56 @@ import { MessageContent, visibleMessageText } from "./MessageContent";
 import { ProposalCard, type ProposalSummary } from "./ProposalCard";
 import { QuestionFlow, type ChatQuestion } from "./QuestionFlow";
 import styles from "./chat.module.css";
+import { FailureActions } from "./FailureActions";
 import { useDictation } from "./useDictation";
 
 type Chat = { id: string; title: string; archived: boolean; processing_until: string | null };
 type Summary = ProposalSummary;
-type Block = { type: string; questions?: ChatQuestion[]; options?: { id: number; name: string; phone_hint: string }[]; query?: string; action_id?: string; summary?: Summary; entity?: string; id?: number };
+type Block = { type: string; text?: string; questions?: ChatQuestion[]; options?: { id: number; name: string; phone_hint: string }[]; query?: string; action_id?: string; summary?: Summary; entity?: string; id?: number };
 type Message = { id: number; role: string; content: string; blocks: Block[]; status: string };
 type Action = { id: string; state: string; summary: Summary };
 type Page<T> = { results: T[]; next: string | null };
 const base = `${env.apiBaseUrl.replace(/\/+$/, "")}/dashboard/assistant/chats/`;
 const destinations: Record<string, string> = { appointment: "/dashboard/agenda", sale: "/dashboard/produtos/vendas", client: "/dashboard/usuarios" };
+
+function MessageQuestions({ blocks, disabled, onSubmit }: {
+  blocks: Block[];
+  disabled: boolean;
+  onSubmit: (text: string, selectedClient?: number) => Promise<void>;
+}) {
+  const clients = blocks.filter(block => block.type === "clients" && block.options?.length);
+  const options = [...new Map(clients.flatMap(block => block.options ?? []).map(option => [option.id, option])).values()];
+  const questions: ChatQuestion[] = [
+    ...(options.length ? [{
+      id: "client-selection",
+      title: `Qual cliente deseja selecionar para “${clients.map(block => block.query).filter(Boolean).join(", ")}”?`,
+      options: [
+        ...options.map(option => ({ label: option.name, value: String(option.id), description: `#${option.id} ${option.phone_hint}` })),
+        { label: "Sem cliente informado", value: "__no_client__" },
+      ],
+    }] : []),
+    ...blocks.flatMap((block, blockIndex) => block.type === "questions"
+      ? (block.questions ?? []).map((question, index) => ({ ...question, id: `question-${blockIndex}-${index}-${question.id}` }))
+      : []),
+  ];
+  if (!questions.length) return null;
+  return <QuestionFlow questions={questions} disabled={disabled} onSubmit={async answers => {
+    let selectedClient: number | undefined;
+    const text = answers.map(({ question, value }) => {
+      if (question.id === "client-selection") {
+        if (value === "__no_client__") return "Crie o agendamento sem cliente informado.";
+        const selected = options.find(option => String(option.id) === value);
+        if (selected) {
+          selectedClient = selected.id;
+          return `Seleciono o cliente ${selected.name} (#${selected.id}). Continue com os dados já informados.`;
+        }
+        return `Sobre o cliente: ${value}`;
+      }
+      return `${question.title}: ${question.options.find(option => option.value === value)?.label ?? value}`;
+    }).join("\n");
+    await onSubmit(text, selectedClient);
+  }}/>;
+}
 
 export function ChatTab() {
   const { accessToken, fetchWithAuth, profilePic, userRole } = useAuth();
@@ -185,21 +225,12 @@ export function ChatTab() {
             {visibleMessages.map((message, messageIndex) => <div key={message.id} ref={messageIndex === pinned ? turn : undefined} className={messageIndex === pinned ? "scroll-mt-8" : undefined}><article className={message.role === "user" ? `${styles.messageEnter} ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-[#252724] px-5 py-3` : `${styles.responseEnter} pr-2`}>
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[.18em] text-stone-500">{message.role === "user" ? "Você" : "Urus"}</p>
               {message.role === "user" ? <div className="whitespace-pre-wrap break-words text-sm leading-7">{message.content}</div> : <MessageContent content={message.content} hasProposal={message.blocks.some(block => block.type === "proposal") || Boolean(message.id === latestAssistantId && pendingAction)}/>}
+              {message.role === "assistant" && <MessageQuestions blocks={message.blocks}
+                disabled={working || Boolean(current?.archived) || message.id !== latestAssistantId}
+                onSubmit={sendAnswers}/>}
               {(message.role === "assistant" && message.id === latestAssistantId && pendingAction && !message.blocks.some(block => block.type === "proposal")
                 ? [...message.blocks, { type: "proposal", action_id: pendingAction.id, summary: pendingAction.summary }]
                 : message.blocks).map((block, index) => <div key={index}>
-                {block.type === "clients" && Boolean(block.options?.length) && <QuestionFlow
-                  questions={[{ id: "client", title: `Qual cliente deseja selecionar para “${block.query}”?`, options: block.options!.map(option => ({ label: option.name, value: String(option.id), description: `#${option.id} ${option.phone_hint}` })) }]}
-                  disabled={working || Boolean(current?.archived) || message.id !== latestAssistantId}
-                  onSubmit={async answers => {
-                    const selected = block.options?.find(option => String(option.id) === answers[0].value);
-                    await sendAnswers(selected ? `Seleciono o cliente ${selected.name} (#${selected.id}). Continue com os dados já informados.` : `Sobre o cliente: ${answers[0].value}`, selected?.id);
-                  }}
-                />}
-                {block.type === "questions" && Boolean(block.questions?.length) && <QuestionFlow questions={block.questions!}
-                  disabled={working || Boolean(current?.archived) || message.id !== latestAssistantId}
-                  onSubmit={async answers => { await sendAnswers(answers.map(({ question, value }) => `${question.title}: ${question.options.find(option => option.value === value)?.label ?? value}`).join("\n")); }}
-                />}
                 {block.type === "proposal" && (() => {
                   const proposal = actions.find(a => a.id === block.action_id);
                   const summary = proposal?.summary ?? block.summary;
@@ -208,7 +239,7 @@ export function ChatTab() {
                 {block.type === "result" && block.entity && <Link href={block.entity === "appointment" ? `/dashboard/agenda/${block.id}` : destinations[block.entity] || "/dashboard/home"} className="mt-3 inline-flex rounded-lg border border-white/15 px-4 py-2 text-sm text-[#ddd3bd]">Ver {block.entity === "appointment" ? "agenda" : block.entity === "sale" ? "vendas" : "clientes"} · #{block.id} ↗</Link>}
                 {block.type === "result" && block.entity === "client" && <button disabled={working} onClick={() => void send("Continue o agendamento com o cliente cadastrado e os dados já informados.")} className="ml-3 text-sm text-stone-300 underline">Continuar agendamento</button>}
               </div>)}
-              {message.status === "failed" && message.role === "assistant" && <button disabled={working} onClick={() => void send("Continue a solicitação anterior usando os dados já informados.")} className="mt-3 text-xs underline">Tentar novamente</button>}
+              {message.status === "failed" && message.role === "assistant" && <FailureActions messageId={message.id} log={message.blocks.find(block => block.type === "error_log")?.text} disabled={working} onRetry={() => void send("Continue a solicitação anterior usando os dados já informados.")}/>}
             </article></div>)}
             <div ref={optimistic ? turn : undefined} className={pinned !== null ? "min-h-[calc(var(--chat-height,500px)-4rem)] scroll-mt-8 space-y-7" : "space-y-7"}>
               {optimistic && <article className={`${styles.messageEnter} ml-auto max-w-[85%] rounded-2xl rounded-tr-sm bg-[#252724] px-5 py-3`}>
