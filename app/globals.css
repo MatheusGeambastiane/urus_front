@@ -5,6 +5,9 @@
   --foreground: #171717;
 }
 
+/* Keep tablet navigation in portrait and landscape, including large iPads. */
+@custom-variant desktop (@media (min-width: 87.5rem));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -94,7 +97,7 @@ body {
     position: absolute;
     z-index: -1;
     top: -7rem;
-    right: -3rem;
+    right: 0;
     width: 34rem;
     height: 24rem;
     border-radius: 999px;
@@ -214,7 +217,7 @@ body {
     position: fixed;
     z-index: -1;
     top: 4rem;
-    right: -8rem;
+    right: 0;
     width: 42rem;
     height: 30rem;
     border-radius: 999px;

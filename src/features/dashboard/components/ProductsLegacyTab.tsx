@@ -8646,7 +8646,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
               Nenhuma venda encontrada.
             </p>
           ) : (
-            <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+            <ul className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
               {sales.map((sale, index) => {
                 const paymentLabel = getSellPaymentLabel(sale.payment);
                 const saleDate = sale.date ? formatIsoToDisplay(sale.date) : "--";
@@ -9437,7 +9437,7 @@ const productUsageWatch = watchCreateService("productUsage") ?? [];
             </p>
           ) : (
             <>
-              <ul className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 xl:grid-cols-3">
+              <ul className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0 xl:grid-cols-3">
                 {productsInventory.map((product) => {
                   const showAlarm = product.quantity === product.alarm_quantity;
                   const readableType = capitalizeFirstLetter(

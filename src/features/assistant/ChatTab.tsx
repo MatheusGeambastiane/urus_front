@@ -157,7 +157,7 @@ export function ChatTab() {
     && (Boolean(lastProposal) || /(?:proposta preparada|confirme.{0,80}confirmar|confirma(?:ção|r) explícita)/i.test(visibleMessageText(lastMessage.content)));
 
   return <DashboardShell activeTab="chat" profilePic={profilePic} userRole={userRole}>
-    <div className="mx-auto flex h-[calc(100dvh-12rem)] min-h-[360px] max-w-7xl overflow-hidden rounded-2xl border border-white/10 bg-[#101110] text-stone-100 lg:h-[calc(100dvh-8rem)]">
+    <div className="mx-auto flex h-[calc(100dvh-12rem)] min-h-[360px] max-w-7xl overflow-hidden rounded-2xl border border-white/10 bg-[#101110] text-stone-100 md:h-[calc(100dvh-14rem-env(safe-area-inset-bottom))] desktop:h-[calc(100dvh-8rem)]">
       <aside className={`${showHistory ? "flex" : "hidden"} w-full shrink-0 flex-col border-r border-white/10 bg-[#0b0c0b] p-4 md:flex md:w-60`} aria-label="Conversas">
         <div className="mb-8 flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[.25em] text-stone-500">Seu assistente</span><button onClick={() => setShowHistory(false)} className="p-2 md:hidden" aria-label="Fechar histórico"><X size={18}/></button></div>
         <button disabled={working} onClick={() => pickChat(null)} className="flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3 text-sm hover:bg-white/5 disabled:opacity-40"><Plus size={17}/> Nova conversa</button>

@@ -61,8 +61,8 @@ export function DashboardShell({
   };
 
   return (
-    <div className={`relative min-h-screen bg-[#050505] text-white ${desktopVariant === "luxury" ? "lg:bg-[#080807]" : ""}`}>
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-72 overflow-hidden border-r border-[#e5e7eb]/15 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.1),transparent_28%),linear-gradient(180deg,rgba(13,13,11,0.98),rgba(6,6,6,0.99))] px-5 py-6 shadow-[22px_0_70px_rgba(0,0,0,0.2)] backdrop-blur-xl [font-family:var(--font-dashboard-body)] lg:flex lg:flex-col">
+    <div className={`relative min-h-screen bg-[#050505] text-white ${desktopVariant === "luxury" ? "desktop:bg-[#080807]" : ""}`}>
+      <aside className="fixed inset-y-0 left-0 z-50 hidden w-72 overflow-hidden border-r border-[#e5e7eb]/15 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.1),transparent_28%),linear-gradient(180deg,rgba(13,13,11,0.98),rgba(6,6,6,0.99))] px-5 py-6 shadow-[22px_0_70px_rgba(0,0,0,0.2)] backdrop-blur-xl [font-family:var(--font-dashboard-body)] desktop:flex desktop:flex-col">
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#e5e7eb]/70 to-transparent" />
 
         <div className="flex h-32 shrink-0 flex-col items-center" aria-label="Urus Barbearia">
@@ -122,7 +122,7 @@ export function DashboardShell({
         </div>
       </aside>
 
-      <div className="mx-auto w-full max-w-md px-5 pt-4 lg:hidden">
+      <div className="mx-auto w-full max-w-md px-5 pt-4 md:max-w-[1200px] md:px-8 md:pt-6 desktop:hidden">
         <div className="grid h-12 grid-cols-[48px_minmax(0,1fr)_48px] items-center rounded-3xl bg-[#050505]/60 px-0 backdrop-blur-xl">
           <div className="h-12 w-12" />
           <div className="flex flex-col items-center justify-center text-center leading-none">
@@ -146,7 +146,7 @@ export function DashboardShell({
         </div>
       </div>
 
-      <div className="hidden lg:ml-72 lg:flex lg:w-[calc(100%-18rem)] lg:px-8 lg:pt-6 xl:px-10">
+      <div className="hidden desktop:ml-72 desktop:flex desktop:w-[calc(100%-18rem)] desktop:pt-6 desktop:px-10">
         <div className="mx-auto flex w-full max-w-[1500px] items-center justify-end">
           <ProfileMenu
             profilePicUrl={profilePic}
@@ -159,11 +159,11 @@ export function DashboardShell({
         </div>
       </div>
 
-      <main className="mx-auto flex w-full max-w-md flex-col px-5 pb-28 pt-5 lg:mx-0 lg:ml-72 lg:w-[calc(100%-18rem)] lg:max-w-none lg:px-8 lg:pb-10 lg:pt-5 xl:px-10">
-        <div className="mx-auto w-full lg:max-w-[1500px]">{children}</div>
+      <main className="mx-auto flex w-full max-w-md min-w-0 flex-col px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5 md:max-w-[1200px] md:px-8 md:pb-[calc(8rem+env(safe-area-inset-bottom))] md:pt-6 desktop:mx-0 desktop:ml-72 desktop:w-[calc(100%-18rem)] desktop:max-w-none desktop:pb-10 desktop:pt-5 desktop:px-10">
+        <div className="mx-auto w-full min-w-0 desktop:max-w-[1500px]">{children}</div>
       </main>
 
-      <nav className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4 [font-family:var(--font-dashboard-body)] lg:hidden" aria-label="Navegação principal">
+      <nav className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-50 w-full max-w-md -translate-x-1/2 px-4 md:max-w-3xl md:px-6 [font-family:var(--font-dashboard-body)] desktop:hidden" aria-label="Navegação principal">
         <div
           className="relative grid gap-1 overflow-hidden rounded-[24px] border border-[#e5e7eb]/18 bg-[linear-gradient(180deg,rgba(18,17,14,0.94),rgba(8,8,8,0.96))] p-1.5 shadow-[0_22px_55px_rgba(0,0,0,0.55)] backdrop-blur-2xl before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-[#e5e7eb]/70 before:to-transparent"
           style={{ gridTemplateColumns: `repeat(${visibleItems.length}, minmax(0, 1fr))` }}
@@ -178,7 +178,7 @@ export function DashboardShell({
                 type="button"
                 onClick={() => navigateToTab(item.key)}
                 aria-current={isActive ? "page" : undefined}
-                className={`group relative flex min-w-0 flex-col items-center rounded-[17px] border px-1 py-2 text-[8px] font-medium transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5e7eb]/60 min-[380px]:text-[9px] ${
+                className={`group relative flex min-w-0 flex-col items-center rounded-[17px] border px-1 py-2 text-[8px] font-medium transition duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e5e7eb]/60 min-[380px]:text-[9px] md:min-h-16 md:gap-1 md:px-2 md:py-2.5 md:text-xs ${
                   isActive
                     ? "border-[#e5e7eb]/18 bg-[#e5e7eb]/12 text-[#f4f4f5] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                     : "border-transparent text-white/48 active:bg-white/[0.045] active:text-white/80"
