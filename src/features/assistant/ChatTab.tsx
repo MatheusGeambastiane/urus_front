@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Archive, ArrowUp, Check, ChevronLeft, LoaderCircle, MessageSquare, Mic, Pencil, Plus, Square, X } from "lucide-react";
 import { DashboardShell } from "@/src/features/dashboard/components/DashboardShell";
@@ -14,12 +15,25 @@ import { useDictation } from "./useDictation";
 
 type Chat = { id: string; title: string; archived: boolean; processing_until: string | null };
 type Summary = ProposalSummary;
-type Block = { type: string; text?: string; questions?: ChatQuestion[]; options?: { id: number; name: string; phone_hint: string }[]; query?: string; action_id?: string; summary?: Summary; entity?: string; id?: number };
+type Block = { type: string; text?: string; questions?: ChatQuestion[]; options?: { id: number; name: string; phone_hint: string }[]; query?: string; action_id?: string; summary?: Summary; entity?: string; id?: number; operation?: string };
 type Message = { id: number; role: string; content: string; blocks: Block[]; status: string };
 type Action = { id: string; state: string; summary: Summary };
 type Page<T> = { results: T[]; next: string | null };
 const base = `${env.apiBaseUrl.replace(/\/+$/, "")}/dashboard/assistant/chats/`;
-const destinations: Record<string, string> = { appointment: "/dashboard/agenda", sale: "/dashboard/produtos/vendas", client: "/dashboard/usuarios" };
+const destinations: Record<string, string> = {
+  appointment: "/dashboard/agenda",
+  day_restriction: "/dashboard/agenda",
+  professional_interval: "/dashboard/agenda",
+  sale: "/dashboard/produtos/vendas",
+  client: "/dashboard/usuarios",
+};
+const destinationLabels: Record<string, string> = {
+  appointment: "agenda",
+  day_restriction: "agenda",
+  professional_interval: "agenda",
+  sale: "vendas",
+  client: "clientes",
+};
 
 function MessageQuestions({ blocks, disabled, onSubmit }: {
   blocks: Block[];
@@ -236,7 +250,7 @@ export function ChatTab() {
                   const summary = proposal?.summary ?? block.summary;
                   return summary ? <ProposalCard summary={summary} state={proposal?.state} content={message.content}/> : null;
                 })()}
-                {block.type === "result" && block.entity && <Link href={block.entity === "appointment" ? `/dashboard/agenda/${block.id}` : destinations[block.entity] || "/dashboard/home"} className="mt-3 inline-flex rounded-lg border border-white/15 px-4 py-2 text-sm text-[#ddd3bd]">Ver {block.entity === "appointment" ? "agenda" : block.entity === "sale" ? "vendas" : "clientes"} · #{block.id} ↗</Link>}
+                {block.type === "result" && block.entity && <Link href={block.entity === "appointment" ? `/dashboard/agenda/${block.id}` : destinations[block.entity] || "/dashboard/home"} className="mt-3 inline-flex rounded-lg border border-white/15 px-4 py-2 text-sm text-[#ddd3bd]">Ver {destinationLabels[block.entity] || "registro"} · #{block.id} ↗</Link>}
                 {block.type === "result" && block.entity === "client" && <button disabled={working} onClick={() => void send("Continue o agendamento com o cliente cadastrado e os dados já informados.")} className="ml-3 text-sm text-stone-300 underline">Continuar agendamento</button>}
               </div>)}
               {message.status === "failed" && message.role === "assistant" && <FailureActions messageId={message.id} log={message.blocks.find(block => block.type === "error_log")?.text} disabled={working} onRetry={() => void send("Continue a solicitação anterior usando os dados já informados.")}/>}
@@ -247,7 +261,9 @@ export function ChatTab() {
                 <p className="whitespace-pre-wrap break-words text-sm leading-7">{optimistic}</p>
               </article>}
               {working && <div role="status" aria-label="Urus está preparando a resposta" className={`${styles.responseEnter} flex items-center gap-3 py-3`}>
-                <span className="flex size-8 items-center justify-center rounded-xl border border-[#c8ba9a]/20 bg-[#c8ba9a]/10 text-xs font-semibold text-[#ddd3bd]">U</span>
+                <span className={`${styles.thinkingMascot} flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#c8ba9a]/20 bg-[#c8ba9a]/10 p-1.5`}>
+                  <Image src="/urinho.png" alt="Urinho" width={40} height={40} className="size-full object-contain" priority/>
+                </span>
                 <div><p className="mb-2 text-[10px] font-semibold uppercase tracking-[.16em] text-stone-500">Urus está pensando</p><div className="flex h-4 items-center gap-1.5" aria-hidden="true">{[0,1,2].map(dot => <span key={dot} className={`${styles.dot} size-1.5 rounded-full bg-[#ddd3bd]`}/>)}</div></div>
               </div>}
               {loading && !optimistic && <div className="flex items-center gap-3 text-sm text-stone-500"><LoaderCircle size={16} className="animate-spin"/>Abrindo conversa…</div>}

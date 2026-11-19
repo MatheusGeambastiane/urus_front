@@ -184,7 +184,9 @@ test("perguntas em etapas e envio otimista com indicador de resposta", async ({ 
   await page.getByLabel('Mensagem', {exact:true}).fill('Quero agendar');
   await page.getByRole('button',{name:'Enviar mensagem',exact:true}).click();
   await expect(page.getByText('Quero agendar',{exact:true})).toBeVisible();
-  await expect(page.getByRole('status',{name:'Urus está preparando a resposta'})).toBeVisible();
+  const thinking = page.getByRole('status',{name:'Urus está preparando a resposta'});
+  await expect(thinking).toBeVisible();
+  await expect(thinking.getByRole('img',{name:'Urinho'})).toBeVisible();
   await expect(page.getByLabel('Mensagem',{exact:true})).toHaveValue('');
   await expect.poll(()=>Boolean(release)).toBe(true);
   release!(); release=undefined;
